@@ -26,7 +26,12 @@ export class Node {
   /**
    * The string representation of the content
    */
-  textContent: string = "";
+  get textContent(): string {
+    let content = "";
+    for (const [n] of this.content.iter()) content += n.textContent;
+
+    return content;
+  }
 
   get nodeSize() {
     if (this.text !== null) return this.text.length; // the amount of characters
@@ -247,6 +252,14 @@ export class Text extends Node {
 
   readonly text: string;
 
+  get textContent() {
+    return this.text;
+  }
+
+  get nodeSize() {
+    return this.text.length;
+  }
+
   constructor(content?: string) {
     super(undefined);
     if (!content)
@@ -308,6 +321,10 @@ export class Text extends Node {
   copy(content?: string): Node {
     if (content === this.text) return this;
     return this.new(content, true);
+  }
+
+  toString() {
+    return this.text;
   }
 }
 

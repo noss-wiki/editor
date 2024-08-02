@@ -1,7 +1,28 @@
+const activeStack: string[] = [];
+
 export class MethodError extends Error {
+  methodStack: string[];
+
   constructor(msg: string, method: string) {
-    super(`${msg}\n  at ${method}`);
+    let log = `${msg}\n  at ${method}\n`;
+
+    for (const i of activeStack.slice().reverse()) log += `  at ${i}\n`;
+
+    super(log);
+    this.methodStack = [...activeStack, method].reverse();
   }
+}
+
+/**
+ * Adds a method to the error stack, which gets logged if an error is thrown inside the called method.
+ */
+export function stack(method: string) {
+  activeStack.push(method);
+
+  return <T>(target: T) => {
+    activeStack.pop();
+    return target;
+  };
 }
 
 export class NotImplementedError extends Error {

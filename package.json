@@ -3,7 +3,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "rimraf dist && rollup -c",
+    "test": "vitest"
   },
   "author": "Codefoxdev",
   "license": "MIT",
@@ -11,8 +12,10 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^26.0.1",
     "@rollup/plugin-typescript": "^11.1.6",
+    "rimraf": "^6.0.1",
     "rollup": "^4.19.2",
     "tslib": "^2.6.3",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
   }
 }

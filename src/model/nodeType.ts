@@ -1,6 +1,6 @@
-import { MethodError } from '../error';
-import type { ContentExpression } from '../schema/expression';
-import type { Node } from './node';
+import { MethodError, stack } from "../error";
+import type { ContentExpression } from "../schema/expression";
+import type { Node } from "./node";
 
 // TODO: Add dom representation, probably same as ProseMirror (via schema.toDom)
 export interface NodeTypeDefinition {
@@ -109,8 +109,8 @@ export class NodeType {
   ) {
     if (definitions[name] !== undefined)
       throw new MethodError(
-        `NodeType with name ${name}, already exists.`,
-        'new NodeType'
+        `NodeType with name ${name}, already exists. If overriding this was intentional, use NodeType.override.`,
+        "NodeType.constructor"
       );
 
     this.visible = meta === undefined || meta.visible !== true;
@@ -118,7 +118,9 @@ export class NodeType {
   }
 
   static from(type: NodeTypeDefinition) {
-    return new NodeType(type.name, type.schema, type.meta);
+    return stack("NodeType.from")(
+      new NodeType(type.name, type.schema, type.meta)
+    );
   }
 
   /**
@@ -133,12 +135,12 @@ export class NodeType {
     other: string | NodeTypeDefinition,
     type: ExtendNodeTypeDefinition
   ) {
-    if (typeof other === 'string') {
+    if (typeof other === "string") {
       const found = definitions[other];
       if (!found)
         throw new MethodError(
-          `Tried extending the NodeType ${other}, but it doesn't exist or has not been created yet, make sure the types are created in the correct order`,
-          'NodeType.extend'
+          `Tried extending the NodeType ${other}, but it doesn't exist or has not been created yet, make sure the nodeTypes are created in the correct order`,
+          "NodeType.extend"
         );
 
       other = found;
@@ -156,7 +158,28 @@ export class NodeType {
     return new NodeType(type.name, type.schema, type.meta, other.name);
   }
 
+  /**
+   * Overrides an existing type with a new definition.
+   * This can be used to overwrite the default text node for example.
+   *
+   * @param type The type definition for the node type
+   */
+  static override(type: NodeTypeDefinition) {
+    if (definitions[type.name] === undefined)
+      throw new MethodError(
+        `Tried overriding the NodeType ${type.name}, but it doesn't exist or has not been created yet, make sure the nodeTypes are created in the correct order`,
+        "NodeType.override"
+      );
+
+    definitions[type.name] = undefined;
+    return new NodeType(type.name, type.schema, type.meta);
+  }
+
   static get(name: string) {
     return definitions[name];
+  }
+
+  static get all() {
+    return definitions;
   }
 }

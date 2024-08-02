@@ -1,0 +1,18 @@
+{
+  "name": "noss",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Codefoxdev",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.19.2",
+    "tslib": "^2.6.3",
+    "typescript": "^5.5.4"
+  }
+}

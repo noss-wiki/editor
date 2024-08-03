@@ -8,7 +8,5 @@
     "module": "ESNext",
     "declaration": true
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

@@ -1,11 +1,11 @@
-import type { Node } from '../../model/node';
-import type { PositionLike } from '../../model/position';
-import { Position } from '../../model/position';
-import { Slice } from '../../model/slice';
-import { Step } from '../step';
+import type { Node } from "../../model/node";
+import type { PositionLike } from "../../model/position";
+import type { Slice } from "../../model/slice";
+import { Position } from "../../model/position";
+import { Step } from "../step";
 
 export class ReplaceStep extends Step {
-  id = 'replace';
+  id = "replace";
 
   private $from?: Position;
   private $to?: Position;
@@ -22,7 +22,7 @@ export class ReplaceStep extends Step {
     /**
      * The content to replace the selection with.
      */
-    readonly slice: Slice
+    readonly slice: Slice,
   ) {
     super();
   }
@@ -32,8 +32,7 @@ export class ReplaceStep extends Step {
     this.$to ??= Position.resolve(boundary, this.to);
     if (!this.$from || !this.$to) return false;
     else if (
-      this.$from.depth - this.$to.depth !==
-        this.slice.openStart - this.slice.openEnd ||
+      this.$from.depth - this.$to.depth !== this.slice.openStart - this.slice.openEnd ||
       this.$from.depth - this.slice.openStart < 0
     )
       return false;

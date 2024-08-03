@@ -1,8 +1,8 @@
-import type { Node } from '../model/node';
+import type { Node } from "../model/node";
 
 export type StepJSON = {
   stepId: string;
-  [x: string]: any;
+  [x: string]: unknown;
 };
 
 export abstract class Step {

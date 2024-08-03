@@ -1,14 +1,11 @@
-import { LoggerClass } from '@/composables/classes/logger';
-import type { Node } from '../model/node';
-import { Transaction } from './transaction';
-import type { Step } from './step';
+import type { Node } from "../model/node";
+import { Transaction } from "./transaction";
+import type { Step } from "./step";
 
-export class EditorState extends LoggerClass {
+export class EditorState {
   readonly transactions: Transaction[] = [];
 
-  constructor(readonly document: Node) {
-    super();
-  }
+  constructor(readonly document: Node) {}
 
   /**
    * Create a new transaction in the editor
@@ -76,6 +73,6 @@ export class EditorState extends LoggerClass {
   // - add, remove
 }
 
-function* invert<T extends any>(arr: T[]): Generator<T, void, unknown> {
+function* invert<T>(arr: T[]): Generator<T, void, unknown> {
   for (let i = 0; i < arr.length; i++) yield arr[arr.length - 1 - i];
 }

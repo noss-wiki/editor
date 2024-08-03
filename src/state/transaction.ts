@@ -1,18 +1,21 @@
-import type { EditorState } from '.';
-import type { Node } from '../model/node';
-import type { Step } from './step';
-import type { PositionLike } from '../model/position';
-import { NodeType } from '../model/nodeType';
-import { Position } from '../model/position';
+import type { EditorState } from ".";
+import type { Node } from "../model/node";
+import type { Step } from "./step";
+import type { PositionLike } from "../model/position";
+import { NodeType } from "../model/nodeType";
+import { Position } from "../model/position";
 // Steps
-import { InsertStep } from './steps/insert';
-import { RemoveStep } from './steps/remove';
-import { MethodError } from '../error';
+import { InsertStep } from "./steps/insert";
+import { RemoveStep } from "./steps/remove";
+import { MethodError } from "../error";
 
 export class Transaction {
   readonly steps: Step[] = [];
 
-  constructor(readonly state: EditorState, readonly boundary: Node) {}
+  constructor(
+    readonly state: EditorState,
+    readonly boundary: Node,
+  ) {}
 
   /**
    * Adds an {@link InsertStep} to this transaction, which inserts a node into the current document.
@@ -20,33 +23,24 @@ export class Transaction {
    * @param pos The position where to insert the node, see {@link Position}.
    */
   insert<T extends string>(node: T | Node, pos: PositionLike) {
-    if (typeof node === 'string') {
+    let insertNode: Node;
+    if (typeof node === "string") {
       const type = NodeType.get(node);
-      if (type === undefined)
-        throw new MethodError(
-          `Cannot get the node type ${node}`,
-          'Transaction.insert'
-        );
+      if (type === undefined) throw new MethodError(`Cannot get the node type ${node}`, "Transaction.insert");
 
-      node = new type.node();
-    }
+      insertNode = new type.node();
+    } else insertNode = node;
 
-    this.steps.push(new InsertStep(pos, node));
+    this.steps.push(new InsertStep(pos, insertNode));
     return this;
   }
 
   insertText(text: string, pos: PositionLike) {
     const resolvedPos = Position.resolve(this.boundary, pos);
     if (!resolvedPos)
-      throw new MethodError(
-        'Position is not resolvable in the current boundary',
-        'Transaction.insertText'
-      );
+      throw new MethodError("Position is not resolvable in the current boundary", "Transaction.insertText");
 
-    const index = Position.offsetToIndex(
-      resolvedPos.parent,
-      resolvedPos.offset
-    );
+    const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
 
     if (index !== undefined) {
       // New node needs to be created
@@ -104,12 +98,9 @@ export class Transaction {
 }
 
 function createTextNode(content: string) {
-  const type = NodeType.get('text');
+  const type = NodeType.get("text");
   if (type === undefined)
-    throw new MethodError(
-      `Cannot get the node type text, is it defined?`,
-      'Transaction.insertText'
-    );
+    throw new MethodError("Cannot get the node type text, is it defined?", "Transaction.insertText");
 
   return new type.node(content);
 }

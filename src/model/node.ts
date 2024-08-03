@@ -34,7 +34,7 @@ export class Node {
   }
 
   get nodeSize() {
-    if (this.text !== null) return this.text.length; // the amount of characters
+    if (this.text !== null) return this.text.length;
     else if (this.type.schema.inline === true)
       return 1; // non-text leaf nodes always have a length of 1
     else return this.content.size + 2; // the size of the content + 2 (the start and end tokens)
@@ -51,17 +51,14 @@ export class Node {
     if (typeof content === "string")
       throw new MethodError(
         `The node type ${this.type.name}, needs to override the constructor method to support inserting text content, as the default implementation does not support it`,
-        "Node.constructor"
+        "Node.constructor",
       );
 
     // Link this node class to the provided nodeType
-    if (
-      this.type.node !== undefined &&
-      this.type.node !== <typeof Node>this.constructor
-    )
+    if (this.type.node !== undefined && this.type.node !== <typeof Node>this.constructor)
       throw new MethodError(
         `A different node definition for the type ${this.type.name}, already exists`,
-        "Node.constructor"
+        "Node.constructor",
       );
 
     this.type.node = <typeof Node>this.constructor;
@@ -85,7 +82,7 @@ export class Node {
     if (typeof content === "string")
       throw new MethodError(
         `The node type ${this.type.name}, needs to override the insert method to support inserting text content, as the default implementation does not support it`,
-        "Node.insert"
+        "Node.insert",
       );
 
     const { index, offset: o } = Position.offsetToIndex(this, offset, true);
@@ -112,7 +109,7 @@ export class Node {
     if (from < 0 || to > this.content.size)
       throw new MethodError(
         `One or more of the positions ${from} and ${to} are outside of the allowed range`,
-        "Node.remove"
+        "Node.remove",
       );
     if (from === to) return this;
 
@@ -129,7 +126,7 @@ export class Node {
     if (typeof slice === "string")
       throw new MethodError(
         `The node type ${this.type.name}, needs to override the replace method to support inserting text content, as the default implementation does not support it`,
-        "Node.replace"
+        "Node.replace",
       );
 
     if (slice.size === 0 && from === to) return this;
@@ -148,19 +145,12 @@ export class Node {
    */
   resolve(pos: number) {
     if (pos < 0 || pos > this.nodeSize)
-      throw new MethodError(
-        `The position ${pos}, is outside of the allowed range`,
-        "Node.resolve"
-      );
+      throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Node.resolve");
 
     if (this.resolveCache[pos] !== undefined) return this.resolveCache[pos];
 
     const res = Position.resolve(this, pos);
-    if (!res)
-      throw new MethodError(
-        `The position ${pos}, could not be resolved`,
-        "Node.resolve"
-      );
+    if (!res) throw new MethodError(`The position ${pos}, could not be resolved`, "Node.resolve");
     return (this.resolveCache[pos] = res);
   }
 
@@ -175,10 +165,7 @@ export class Node {
    */
   resolveNoCache(pos: number) {
     if (pos < 0 || pos > this.nodeSize)
-      throw new MethodError(
-        `The position ${pos}, is outside of the allowed range`,
-        "Node.resolveNoCache"
-      );
+      throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Node.resolveNoCache");
 
     return Position.resolve(this, pos);
   }
@@ -210,10 +197,7 @@ export class Node {
    */
   new(content?: Fragment | string, keepId?: boolean) {
     if (typeof content === "string" && this.text === null)
-      throw new MethodError(
-        `The node type ${this.type.name}, doesn't support text content`,
-        "Node.new"
-      );
+      throw new MethodError(`The node type ${this.type.name}, doesn't support text content`, "Node.new");
 
     const Class = <typeof Node>this.constructor;
     // TODO: Also include other things, like marks, etc.
@@ -225,11 +209,8 @@ export class Node {
 
   toString(): string {
     if (this.content.size === 0) return this.type.name;
-    else
-      return `${this.type.name}(${this.content.nodes.reduce(
-        (a, b) => a + b.toString(),
-        ""
-      )})`;
+
+    return `${this.type.name}(${this.content.nodes.reduce((a, b) => a + b.toString(), "")})`;
   }
 
   toJSON(): NodeJSON {
@@ -262,19 +243,12 @@ export class Text extends Node {
 
   constructor(content?: string) {
     super(undefined);
-    if (!content)
-      throw new MethodError(
-        "Empty text nodes are not allowed",
-        "Text.constructor"
-      );
+    if (!content) throw new MethodError("Empty text nodes are not allowed", "Text.constructor");
     this.text = content;
   }
 
   child(index: number): Node {
-    throw new MethodError(
-      "Can't call the Node.child method on a text node",
-      "Text.child"
-    );
+    throw new MethodError("Can't call the Node.child method on a text node", "Text.child");
   }
 
   insert(offset: number, content: string) {
@@ -285,7 +259,7 @@ export class Text extends Node {
     if (from < 0 || (to && to > this.text.length))
       throw new MethodError(
         `One or more of the positions ${from} and ${to} are outside of the allowed range`,
-        "Text.cut"
+        "Text.cut",
       );
 
     return this.copy(this.text.slice(from, to));
@@ -295,7 +269,7 @@ export class Text extends Node {
     if (from < 0 || to > this.text.length)
       throw new MethodError(
         `One or more of the positions ${from} and ${to} are outside of the allowed range`,
-        "Text.remove"
+        "Text.remove",
       );
 
     return this.copy(this.text.slice(0, from) + this.text.slice(to));
@@ -307,15 +281,9 @@ export class Text extends Node {
 
   resolve(pos: number): Position {
     if (pos < 0 || pos > this.nodeSize)
-      throw new MethodError(
-        `The position ${pos}, is outside of the allowed range`,
-        "Text.resolve"
-      );
+      throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Text.resolve");
 
-    throw new MethodError(
-      `The position ${pos}, cannot be resolved inside a text node`,
-      "Text.resolve"
-    );
+    throw new MethodError(`The position ${pos}, cannot be resolved inside a text node`, "Text.resolve");
   }
 
   copy(content?: string): Node {

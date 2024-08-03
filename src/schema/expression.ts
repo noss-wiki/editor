@@ -18,10 +18,10 @@ Multiple of these structures can be repeated, if they have a non-infinite repeat
 https://prosemirror.net/docs/guide/#schema.content_expressions
 */
 
-import type { Node } from '../model/node';
+import type { Node } from "../model/node";
 
 type ExpressionGroup = string;
-type ExpressionModifier = '*' | '?' | '+' | `{${number},${number | ''}}` | '';
+type ExpressionModifier = "*" | "?" | "+" | `{${number},${number | ""}}` | "";
 
 interface ParsedExpression {
   expression: string;
@@ -47,15 +47,14 @@ interface SingleExpressionMatch {
   range: [number, number];
 }
 
-const expressionRegex =
-  /(?<selector>[a-zA-Z]+|\([a-zA-Z |]+\))(?<modifier>\*|\+|\?|(\{[0-9]+,[0-9]*\}))?/g;
+const expressionRegex = /(?<selector>[a-zA-Z]+|\([a-zA-Z |]+\))(?<modifier>\*|\+|\?|(\{[0-9]+,[0-9]*\}))?/g;
 const rangeRegex = /{(?<start>[0-9]*),(?<end>[0-9]*) *}/;
 
 export class ContentExpression {
   readonly expression: string;
 
   constructor(expression: string | undefined) {
-    this.expression = expression ?? '';
+    this.expression = expression ?? "";
   }
 
   parse(): ParsedExpression {
@@ -69,21 +68,21 @@ export class ContentExpression {
 
     for (const match of matches) {
       if (!match.groups) continue;
-      let { selector, modifier } = match.groups as {
+      const { selector, modifier } = match.groups as {
         selector: string;
         modifier: ExpressionModifier;
       };
 
       let range: [number, number] = [1, 1];
-      if (modifier === '?') range = [0, 1];
-      else if (modifier === '+') range = [1, -1];
-      else if (modifier === '*') range = [0, -1];
-      else if (modifier && modifier.startsWith('{')) {
-        let rangeMatch = rangeRegex.exec(modifier);
+      if (modifier === "?") range = [0, 1];
+      else if (modifier === "+") range = [1, -1];
+      else if (modifier === "*") range = [0, -1];
+      else if (modifier?.startsWith("{")) {
+        const rangeMatch = rangeRegex.exec(modifier);
         if (!rangeMatch || !rangeMatch.groups) continue;
         let { start, end } = rangeMatch.groups;
-        if (!end) end = '-1';
-        range = [parseInt(start), parseInt(end)];
+        if (!end) end = "-1";
+        range = [Number.parseInt(start), Number.parseInt(end)];
       }
 
       res.push({ selector, modifier, range });
@@ -97,9 +96,9 @@ export class ContentExpression {
 
   match(content: Node[]) {
     const parsed = this.parse();
-    let pi = 0;
-    let canMatchNext = true;
-    let currSelectorMatches = 0; // the amount of matches on the current selector
+    const pi = 0;
+    const canMatchNext = true;
+    const currSelectorMatches = 0; // the amount of matches on the current selector
 
     for (const node of content) {
       const exprMatch = parsed.selectors[pi];
@@ -123,8 +122,7 @@ export class ContentExpression {
    * Ensures that `expression` is an instance of {@link ContentExpression}
    */
   static from(expression: ContentExpression | string) {
-    if (typeof expression === 'string')
-      return new ContentExpression(expression);
+    if (typeof expression === "string") return new ContentExpression(expression);
     else return expression;
   }
 }
@@ -138,8 +136,8 @@ new ContentExpression('text*').parse();
 new ContentExpression('text?').parse(); */
 
 function matchAll(expression: string, regex: RegExp) {
-  let res = [],
-    m;
+  const res = [];
+  let m: RegExpExecArray | null;
 
   while ((m = regex.exec(expression)) !== null) {
     if (m.index === regex.lastIndex) regex.lastIndex++;
@@ -151,8 +149,8 @@ function matchAll(expression: string, regex: RegExp) {
 }
 
 function matchSelector(selector: string, node: Node): boolean {
-  if (node.type === selector) return true;
-  const nodeGroups = node.schema.group?.split(' ');
-  if (nodeGroups && nodeGroups.includes(selector)) return true;
+  if (node.type.name === selector) return true;
+  const nodeGroups = node.type.schema.group?.split(" ");
+  if (nodeGroups?.includes(selector)) return true;
   return false;
 }

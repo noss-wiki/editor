@@ -105,12 +105,12 @@ export class NodeType {
     readonly name: string,
     readonly schema: NodeSchema,
     readonly meta?: NodeMeta,
-    readonly extend?: string
+    readonly extend?: string,
   ) {
     if (definitions[name] !== undefined)
       throw new MethodError(
         `NodeType with name ${name}, already exists. If overriding this was intentional, use NodeType.override.`,
-        "NodeType.constructor"
+        "NodeType.constructor",
       );
 
     this.visible = meta === undefined || meta.visible !== true;
@@ -118,9 +118,7 @@ export class NodeType {
   }
 
   static from(type: NodeTypeDefinition) {
-    return stack("NodeType.from")(
-      new NodeType(type.name, type.schema, type.meta)
-    );
+    return stack("NodeType.from")(new NodeType(type.name, type.schema, type.meta));
   }
 
   /**
@@ -131,23 +129,19 @@ export class NodeType {
    * @param other The NodeType to override
    * @param type The new (partial) type definition
    */
-  static extend(
-    other: string | NodeTypeDefinition,
-    type: ExtendNodeTypeDefinition
-  ) {
+  static extend(other: string | NodeTypeDefinition, type: ExtendNodeTypeDefinition) {
     if (typeof other === "string") {
       const found = definitions[other];
       if (!found)
         throw new MethodError(
           `Tried extending the NodeType ${other}, but it doesn't exist or has not been created yet, make sure the nodeTypes are created in the correct order`,
-          "NodeType.extend"
+          "NodeType.extend",
         );
 
       other = found;
     }
 
-    if (!type.schema)
-      return new NodeType(type.name, other.schema, type.meta, other.name);
+    if (!type.schema) return new NodeType(type.name, other.schema, type.meta, other.name);
 
     for (const prop in other.schema) {
       const key = prop as keyof NodeSchema;
@@ -168,7 +162,7 @@ export class NodeType {
     if (definitions[type.name] === undefined)
       throw new MethodError(
         `Tried overriding the NodeType ${type.name}, but it doesn't exist or has not been created yet, make sure the nodeTypes are created in the correct order`,
-        "NodeType.override"
+        "NodeType.override",
       );
 
     definitions[type.name] = undefined;

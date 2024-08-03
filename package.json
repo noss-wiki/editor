@@ -4,12 +4,14 @@
   "main": "index.js",
   "scripts": {
     "build": "rimraf dist && rollup -c",
-    "test": "vitest"
+    "test": "vitest",
+    "check": "biome check"
   },
   "author": "Codefoxdev",
   "license": "MIT",
   "private": true,
   "devDependencies": {
+    "@biomejs/biome": "1.8.3",
     "@rollup/plugin-commonjs": "^26.0.1",
     "@rollup/plugin-typescript": "^11.1.6",
     "rimraf": "^6.0.1",

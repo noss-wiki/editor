@@ -1,7 +1,7 @@
-import type { Node, NodeJSON } from './node';
-import type { Position } from './position';
-import type { Slice } from './slice';
-import { MethodError, NotImplementedError } from '../error';
+import type { Node, NodeJSON } from "./node";
+import type { Position } from "./position";
+import type { Slice } from "./slice";
+import { MethodError, NotImplementedError } from "../error";
 
 export class Fragment {
   readonly nodes: Node[];
@@ -19,8 +19,7 @@ export class Fragment {
     this.nodes = content;
 
     this.size = size || 0;
-    if (size == undefined)
-      for (const [child, i] of this.iter()) this.size += child.nodeSize;
+    if (size === undefined) for (const [child, i] of this.iter()) this.size += child.nodeSize;
   }
 
   private resolveIndex(index?: number): number {
@@ -49,7 +48,7 @@ export class Fragment {
     content.push(..._nodes);
     return new Fragment(
       content,
-      _nodes.reduce((a, b) => a + b.nodeSize, this.size)
+      _nodes.reduce((a, b) => a + b.nodeSize, this.size),
     );
   }
 
@@ -66,18 +65,14 @@ export class Fragment {
     if (node instanceof Fragment) node = node.nodes;
     const nodes: readonly Node[] = Array.isArray(node) ? node : [node];
 
-    let i = this.resolveIndex(index);
-    if (!this.isValidIndex(i))
-      throw new MethodError(
-        `Index ${index} is not in the allowed range`,
-        'Fragment.insert'
-      );
+    const i = this.resolveIndex(index);
+    if (!this.isValidIndex(i)) throw new MethodError(`Index ${index} is not in the allowed range`, "Fragment.insert");
 
     const content = this.nodes.slice();
     content.splice(i, 0, ...nodes);
     return new Fragment(
       content,
-      nodes.reduce((a, b) => a + b.nodeSize, this.size)
+      nodes.reduce((a, b) => a + b.nodeSize, this.size),
     );
   }
 
@@ -105,18 +100,15 @@ export class Fragment {
     // TODO: Verify if content is allowed before removing
     const content = this.nodes.slice();
 
-    if (typeof node !== 'number') {
+    if (typeof node !== "number") {
       const index = content.indexOf(node);
       if (index === -1)
-        throw new MethodError(
-          'The provided node to be removed is not part of this fragment',
-          'Fragment.remove'
-        );
+        throw new MethodError("The provided node to be removed is not part of this fragment", "Fragment.remove");
 
       content.splice(index, 1);
       return new Fragment(content, this.size - this.child(index).nodeSize);
     } else {
-      throw new NotImplementedError('Fragment.remove', true);
+      throw new NotImplementedError("Fragment.remove", true);
     }
   }
 
@@ -132,33 +124,22 @@ export class Fragment {
    */
   cut(from: number, to: number = this.size): Fragment {
     if (from === 0 && to === this.size) return this;
-    else if (from > to)
-      throw new MethodError(
-        'The starting position is greater than the end position',
-        'Fragment.cut'
-      );
+    else if (from > to) throw new MethodError("The starting position is greater than the end position", "Fragment.cut");
     else if (from < 0 || to < 0 || to > this.size)
       throw new MethodError(
         `One or more of the positions ${from} and ${to} are outside of the allowed range`,
-        'Fragment.cut'
+        "Fragment.cut",
       );
 
     const res: Node[] = [];
-    let pos = 0,
-      size = 0;
+    let pos = 0;
+    let size = 0;
     for (const [c] of this.iter())
-      if (c.nodeSize < from - pos) {
-        pos += c.nodeSize;
-        continue;
-      } else if (pos > to) break;
+      if (c.nodeSize < from - pos) pos += c.nodeSize;
+      else if (pos > to) break;
       else {
-        if (c.text !== null)
-          c.cut(Math.max(0, from - pos), Math.min(c.text!.length, to - pos));
-        else
-          c.cut(
-            Math.max(0, from - pos - 1),
-            Math.min(c.content.size, to - pos - 1)
-          );
+        if (typeof c.text === "string") c.cut(Math.max(0, from - pos), Math.min(c.text.length, to - pos));
+        else c.cut(Math.max(0, from - pos - 1), Math.min(c.content.size, to - pos - 1));
 
         res.push(c);
         size += c.nodeSize;
@@ -179,21 +160,14 @@ export class Fragment {
     const $from = parent.resolve(from);
     const $to = parent.resolve(to);
 
-    if (!$from || !$to)
-      throw new MethodError(
-        `Positions couldn't be resolved`,
-        'Fragment.replace'
-      );
+    if (!$from || !$to) throw new MethodError(`Positions couldn't be resolved`, "Fragment.replace");
     else if (slice.openStart > $from.depth || slice.openEnd > $to.depth)
       throw new MethodError(
         "The insert slice's depth is greater than the depth of the position it is inserted at",
-        'Fragment.replace'
+        "Fragment.replace",
       );
     else if ($from.depth - $to.depth !== slice.openStart - slice.openEnd)
-      throw new MethodError(
-        'The slice and insertion position have inconsistent depths',
-        'Fragment.replace'
-      );
+      throw new MethodError("The slice and insertion position have inconsistent depths", "Fragment.replace");
 
     // TODO: Test if the result of this method is allowed by the parent node's schema
     return replaceOuter($from, $to, slice);
@@ -211,18 +185,12 @@ export class Fragment {
    */
   replaceChild(node: Node, index?: number) {
     const i = this.resolveIndex(index);
-    if (!this.isValidIndex(i)!)
-      throw new MethodError(
-        `Index ${index} is not in the allowed range`,
-        'Fragment.replaceChild'
-      );
+    if (!this.isValidIndex(i))
+      throw new MethodError(`Index ${index} is not in the allowed range`, "Fragment.replaceChild");
 
     const content = this.nodes.slice();
     content[i] = node;
-    return new Fragment(
-      content,
-      this.size - this.child(i).nodeSize + node.nodeSize
-    );
+    return new Fragment(content, this.size - this.child(i).nodeSize + node.nodeSize);
   }
 
   /**
@@ -231,7 +199,7 @@ export class Fragment {
    * This function may be quite expensive on large nodes.
    */
   contains(node: Node): boolean {
-    let queue: Node[] = [];
+    const queue: Node[] = [];
 
     for (const [c] of this.iter())
       if (c === node) return true;
@@ -248,7 +216,7 @@ export class Fragment {
    * @returns The offset if found, or undefined if not found.
    */
   offset(node: Node): number | undefined {
-    let queue: [Node, number][] = [];
+    const queue: [Node, number][] = [];
     let offset = 0;
 
     for (const [c] of this.iter()) {
@@ -273,8 +241,7 @@ export class Fragment {
     if (this === other) return true;
     else if (this.nodes.length !== other.nodes.length) return false;
 
-    for (const [node, i] of this.iter())
-      if (!node.eq(other.nodes[i])) return false;
+    for (const [node, i] of this.iter()) if (!node.eq(other.nodes[i])) return false;
 
     return true;
   }
@@ -319,14 +286,9 @@ export type FragmentJSON = {
 };
 
 // TODO: Test the replace method thoroughly
-function replaceOuter(
-  from: Position,
-  to: Position,
-  slice: Slice,
-  depth: number = 0
-): Fragment {
-  const node = from.node(depth),
-    index = from.index(depth);
+function replaceOuter(from: Position, to: Position, slice: Slice, depth = 0): Fragment {
+  const node = from.node(depth);
+  const index = from.index(depth);
 
   if (index === to.index(depth) && depth < from.depth - slice.openStart) {
     const inner = replaceOuter(from, to, slice, depth + 1);
@@ -334,40 +296,28 @@ function replaceOuter(
     return node.content.replaceChild(child, index);
   } else if (slice.size === 0) {
     return node.content.remove(from.relative(depth), to.relative(depth));
-  } else if (
-    slice.openStart === 0 &&
-    slice.openEnd === 0 &&
-    from.depth === depth &&
-    to.depth === depth
-  ) {
+  } else if (slice.openStart === 0 && slice.openEnd === 0 && from.depth === depth && to.depth === depth) {
     // TODO: check for success
-    return node.content
-      .cut(0, from.relative(depth))
-      .append(slice.content, node.content.cut(to.relative(depth)));
+    return node.content.cut(0, from.relative(depth)).append(slice.content, node.content.cut(to.relative(depth)));
   } else {
     // complex case
   }
 
-  throw new NotImplementedError('Fragment.replace', true);
+  throw new NotImplementedError("Fragment.replace", true);
 }
 
 function addNode(node: Node, target: Node[]) {
-  let l = target.length - 1;
+  const l = target.length - 1;
   if (node.text === null) target.push(node);
   // TODO: check for same marks
-  else if (target.length > 0 && target[l].text !== null)
-    target[l] = target[l].copy(target[l].text! + node.text);
+  else if (target.length > 0 && target[l].text !== null) target[l] = target[l].copy(target[l].text + node.text);
 }
 
-function addBetween(
-  from: Position | null,
-  to: Position | null,
-  depth: number,
-  target: Node[]
-) {
-  let node = (to || from)!.node(depth);
-  let start = 0,
-    end = to ? to.index(depth) : node.childCount;
+function addBetween(from: Position | null, to: Position | null, depth: number, target: Node[]) {
+  // biome-ignore lint: either to or from must be non-null
+  const node = (to || from)!.node(depth);
+  let start = 0;
+  const end = to ? to.index(depth) : node.childCount;
 
   if (from) {
     start = from.index(depth);
@@ -376,24 +326,21 @@ function addBetween(
     // cut the text if this is a text node
     else if (from.offset && from.parent.text !== null) {
       // don't add if the text is empty
-      if (from.offset < from.parent.text.length)
-        addNode(from.parent.cut(from.offset), target);
+      if (from.offset < from.parent.text.length) addNode(from.parent.cut(from.offset), target);
       start++;
     }
   }
 
   for (let i = start; i < end; i++) addNode(node.child(i), target);
-  if (to && to.offset && to.parent.text !== null)
-    addNode(to.parent.cut(0, to.offset), target);
+  if (to?.offset && to.parent.text !== null) addNode(to.parent.cut(0, to.offset), target);
 }
 
 function getSliceOuter(slice: Slice, from: Position) {
-  let depthOffset = from.depth - slice.openStart,
-    node = from.node(depthOffset).copy(slice.content);
+  const depthOffset = from.depth - slice.openStart;
+  let node = from.node(depthOffset).copy(slice.content);
 
   // replicate node structure until parent node
-  for (let i = depthOffset - 1; i >= 0; i--)
-    node = from.node(i).copy(Fragment.from(node));
+  for (let i = depthOffset - 1; i >= 0; i--) node = from.node(i).copy(Fragment.from(node));
 
   return {
     start: node.resolve(slice.openStart),
@@ -402,14 +349,8 @@ function getSliceOuter(slice: Slice, from: Position) {
 }
 
 // find different algorithm
-function replaceComplex(
-  from: Position,
-  sliceStart: Position,
-  sliceEnd: Position,
-  to: Position,
-  depth: number = 0
-) {
-  let content: Node[] = [];
+function replaceComplex(from: Position, sliceStart: Position, sliceEnd: Position, to: Position, depth = 0) {
+  const content: Node[] = [];
 
   addBetween(null, from, depth, content);
 }

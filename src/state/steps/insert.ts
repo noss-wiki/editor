@@ -1,14 +1,14 @@
-import type { Node } from '../../model/node';
-import type { PositionLike } from '../../model/position';
-import { Position } from '../../model/position';
-import { Step, type StepJSON } from '../step';
+import type { Node } from "../../model/node";
+import type { PositionLike } from "../../model/position";
+import { Position } from "../../model/position";
+import { Step, type StepJSON } from "../step";
 
 export class InsertStep extends Step {
-  id = 'insert';
+  id = "insert";
 
   constructor(
     public pos: PositionLike, //
-    readonly node: Node
+    readonly node: Node,
   ) {
     super();
   }

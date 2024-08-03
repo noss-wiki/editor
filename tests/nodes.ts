@@ -1,6 +1,6 @@
 import { Node } from "../src/model/node";
-export { Node, Text } from "../src/model/node";
 import { NodeType } from "../src/model/nodeType";
+export { Node, Text } from "../src/model/node";
 
 export class Document extends Node {
   static type = NodeType.from({

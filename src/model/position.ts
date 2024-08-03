@@ -1,6 +1,6 @@
-import { MethodError } from '../error';
-import type { Fragment } from './fragment';
-import { Node } from './node';
+import { MethodError } from "../error";
+import type { Fragment } from "./fragment";
+import { Node } from "./node";
 
 /**
  * A position or a resolvable position in a boundary.
@@ -13,24 +13,19 @@ export type AbsoluteLike = number | Position;
 
 export type IsPosition<T> = T extends Position ? true : false;
 
-type RelativePositionLocation =
-  | 'before'
-  | 'after'
-  | 'childIndex'
-  | 'childOffset';
+type RelativePositionLocation = "before" | "after" | "childIndex" | "childOffset";
 
 export class RelativePosition {
-  private offset: number = 0;
+  private offset = 0;
 
   constructor(
     readonly anchor: Node,
     private readonly location: RelativePositionLocation,
-    offset?: number
+    offset?: number,
   ) {
-    if (typeof offset === 'number') this.offset = offset;
-    else if (location === 'childIndex')
-      this.offset = anchor.content.nodes.length;
-    else if (location === 'childOffset') this.offset = anchor.content.size;
+    if (typeof offset === "number") this.offset = offset;
+    else if (location === "childIndex") this.offset = anchor.content.nodes.length;
+    else if (location === "childOffset") this.offset = anchor.content.size;
   }
 
   resolve(boundary: Node): Position | undefined {
@@ -41,42 +36,23 @@ export class RelativePosition {
     const found = locate.steps[locate.steps.length - 1];
     let offset = 0;
 
-    if (this.location === 'after' || this.location === 'before') {
+    if (this.location === "after" || this.location === "before") {
       if (found.node === locate.boundary)
-        throw new MethodError(
-          "Can't resolve a position before or after the boundary node",
-          'RelativePosition.resolve'
-        );
+        throw new MethodError("Can't resolve a position before or after the boundary node", "RelativePosition.resolve");
 
       if (found.index > 0)
         for (const [child, i] of parent.node.content.iter())
           if (i === found.index) break;
           else offset += child.nodeSize;
 
-      if (this.location === 'after') offset += this.anchor.nodeSize;
+      if (this.location === "after") offset += this.anchor.nodeSize;
 
-      return new Position(
-        boundary,
-        found.depth,
-        parent.node,
-        offset,
-        popSteps(locate)
-      );
-    } else if (
-      this.location === 'childIndex' ||
-      this.location === 'childOffset'
-    ) {
-      if (this.location === 'childIndex')
-        offset = Position.indexToOffset(this.anchor, this.offset);
-      else offset = this.offset!;
+      return new Position(boundary, found.depth, parent.node, offset, popSteps(locate));
+    } else if (this.location === "childIndex" || this.location === "childOffset") {
+      if (this.location === "childIndex") offset = Position.indexToOffset(this.anchor, this.offset);
+      else offset = this.offset;
 
-      return new Position(
-        boundary,
-        found.depth + 1,
-        this.anchor,
-        offset,
-        locate
-      );
+      return new Position(boundary, found.depth + 1, this.anchor, offset, locate);
     }
   }
 }
@@ -103,7 +79,7 @@ export class Position {
      * Optionally the result from the `locateNode` function, if used.
      * This reduces overhead when trying to get more info about the node tree.
      */
-    readonly steps: LocateData
+    readonly steps: LocateData,
   ) {}
 
   private resolveDepth(depth?: number) {
@@ -138,15 +114,11 @@ export class Position {
   start(depth?: number) {
     depth = this.resolveDepth(depth);
 
-    if (this.steps.steps[depth].pos !== undefined)
-      return this.steps.steps[depth].pos!;
+    const existing = this.steps.steps[depth];
+    if (existing.pos !== undefined) return existing.pos;
 
     const res = this.boundary.content.offset(this.node(depth));
-    if (!res)
-      throw new MethodError(
-        `Failed to get the absolute position of node at depth ${depth}`,
-        'Position.start'
-      );
+    if (!res) throw new MethodError(`Failed to get the absolute position of node at depth ${depth}`, "Position.start");
 
     return res;
   }
@@ -166,14 +138,11 @@ export class Position {
    * @returns The relative position to node, will be undefined if this position is before `node`. Or undefined if node cannot be resolved in the same document as this position.
    */
   relative(node: Node | number) {
-    let pos;
-    if (typeof node === 'number') pos = this.start(node);
+    let pos: number | undefined;
+    if (typeof node === "number") pos = this.start(node);
     else pos = this.boundary.content.offset(node);
     if (!pos)
-      throw new MethodError(
-        'Failed to get the absolute position of node in the current boundary',
-        'Position.relative'
-      );
+      throw new MethodError("Failed to get the absolute position of node in the current boundary", "Position.relative");
 
     return this.toAbsolute() - pos;
   }
@@ -186,10 +155,7 @@ export class Position {
   commonDepth(pos: Position) {
     const common = findCommonParent(this, pos);
     if (!common)
-      throw new MethodError(
-        'Failed to find a common parent between the two positions',
-        'Position.commonDepth'
-      );
+      throw new MethodError("Failed to find a common parent between the two positions", "Position.commonDepth");
 
     return common.depth;
   }
@@ -209,10 +175,8 @@ export class Position {
    * @returns The absolute position
    */
   toAbsolute(): number {
-    if (this.steps.steps[this.steps.steps.length - 1]?.pos)
-      return (
-        this.steps.steps[this.steps.steps.length - 1].pos! + this.offset + 1
-      );
+    const existing = this.steps.steps[this.steps.steps.length - 1];
+    if (existing?.pos) return existing.pos + this.offset + 1;
 
     let pos = 0;
 
@@ -256,14 +220,9 @@ export class Position {
       offset: number;
     }
 
-    const deepestOffset = (
-      node: Node,
-      depth: number,
-      offset: number
-    ): DeepestFound | undefined => {
+    const deepestOffset = (node: Node, depth: number, offset: number): DeepestFound | undefined => {
       if (offset === 0) return { depth, parent: node, offset: 0 };
-      else if (node.content.nodes.length === 0 && offset === 1)
-        return { depth, parent: node, offset: 1 };
+      else if (node.content.nodes.length === 0 && offset === 1) return { depth, parent: node, offset: 1 };
 
       let nodeOffset = 0;
       // TODO: Check if node can hold content before trying to loop over children
@@ -273,10 +232,8 @@ export class Position {
           offset -= c.nodeSize;
           nodeOffset += offset;
           continue;
-        } else if (offset === 0)
-          return { depth, parent: node, offset: nodeOffset };
-        else if (offset === c.nodeSize)
-          return { depth, parent: node, offset: nodeOffset + c.nodeSize };
+        } else if (offset === 0) return { depth, parent: node, offset: nodeOffset };
+        else if (offset === c.nodeSize) return { depth, parent: node, offset: nodeOffset + c.nodeSize };
 
         // this node is a parent of the position, so push it to the stack
         steps.push({ node: c, index: i, depth, pos: pos - offset });
@@ -299,7 +256,7 @@ export class Position {
    * @returns The absolute position, or undefined if it failed.
    */
   static positionToAbsolute(pos: Position | number) {
-    return typeof pos === 'number' ? pos : pos.toAbsolute();
+    return typeof pos === "number" ? pos : pos.toAbsolute();
   }
 
   /**
@@ -344,33 +301,22 @@ export class Position {
    *    The index may also be the length of the content, this means the offset directly after the last child.
    */
   // prettier-ignore
-  static offsetToIndex(parent: Node | Fragment, offset: number, advanced: true): { index: number, offset: number };
-  static offsetToIndex(
-    parent: Node | Fragment,
-    offset: number,
-    advanced?: boolean
-  ): any {
-    const decide = (
-      a: number | undefined,
-      b: { index: number; offset: number }
-    ) => (advanced === true ? b : a);
+  static offsetToIndex(parent: Node | Fragment, offset: number, advanced: true): { index: number; offset: number };
+  static offsetToIndex(parent: Node | Fragment, offset: number, advanced?: boolean) {
+    const decide = (a: number | undefined, b: { index: number; offset: number }) => (advanced === true ? b : a);
 
     if (offset === 0) return decide(0, { index: 0, offset: 0 });
 
     const content = parent instanceof Node ? parent.content : parent;
     if (offset < 0 || offset > content.size)
-      throw new MethodError(
-        `The offset ${offset}, is outside of the allowed range`,
-        'Position.offsetToIndex'
-      );
+      throw new MethodError(`The offset ${offset}, is outside of the allowed range`, "Position.offsetToIndex");
 
     let pos = 0;
     for (const [child, i] of content.iter()) {
       if (offset === pos) return decide(i, { index: i, offset: 0 });
       pos += child.nodeSize;
 
-      if (pos > offset)
-        return decide(undefined, { index: i, offset: pos - offset });
+      if (pos > offset) return decide(undefined, { index: i, offset: pos - offset });
     }
 
     if (offset === pos)
@@ -393,14 +339,14 @@ export class Position {
    * Creates a position that resolves before `anchor`
    */
   static before(anchor: Node) {
-    return new RelativePosition(anchor, 'before');
+    return new RelativePosition(anchor, "before");
   }
 
   /**
    * Creates a position that resolves after `anchor`
    */
   static after(anchor: Node) {
-    return new RelativePosition(anchor, 'after');
+    return new RelativePosition(anchor, "after");
   }
 
   /**
@@ -408,7 +354,7 @@ export class Position {
    * @param index The index where to resolve, leave empty for last item, and negative index to start from the last child
    */
   static child(anchor: Node, index?: number) {
-    return new RelativePosition(anchor, 'childIndex', index);
+    return new RelativePosition(anchor, "childIndex", index);
   }
 
   /**
@@ -416,7 +362,7 @@ export class Position {
    * @param offset The offset into the parent
    */
   static offset(anchor: Node, offset: number) {
-    return new RelativePosition(anchor, 'childOffset', offset);
+    return new RelativePosition(anchor, "childOffset", offset);
   }
 
   // TODO: Figure out how to implement to and from json, as we need a reference to the boundary node (probably via the id, and create a function that creates or finds a node with same id in document)
@@ -489,13 +435,8 @@ export function locateNode(boundary: Node, node: Node): LocateData | undefined {
   if (res) return { boundary, steps: res };
 }
 
-function bfsSteps(
-  node: Node,
-  nodeIndex: number,
-  depth: number,
-  search: Node
-): LocateStep[] | undefined {
-  let a: [Node, number][] = [];
+function bfsSteps(node: Node, nodeIndex: number, depth: number, search: Node): LocateStep[] | undefined {
+  const a: [Node, number][] = [];
 
   for (const [child, i] of node.content.iter()) {
     if (search === child)
@@ -538,16 +479,12 @@ function findCommonParent(from: Position, to: Position) {
   } as IndexPosData;
 }
 
-function findDeepestCommonParent(
-  from: Position,
-  to: Position,
-  depth: number
-): LocateStep | undefined {
-  if (!from.steps!.steps[depth] || !to.steps!.steps[depth]) return undefined;
-  else if (from.steps!.steps[depth].node === to.steps!.steps[depth].node) {
+function findDeepestCommonParent(from: Position, to: Position, depth: number): LocateStep | undefined {
+  if (!from.steps.steps[depth] || !to.steps.steps[depth]) return undefined;
+  else if (from.steps.steps[depth].node === to.steps.steps[depth].node) {
     const res = findDeepestCommonParent(from, to, depth + 1);
     if (res) return res;
-    else return from.steps!.steps[depth];
+    else return from.steps.steps[depth];
   }
 
   return undefined;

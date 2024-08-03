@@ -1,8 +1,8 @@
-import type { Node } from './node';
-import type { PositionLike } from './position';
-import { Position } from './position';
-import { Fragment } from './fragment';
-import { MethodError } from '../error';
+import type { Node } from "./node";
+import type { PositionLike } from "./position";
+import { Position } from "./position";
+import { Fragment } from "./fragment";
+import { MethodError } from "../error";
 
 export class Slice {
   /**
@@ -15,10 +15,9 @@ export class Slice {
     readonly content: Fragment,
     readonly openStart: number,
     readonly openEnd: number,
-    readonly boundary?: Node
+    readonly boundary?: Node,
   ) {
-    if (this.content.size === 0 && (this.openStart > 0 || this.openEnd > 0))
-      this.openStart = this.openEnd = 0;
+    if (this.content.size === 0 && (this.openStart > 0 || this.openEnd > 0)) this.openStart = this.openEnd = 0;
   }
 
   get size() {
@@ -26,20 +25,12 @@ export class Slice {
   }
 
   eq(other: Slice) {
-    return (
-      this.content.eq(other.content) &&
-      this.openStart === other.openStart &&
-      this.openEnd === other.openEnd
-    );
+    return this.content.eq(other.content) && this.openStart === other.openStart && this.openEnd === other.openEnd;
   }
 
   insert(pos: number, insert: Fragment | Node[] | Node /*, parent?: Node */) {
     const res = insertFragment(this.content, pos, insert);
-    if (!res)
-      throw new MethodError(
-        'Failed to insert content into slice',
-        'Slice.insert'
-      );
+    if (!res) throw new MethodError("Failed to insert content into slice", "Slice.insert");
   }
 
   remove(from: number, to: number) {
@@ -52,8 +43,7 @@ export class Slice {
     const cDepth = from.commonDepth(to);
 
     const cut = from.node(cDepth).copy();
-    if (!cut.content.cut(from.relative(cDepth) + 1, to.relative(cDepth) - 1))
-      return;
+    if (!cut.content.cut(from.relative(cDepth) + 1, to.relative(cDepth) - 1)) return;
 
     return new Slice(cut.content, from.depth, to.depth, from.boundary);
   }
@@ -66,7 +56,7 @@ export class Slice {
 function insertFragment(
   parent: Fragment,
   pos: number,
-  insert: Fragment | Node[] | Node
+  insert: Fragment | Node[] | Node,
   /*, parent?: Node */
 ) {
   // TODO: Verify if content is allowed before inserting

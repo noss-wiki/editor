@@ -19,7 +19,7 @@ describe("Creating a new nodeType", () => {
       NodeType.from({
         name: "test",
         schema: {},
-      })
+      }),
     ).toThrow();
   });
 });
@@ -41,7 +41,7 @@ describe("Extending an existing nodeType", () => {
 describe("Overriding an existing nodeType", () => {
   test("that doesn't exist, should throw", () => {
     expect(() =>
-      NodeType.override({ name: "non-existing", schema: {} })
+      NodeType.override({ name: "non-existing", schema: {} }),
     ).toThrow();
   });
 });

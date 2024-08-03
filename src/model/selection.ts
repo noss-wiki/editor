@@ -1,19 +1,16 @@
-import type { Node } from './node';
-import type { DOMSelection } from './types';
-import { Position } from './position';
-import { Slice } from './slice';
-import { MethodError } from '../error';
+import type { Node } from "./node";
+import type { DOMSelection } from "./types";
+import { Position } from "./position";
+import { Slice } from "./slice";
+import { MethodError } from "../error";
 
 export class Selection {
   constructor(
     public anchor: Position, //
-    public head: Position
+    public head: Position,
   ) {
     if (anchor.boundary !== head.boundary)
-      throw new MethodError(
-        'The anchor and head positions are in two different boundaries',
-        'new Selection'
-      );
+      throw new MethodError("The anchor and head positions are in two different boundaries", "new Selection");
   }
 
   get isCollapsed() {
@@ -38,7 +35,7 @@ export class Selection {
    * @param offset Optional offset into the node where to set the cursor.
    * @param boundary The boundary where the node is located, if not specified it will use the boundary of the current anchor node.
    */
-  collapse(node?: Node, offset: number = 0, boundary?: Node) {
+  collapse(node?: Node, offset = 0, boundary?: Node) {
     if (!node) {
       this.head = this.anchor;
       return;
@@ -47,10 +44,7 @@ export class Selection {
     boundary ??= this.anchor.boundary;
     const pos = Position.offset(node, offset).resolve(boundary);
     if (!pos)
-      throw new MethodError(
-        'Failed to resolve node in the current boundary of the selection',
-        'Selection.collapse'
-      );
+      throw new MethodError("Failed to resolve node in the current boundary of the selection", "Selection.collapse");
 
     this.head = this.anchor = pos;
   }

@@ -1,9 +1,10 @@
-import { Node } from "../src/model/node";
+import { Fragment } from "../src/model/fragment";
+import { Node, Text } from "../src/model/node";
 import { NodeType } from "../src/model/nodeType";
-export { Node, Text } from "../src/model/node";
+export { Node, Text }
 
 export class Document extends Node {
-  static type = NodeType.from({
+  static override type = NodeType.from({
     name: "document",
     schema: {
       content: "block+",
@@ -17,7 +18,7 @@ export class Document extends Node {
 }
 
 export class Paragraph extends Node {
-  static type = NodeType.from({
+  static override type = NodeType.from({
     name: "paragraph",
     schema: {
       content: "inline*",
@@ -27,7 +28,27 @@ export class Paragraph extends Node {
 }
 
 export class Header extends Node {
-  static type = NodeType.extend("paragraph", {
+  static override type = NodeType.extend("paragraph", {
     name: "header",
   });
+}
+
+export function doc(...content: (Node | string)[]) {
+  return new Document(parseContent(content));
+}
+
+export function p(...content: (Node | string)[]) {
+  return new Paragraph(parseContent(content));
+}
+
+export function h1(...content: (Node | string)[]) {
+  return new Header(parseContent(content));
+}
+
+function parseContent(content: (Node | string)[]) {
+  let nodes: Node[] = [];
+  for (const n of content)
+    nodes.push(typeof n == "string" ? new Text(n) : n);
+
+  return Fragment.from(nodes);
 }

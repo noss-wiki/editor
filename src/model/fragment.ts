@@ -264,6 +264,15 @@ export class Fragment {
     for (let i = 0; i < this.nodes.length; i++) yield [this.nodes[i], i];
   }
 
+  toString() {
+    let content = "";
+    for (const [n, i] of this.iter())
+      if (i !== 0) content += `, ${n.toString()}`;
+      else content += n.toString();
+
+    return `[${content}]`;
+  }
+
   toJSON(): FragmentJSON {
     return {
       nodes: this.nodes.map((e) => e.toJSON()),

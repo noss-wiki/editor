@@ -1,12 +1,14 @@
 {
   "compilerOptions": {
+    "lib": ["ESNext"],
     "strict": true,
     "baseUrl": "src",
     "outDir": "dist",
     "moduleResolution": "bundler",
     "target": "ESNext",
     "module": "ESNext",
-    "declaration": true
+    "declaration": true,
+    "noImplicitOverride": true
   },
   "include": ["src"]
 }

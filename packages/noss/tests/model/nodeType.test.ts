@@ -1,5 +1,5 @@
 import { test, expect, describe } from "vitest";
-import { NodeType } from "../../src/model/nodeType";
+import { NodeType } from "../../src/";
 
 // To register the text type, and reference the value to avoid tree-shaking it
 import { Text } from "../../src/model/node";

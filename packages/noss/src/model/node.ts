@@ -55,7 +55,10 @@ export class Node {
       );
 
     // Link this node class to the provided nodeType
-    if (this.type.node !== undefined && this.type.node !== <typeof Node>this.constructor)
+    if (
+      this.type.node !== undefined &&
+      this.type.node !== <typeof Node>this.constructor
+    )
       throw new MethodError(
         `A different node definition for the type ${this.type.name}, already exists`,
         "Node.constructor",
@@ -145,12 +148,19 @@ export class Node {
    */
   resolve(pos: number) {
     if (pos < 0 || pos > this.nodeSize)
-      throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Node.resolve");
+      throw new MethodError(
+        `The position ${pos}, is outside of the allowed range`,
+        "Node.resolve",
+      );
 
     if (this.resolveCache[pos] !== undefined) return this.resolveCache[pos];
 
     const res = Position.resolve(this, pos);
-    if (!res) throw new MethodError(`The position ${pos}, could not be resolved`, "Node.resolve");
+    if (!res)
+      throw new MethodError(
+        `The position ${pos}, could not be resolved`,
+        "Node.resolve",
+      );
     return (this.resolveCache[pos] = res);
   }
 
@@ -165,7 +175,10 @@ export class Node {
    */
   resolveNoCache(pos: number) {
     if (pos < 0 || pos > this.nodeSize)
-      throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Node.resolveNoCache");
+      throw new MethodError(
+        `The position ${pos}, is outside of the allowed range`,
+        "Node.resolveNoCache",
+      );
 
     return Position.resolve(this, pos);
   }
@@ -197,7 +210,10 @@ export class Node {
    */
   new(content?: Fragment | string, keepId?: boolean) {
     if (typeof content === "string" && this.text === null)
-      throw new MethodError(`The node type ${this.type.name}, doesn't support text content`, "Node.new");
+      throw new MethodError(
+        `The node type ${this.type.name}, doesn't support text content`,
+        "Node.new",
+      );
 
     const Class = <typeof Node>this.constructor;
     // TODO: Also include other things, like marks, etc.
@@ -231,7 +247,7 @@ export class Text extends Node {
     },
   });
 
-  override readonly text: string;
+  declare readonly text: string;
 
   override get textContent() {
     return this.text;
@@ -243,12 +259,19 @@ export class Text extends Node {
 
   constructor(content?: string) {
     super(undefined);
-    if (!content) throw new MethodError("Empty text nodes are not allowed", "Text.constructor");
+    if (!content)
+      throw new MethodError(
+        "Empty text nodes are not allowed",
+        "Text.constructor",
+      );
     this.text = content;
   }
 
   override child(index: number): Node {
-    throw new MethodError("Can't call the Node.child method on a text node", "Text.child");
+    throw new MethodError(
+      "Can't call the Node.child method on a text node",
+      "Text.child",
+    );
   }
 
   override insert(offset: number, content: string) {
@@ -281,9 +304,15 @@ export class Text extends Node {
 
   override resolve(pos: number): Position {
     if (pos < 0 || pos > this.nodeSize)
-      throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Text.resolve");
+      throw new MethodError(
+        `The position ${pos}, is outside of the allowed range`,
+        "Text.resolve",
+      );
 
-    throw new MethodError(`The position ${pos}, cannot be resolved inside a text node`, "Text.resolve");
+    throw new MethodError(
+      `The position ${pos}, cannot be resolved inside a text node`,
+      "Text.resolve",
+    );
   }
 
   override copy(content?: string): Node {

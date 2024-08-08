@@ -1,7 +1,5 @@
-import { Fragment } from "../src/model/fragment";
-import { Node, Text } from "../src/model/node";
-import { NodeType } from "../src/model/nodeType";
-export { Node, Text }
+import { Fragment, Node, Text, NodeType } from "../src";
+export { Node, Text };
 
 export class Document extends Node {
   static override type = NodeType.from({
@@ -46,9 +44,8 @@ export function h1(...content: (Node | string)[]) {
 }
 
 function parseContent(content: (Node | string)[]) {
-  let nodes: Node[] = [];
-  for (const n of content)
-    nodes.push(typeof n == "string" ? new Text(n) : n);
+  const nodes: Node[] = [];
+  for (const n of content) nodes.push(typeof n === "string" ? new Text(n) : n);
 
   return Fragment.from(nodes);
 }

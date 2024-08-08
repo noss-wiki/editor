@@ -1,23 +1,18 @@
 {
-  "name": "noss",
+  "name": "@noss-editor/monorepo",
+  "private": true,
   "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "build": "rimraf dist && rollup -c",
-    "test": "vitest",
-    "check": "biome check"
-  },
   "author": "Codefoxdev",
   "license": "MIT",
-  "private": true,
+  "scripts": {
+    "build": "pnpm -r --filter='./packages/*' run build",
+    "test": "vitest",
+    "check": "biome check",
+    "fix": "biome check --write"
+  },
   "devDependencies": {
     "@biomejs/biome": "1.8.3",
-    "@rollup/plugin-commonjs": "^26.0.1",
-    "@rollup/plugin-typescript": "^11.1.6",
     "rimraf": "^6.0.1",
-    "rollup": "^4.19.2",
-    "tslib": "^2.6.3",
-    "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }
 }

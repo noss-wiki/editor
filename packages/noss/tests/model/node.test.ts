@@ -13,11 +13,11 @@ describe("Node.textContent", () => {
   test("multiple nested nodes", () => {
     expect(doc(p("nested"), h1("header")).textContent).toBe("nestedheader");
   });
-})
+});
 
 describe("Node.toString", () => {
   test("empty node", () => {
-    expect(doc().toString()).toBe('document');
+    expect(doc().toString()).toBe("document");
   });
 
   test("single paragraph", () => {
@@ -26,5 +26,5 @@ describe("Node.toString", () => {
 
   test("nested nodes", () => {
     expect(doc(p("nested"), h1("header")).toString()).toBe('document(paragraph("nested"), header("header"))');
-  })
-})
+  });
+});

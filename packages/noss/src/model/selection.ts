@@ -1,5 +1,4 @@
 import type { Node } from "./node";
-import type { DOMSelection } from "./types";
 import { Position } from "./position";
 import { Slice } from "./slice";
 import { MethodError } from "../error";
@@ -62,10 +61,4 @@ export class Selection {
 
     return new Selection(before, after);
   }
-
-  /**
-   * Creates a Selection from a DOMSelection
-   * @param selection The DOMSelection to convert
-   */
-  static fromDOMSelection(selection: DOMSelection) {}
 }

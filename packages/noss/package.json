@@ -17,6 +17,6 @@
     "vitest": "^2.0.5"
   },
   "publishConfig": {
-    "main": "lib/index.js"
+    "main": "dist/index.js"
   }
 }

@@ -9,6 +9,6 @@ export default defineBuildConfig({
     // },
   ],
   clean: true,
-  outDir: "lib",
+  outDir: "dist",
   declaration: true,
 });

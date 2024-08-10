@@ -10,9 +10,6 @@
   "author": "Codefoxdev",
   "license": "MIT",
   "devDependencies": {
-    "@biomejs/biome": "1.8.3",
-    "mkdist": "^1.5.4",
-    "rimraf": "^6.0.1",
     "unbuild": "^2.0.0",
     "vitest": "^2.0.5"
   },

@@ -7,7 +7,7 @@ import { Position } from "../model/position";
 // Steps
 import { InsertStep } from "./steps/insert";
 import { RemoveStep } from "./steps/remove";
-import { MethodError } from "../error";
+import { MethodError, NotImplementedError } from "../error";
 
 export class Transaction {
   readonly steps: Step[] = [];
@@ -49,6 +49,7 @@ export class Transaction {
     } else {
       // content needs to be inserted in existing node
       // -> use replace step with collapsed selection
+      throw new NotImplementedError("Transaction.inserText", true);
     }
 
     return this;
@@ -62,27 +63,6 @@ export class Transaction {
     this.steps.push(new RemoveStep(node));
     return this;
   }
-
-  /* replace(selection: Selection, content: Node | Node[]): this;
-  replace(from: Position, to: Position, content: Node | Node[]): this;
-  replace(
-    from: Selection | Position,
-    to: Position | Node | Node[],
-    content?: Node | Node[]
-  ) {
-    let selection: Selection;
-    if (content) {
-      selection = Selection.from(from as Position, to as Position);
-      content = content as Node | Node[];
-    } else {
-      selection = from as Selection;
-      content = to as Node | Node[];
-    }
-
-    if (!Array.isArray(content)) content = [content];
-    // create step
-    return this;
-  } */
 
   /**
    * Calls the `apply` function on the linked editor state, which adds this transaction to the editor state.

@@ -45,6 +45,11 @@ export interface NodeMeta {
 
 export interface NodeSchema {
   /**
+   * Whether or not this node is similar to a text node, in that it only has plain text as content, not a fragment with nodes.
+   * This assumes `Node.text` is of type string, else the program will throw unexpectedly.
+   */
+  text?: boolean;
+  /**
    * The content expression for this node, when left empty it allows no content.
    */
   content?: string | ContentExpression;
@@ -94,7 +99,11 @@ export class NodeType {
    * If this node is visible for creation by the end user.
    * Will be false if meta is not provided or `meta.visible` is not set to true.
    */
-  visible: boolean;
+  readonly visible: boolean;
+
+  readonly name: string;
+  readonly schema: NodeSchema;
+  readonly meta?: NodeMeta;
 
   /**
    * The node class that represents this node type.
@@ -102,27 +111,29 @@ export class NodeType {
   node!: typeof Node;
 
   constructor(
-    readonly name: string,
-    readonly schema: NodeSchema,
-    readonly meta?: NodeMeta,
+    readonly definition: NodeTypeDefinition,
     readonly extend?: string,
   ) {
-    if (definitions[name] !== undefined)
+    this.name = definition.name;
+    this.schema = definition.schema;
+    if (definition.meta) this.meta = definition.meta;
+
+    if (definitions[this.name] !== undefined)
       throw new MethodError(
-        `NodeType with name ${name}, already exists. If overriding this was intentional, use NodeType.override.`,
+        `NodeType with name ${this.name}, already exists. If overriding this was intentional, use NodeType.override.`,
         "NodeType.constructor",
       );
 
-    this.visible = meta === undefined || meta.visible !== true;
-    definitions[name] = this;
+    this.visible = this.meta === undefined || this.meta.visible !== true;
+    definitions[this.name] = this;
   }
 
   static from(type: NodeTypeDefinition) {
-    return stack("NodeType.from")(new NodeType(type.name, type.schema, type.meta));
+    return stack("NodeType.from")(new NodeType(type));
   }
 
   /**
-   * Extends an existing type and changes only specified properties.
+   * Extends an existing type, this will carry over the schema off the old type, except for the specified properties.
    * A different name is still required and the meta will not be extended,
    * so it needs to be specified again for it to be visible to the end user.
    *
@@ -141,7 +152,7 @@ export class NodeType {
       other = found;
     }
 
-    if (!type.schema) return new NodeType(type.name, other.schema, type.meta, other.name);
+    if (!type.schema) return new NodeType({ ...type, schema: other.schema }, other.name);
 
     for (const prop in other.schema) {
       const key = prop as keyof NodeSchema;
@@ -149,7 +160,7 @@ export class NodeType {
       if (type.schema[key] === undefined) type.schema[key] = other.schema[key];
     }
 
-    return new NodeType(type.name, type.schema, type.meta, other.name);
+    return new NodeType(<NodeTypeDefinition>type, other.name);
   }
 
   /**
@@ -166,7 +177,7 @@ export class NodeType {
       );
 
     definitions[type.name] = undefined;
-    return new NodeType(type.name, type.schema, type.meta);
+    return new NodeType(type);
   }
 
   static get(name: string) {

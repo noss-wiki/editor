@@ -34,7 +34,7 @@ export class Node {
   }
 
   get nodeSize() {
-    if (this.text !== null) return this.text.length;
+    if (this.type.schema.text) return (<Text>this).text.length;
     else if (this.type.schema.inline === true)
       return 1; // non-text leaf nodes always have a length of 1
     else return this.content.size + 2; // the size of the content + 2 (the start and end tokens)
@@ -196,7 +196,7 @@ export class Node {
    * @throws {MethodError} If the node type doesn't support text content and the content argument is of type string.
    */
   new(content?: Fragment | string, keepId?: boolean) {
-    if (typeof content === "string" && this.text === null)
+    if (typeof content === "string" && !this.type.schema.text)
       throw new MethodError(`The node type ${this.type.name}, doesn't support text content`, "Node.new");
 
     const Class = <typeof Node>this.constructor;
@@ -228,6 +228,7 @@ export class Text extends Node {
     schema: {
       group: "inline",
       inline: true,
+      text: true,
     },
   });
 

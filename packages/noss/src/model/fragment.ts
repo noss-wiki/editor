@@ -1,4 +1,4 @@
-import type { Node, NodeJSON } from "./node";
+import type { Node, Text, NodeJSON } from "./node";
 import type { Position } from "./position";
 import type { Slice } from "./slice";
 import { MethodError, NotImplementedError } from "../error";
@@ -138,7 +138,7 @@ export class Fragment {
       if (c.nodeSize < from - pos) pos += c.nodeSize;
       else if (pos > to) break;
       else {
-        if (typeof c.text === "string") c.cut(Math.max(0, from - pos), Math.min(c.text.length, to - pos));
+        if (c.type.schema.text) c.cut(Math.max(0, from - pos), Math.min((<Text>c).text.length, to - pos));
         else c.cut(Math.max(0, from - pos - 1), Math.min(c.content.size, to - pos - 1));
 
         res.push(c);
@@ -317,9 +317,10 @@ function replaceOuter(from: Position, to: Position, slice: Slice, depth = 0): Fr
 
 function addNode(node: Node, target: Node[]) {
   const l = target.length - 1;
-  if (node.text === null) target.push(node);
+  if (!node.type.schema.text) target.push(node);
   // TODO: check for same marks
-  else if (target.length > 0 && target[l].text !== null) target[l] = target[l].copy(target[l].text + node.text);
+  else if (target.length > 0 && target[l].type.schema.text)
+    target[l] = target[l].copy((<Text>target[l]).text + node.text);
 }
 
 function addBetween(from: Position | null, to: Position | null, depth: number, target: Node[]) {
@@ -333,15 +334,15 @@ function addBetween(from: Position | null, to: Position | null, depth: number, t
 
     if (from.depth > depth) start++;
     // cut the text if this is a text node
-    else if (from.offset && from.parent.text !== null) {
+    else if (from.offset && from.parent.type.schema.text) {
       // don't add if the text is empty
-      if (from.offset < from.parent.text.length) addNode(from.parent.cut(from.offset), target);
+      if (from.offset < (<Text>from.parent).text.length) addNode(from.parent.cut(from.offset), target);
       start++;
     }
   }
 
   for (let i = start; i < end; i++) addNode(node.child(i), target);
-  if (to?.offset && to.parent.text !== null) addNode(to.parent.cut(0, to.offset), target);
+  if (to?.offset && to.parent.type.schema.text) addNode(to.parent.cut(0, to.offset), target);
 }
 
 function getSliceOuter(slice: Slice, from: Position) {

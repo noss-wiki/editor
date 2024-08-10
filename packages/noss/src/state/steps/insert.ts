@@ -1,7 +1,7 @@
-import type { Node } from "../../model/node";
+import type { Node, Text } from "../../model/node";
 import type { PositionLike } from "../../model/position";
 import { Position } from "../../model/position";
-import { Step, type StepJSON } from "../step";
+import { Step } from "../step";
 
 export class InsertStep extends Step {
   id = "insert";
@@ -18,10 +18,16 @@ export class InsertStep extends Step {
     if (pos === undefined) return false;
     this.pos = pos;
 
-    const index = Position.offsetToIndex(pos.parent, pos.offset);
-    if (index === undefined) return false; // insert needs to not cut into nodes, TODO: allow this or create seperate step?
+    const { index, offset } = Position.offsetToIndex(pos.parent, pos.offset, true);
+    if (offset !== 0)
+      if (!this.node.type.schema.text && !pos.parent.type.schema.text) return false;
+      else {
+        const res = pos.parent.insert(offset, (<Text>this.node).text);
+        // TODO: save result
+        return true;
+      }
 
-    //return pos.parent.content.insert(this.node, index);
+    const res = pos.parent.content.insert(this.node, index);
     return false;
   }
 

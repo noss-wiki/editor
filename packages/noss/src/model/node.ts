@@ -3,7 +3,7 @@ import type { Slice } from "./slice";
 import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
 import { Position } from "./position";
-import { MethodError, NotImplementedError } from "../error";
+import { MethodError, NotImplementedError, stack } from "../error";
 
 /**
  * The base Node class
@@ -149,8 +149,7 @@ export class Node {
 
     if (this.resolveCache[pos] !== undefined) return this.resolveCache[pos];
 
-    const res = Position.resolve(this, pos);
-    if (!res) throw new MethodError(`The position ${pos}, could not be resolved`, "Node.resolve");
+    const res = stack("Node.resolve")(Position.resolve(this, pos));
     return (this.resolveCache[pos] = res);
   }
 
@@ -161,13 +160,13 @@ export class Node {
    *
    * @param pos The absolute position inside this node to resolve
    * @returns The resolved position if successful, or `undefined` if resolving failed.
-   * @throws {MethodError} If the position is outside of the allowed range
+   * @throws {MethodError} If the position is outside of the allowed range or it could not be resolved by `Position.resolve`.
    */
   resolveNoCache(pos: number) {
     if (pos < 0 || pos > this.nodeSize)
       throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Node.resolveNoCache");
 
-    return Position.resolve(this, pos);
+    return stack("Node.resolveNoCache")(Position.resolve(this, pos));
   }
 
   /**

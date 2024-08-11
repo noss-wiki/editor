@@ -2,6 +2,7 @@ import type { Node, Text } from "../../model/node";
 import type { PositionLike } from "../../model/position";
 import { Position } from "../../model/position";
 import { Step } from "../step";
+import { Result } from "../../result";
 
 export class InsertStep extends Step {
   id = "insert";
@@ -13,26 +14,28 @@ export class InsertStep extends Step {
     super();
   }
 
-  apply(boundary: Node): boolean {
-    const pos = Position.resolve(boundary, this.pos);
-    if (pos === undefined) return false;
+  apply(boundary: Node) {
+    const pos = Position.softResolve(boundary, this.pos);
+    if (pos === undefined) return Result.Error("Failed to resolve position");
     this.pos = pos;
 
     const { index, offset } = Position.offsetToIndex(pos.parent, pos.offset, true);
     if (offset !== 0)
-      if (!this.node.type.schema.text && !pos.parent.type.schema.text) return false;
+      if (!this.node.type.schema.text && !pos.parent.type.schema.text)
+        return Result.Error("Position doesn't resolve to an index, and nodes aren't text nodes");
       else {
+        // Fragment.replaceChildRecursive
         const res = pos.parent.insert(offset, (<Text>this.node).text);
-        // TODO: save result
-        return true;
+        return Result.Error("");
       }
 
+    // Fragment.replaceChildRecursive
     const res = pos.parent.content.insert(this.node, index);
-    return false;
+    return Result.Error("");
   }
 
   undo(boundary: Node): boolean {
-    const pos = Position.resolve(boundary, this.pos);
+    const pos = Position.softResolve(boundary, this.pos);
     if (pos === undefined) return false;
     this.pos = pos;
 

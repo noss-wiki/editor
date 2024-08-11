@@ -12,7 +12,7 @@ export class RemoveStep extends Step {
     super();
   }
 
-  apply(boundary: Node): boolean {
+  apply(boundary: Node) {
     this.locate = locateNode(boundary, this.node);
     if (!this.locate) return false;
 

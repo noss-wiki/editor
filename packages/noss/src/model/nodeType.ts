@@ -180,7 +180,19 @@ export class NodeType {
     return new NodeType(type);
   }
 
+  /**
+   * Gets the nodeType with `name`, will throw if the nodeType was not found.
+   */
   static get(name: string) {
+    const res = definitions[name];
+    if (!res) throw new MethodError(`Cannot get the nodeType ${name}, is it defined?`, "NodeType.get");
+    return res;
+  }
+
+  /**
+   * Tries to get the nodeType with `name`, will return undefined if the nodeType was not found.
+   */
+  static softGet(name: string) {
     return definitions[name];
   }
 

@@ -32,7 +32,22 @@ export class Fragment {
     return index >= 0 && index <= this.nodes.length;
   }
 
+  /**
+   * Gets the child at `index`, will throw if the index is out of range.
+   *
+   * @param index The index to get
+   * @throws {MethodError} If the index is out of range.
+   */
   child(index: number): Node {
+    const res = this.softChild(index);
+    if (!res) throw new MethodError(`The index ${index}, is out of range`, "Fragment.child");
+    return res;
+  }
+
+  /**
+   * Tries to get the child at `index`, will return undefined if the index is out of range.
+   */
+  softChild(index: number): Node | undefined {
     return this.nodes[index];
   }
 
@@ -77,8 +92,6 @@ export class Fragment {
   }
 
   /**
-   * **NOTE**: This modifies this node's content, it should not be called directly on a node that is in a document, but rather via a transaction to preserve history.
-   *
    * Removes a single node from this content.
    *
    * @param node The node to remove
@@ -87,8 +100,6 @@ export class Fragment {
    */
   remove(node: Node): Fragment;
   /**
-   * **NOTE**: This modifies this node's content, it should not be called directly on a node that is in a document, but rather via a transaction to preserve history.
-   *
    * Removes the content between the given positions.
    *
    * @param from The start, from where to start removing
@@ -113,8 +124,6 @@ export class Fragment {
   }
 
   /**
-   * **NOTE**: This modifies this node's content, it should not be called directly on a node that is in a document, but rather via a transaction to preserve history.
-   *
    * Changes this fragment's content to only include the content between the given positions.
    * This does not cut non-text nodes in half, meaning if the starting position is inside of a node, that entire node is included.
    *
@@ -151,8 +160,6 @@ export class Fragment {
 
   // TODO: Figure out what to return
   /**
-   * **NOTE**: This modifies this node's content, it should not be called directly on a node that is in a document, but rather via a transaction to preserve history.
-   *
    * @param parent The parent node of this fragment, this is used to check if the slice's content conforms to the parent's schema.
    */
   replace(from: number, to: number, slice: Slice, parent: Node) {
@@ -174,8 +181,6 @@ export class Fragment {
   }
 
   /**
-   * **NOTE**: This modifies this node's content, it should not be called directly on a node that is in a document, but rather via a transaction to preserve history.
-   *
    * Much simpler version of replace, only replaces a single child.
    * Always use this method over the more complex replace function, because this method is far more efficient.
    *
@@ -194,18 +199,35 @@ export class Fragment {
   }
 
   /**
+   * Replaces a `child` of this Fragment with `node` recursively,
+   * e.g. if the node isn't a direct child of this fragment, it will search deeper.
+   *
+   * @param child The child to replace
+   * @param node The node to replace the child with
+   * @throws {MethodError}
+   */
+  replaceChildRecursive(child: Node, node: Node) {
+    if (this.contains(child, 0)) {
+      // const index
+    }
+  }
+
+  /**
    * Checks if this fragment contains `node`.
    * It does this by performing a breath-first search in the descending nodes.
    * This function may be quite expensive on large nodes.
+   *
+   * @param maxDepth The maximum depth to search for, a depth of 0 means only this fragment will be searched, etc.
    */
-  contains(node: Node): boolean {
+  contains(node: Node, maxDepth?: number, depth = 0): boolean {
     const queue: Node[] = [];
 
     for (const [c] of this.iter())
       if (c === node) return true;
       else queue.push(c);
 
-    for (const c of queue) if (c.content.contains(node) === true) return true;
+    if (maxDepth === depth) return false;
+    for (const c of queue) if (c.content.contains(node, maxDepth, depth + 1) === true) return true;
 
     return false;
   }

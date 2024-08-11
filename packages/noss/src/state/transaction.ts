@@ -7,45 +7,60 @@ import { Position } from "../model/position";
 // Steps
 import { InsertStep } from "./steps/insert";
 import { RemoveStep } from "./steps/remove";
-import { MethodError, NotImplementedError } from "../error";
+import { MethodError, NotImplementedError, stack } from "../error";
 
 export class Transaction {
   readonly steps: Step[] = [];
+  readonly mod: Node[];
+
+  /**
+   * The modified boundary with all the steps applied to it.
+   */
+  get boundary() {
+    return this.mod[this.mod.length - 1];
+  }
 
   constructor(
     readonly state: EditorState,
-    readonly boundary: Node,
-  ) {}
+    boundary: Node,
+  ) {
+    this.mod = [boundary];
+  }
+
+  /**
+   * Applies and adds a step to this transaction,
+   * will throw if anything failed.
+   * @throws {MethodError}
+   */
+  step(step: Step) {}
+
+  /**
+   * Tries to apply a step and add it to this transaction,
+   * will ignore the step if applying failed.
+   */
+  softStep(step: Step) {
+    const res = step.apply(this.boundary);
+  }
 
   /**
    * Adds an {@link InsertStep} to this transaction, which inserts a node into the current document.
    * @param node The node to add, or the node type (node will be created automatically).
    * @param pos The position where to insert the node, see {@link Position}.
    */
-  insert<T extends string>(node: T | Node, pos: PositionLike) {
-    let insertNode: Node;
-    if (typeof node === "string") {
-      const type = NodeType.get(node);
-      if (type === undefined) throw new MethodError(`Cannot get the node type ${node}`, "Transaction.insert");
-
-      insertNode = new type.node();
-    } else insertNode = node;
-
-    this.steps.push(new InsertStep(pos, insertNode));
+  insert(node: string | Node, pos: PositionLike) {
+    const insertNode = stack("Transaction.insert")(getNode(node));
+    this.step(new InsertStep(pos, insertNode));
     return this;
   }
 
   insertText(text: string, pos: PositionLike) {
-    const resolvedPos = Position.resolve(this.boundary, pos);
-    if (!resolvedPos)
-      throw new MethodError("Position is not resolvable in the current boundary", "Transaction.insertText");
-
+    const resolvedPos = stack("Transaction.insertText")(Position.resolve(this.boundary, pos));
     const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
 
     if (index !== undefined) {
       // New node needs to be created
-      const node = createTextNode(text);
-      this.steps.push(new InsertStep(resolvedPos, node));
+      const node = stack("Transaction.insertText")(createTextNode(text));
+      this.step(new InsertStep(resolvedPos, node));
     } else {
       // content needs to be inserted in existing node
       // -> use replace step with collapsed selection
@@ -60,7 +75,7 @@ export class Transaction {
    * @param node The node to remove, this node needs to be in the current document.
    */
   remove(node: Node) {
-    this.steps.push(new RemoveStep(node));
+    this.step(new RemoveStep(node));
     return this;
   }
 
@@ -78,9 +93,10 @@ export class Transaction {
 }
 
 function createTextNode(content: string) {
-  const type = NodeType.get("text");
-  if (type === undefined)
-    throw new MethodError("Cannot get the node type text, is it defined?", "Transaction.insertText");
+  return new (NodeType.get("text").node)(content);
+}
 
-  return new type.node(content);
+function getNode(node: string | Node) {
+  if (typeof node === "string") return new (NodeType.get(node).node)();
+  else return node;
 }

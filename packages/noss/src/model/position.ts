@@ -191,8 +191,28 @@ export class Position {
     else return pos + 1 + this.offset;
   }
 
-  // static methods
-  static resolve(boundary: Node, pos: PositionLike): Position | undefined {
+  /**
+   * Resolves the position in the given boundary,
+   * will throw if resolving the position failed.
+   *
+   * @param boundary The boundary to resolve the position in
+   * @param pos The PositionLike to resolve, can be a absolute position (number), relative position or an already resolved position
+   * @throws {MethodError} If resolving the position failed
+   */
+  static resolve(boundary: Node, pos: PositionLike) {
+    const res = Position.softResolve(boundary, pos);
+    if (!res) throw new MethodError("Failed to resolve the position in the given boundary", "Position.resolve");
+    return res;
+  }
+
+  /**
+   * Tries to resolve the position in the given boundary,
+   * will return undefined if it failed.
+   *
+   * @param boundary The boundary to resolve the position in
+   * @param pos The PositionLike to resolve, can be a absolute position (number), relative position or an already resolved position.
+   */
+  static softResolve(boundary: Node, pos: PositionLike) {
     if (pos instanceof Position) return pos;
     else if (pos instanceof RelativePosition) return pos.resolve(boundary);
     else return Position.absoluteToPosition(boundary, pos);

@@ -1,4 +1,5 @@
 import type { Node } from "../model/node";
+import type { Result } from "../result";
 
 export type StepJSON = {
   stepId: string;
@@ -11,7 +12,7 @@ export abstract class Step {
   /**
    * @returns If the Step succeeded return true, else return false
    */
-  abstract apply(boundary: Node): boolean;
+  abstract apply(boundary: Node): Result<unknown>;
 
   /**
    * Tries to undo the step done by the `apply` hook,

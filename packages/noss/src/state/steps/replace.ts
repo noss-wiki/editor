@@ -28,8 +28,8 @@ export class ReplaceStep extends Step {
   }
 
   apply(boundary: Node): boolean {
-    this.$from ??= Position.resolve(boundary, this.from);
-    this.$to ??= Position.resolve(boundary, this.to);
+    this.$from ??= Position.softResolve(boundary, this.from);
+    this.$to ??= Position.softResolve(boundary, this.to);
     if (!this.$from || !this.$to) return false;
     else if (
       this.$from.depth - this.$to.depth !== this.slice.openStart - this.slice.openEnd ||

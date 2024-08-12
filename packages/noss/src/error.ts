@@ -1,15 +1,27 @@
 const activeStack: string[] = [];
 
 export class MethodError extends Error {
-  methodStack: string[];
+  _stack: string[];
+  _message: string;
 
-  constructor(msg: string, method: string) {
+  constructor(msg: string, method: string | string[]) {
     let log = `${msg}\n  at ${method}\n`;
 
     for (const i of activeStack.slice().reverse()) log += `  at ${i}\n`;
 
     super(log);
-    this.methodStack = [...activeStack, method].reverse();
+    this._stack = [...activeStack, ...(Array.isArray(method) ? method : [method])].reverse();
+    this._message = msg;
+  }
+
+  /**
+   * Extends this error to add new methods to the stack and updates the message,
+   * @param msg The new message, or set to undefined to keep old message
+   * @param method The method or methods to add to the stack
+   */
+  extend(msg: string | undefined, method: string | string[]) {
+    msg ??= this._message;
+    return new MethodError(msg, [...this._stack, ...(Array.isArray(method) ? method : [method])]);
   }
 }
 

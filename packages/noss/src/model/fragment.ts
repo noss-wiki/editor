@@ -188,27 +188,44 @@ export class Fragment {
    * @param index The index where to replace the child. Leave empty or undefined to insert at the end, or use a negative number to insert with offset from the end.
    * @throws {MethodError} If the index is out of bounds.
    */
-  replaceChild(node: Node, index?: number) {
+  replaceChild(node: Node, index?: number /* , parent?: Node */) {
     const i = this.resolveIndex(index);
     if (!this.isValidIndex(i))
       throw new MethodError(`Index ${index} is not in the allowed range`, "Fragment.replaceChild");
 
     const content = this.nodes.slice();
     content[i] = node;
+    // TODO: Check if this is allowed by parent's schema
     return new Fragment(content, this.size - this.child(i).nodeSize + node.nodeSize);
   }
 
   /**
    * Replaces a `child` of this Fragment with `node` recursively,
    * e.g. if the node isn't a direct child of this fragment, it will search deeper.
+   * But the returned result will always be from the depth of this fragment.
    *
    * @param child The child to replace
    * @param node The node to replace the child with
-   * @throws {MethodError}
+   * @throws {MethodError} If `child` isn't a child of this fragment, or if the new Fragment doesn't conform to the parents schema
    */
-  replaceChildRecursive(child: Node, node: Node) {
+  replaceChildRecursive(child: Node, node: Node /* , parent?: Node */): Fragment {
+    // TODO: Check if this is allowed by parent's schema
     if (this.contains(child, 0)) {
-      // const index
+      // This should always be a valid index
+      const index = this.nodes.indexOf(child);
+      return this.replaceChild(node, index);
+    } else {
+      // TODO: Make bfs?
+      for (const [n, i] of this.iter()) {
+        const c = n.content;
+        if (!c.contains(child, 0)) continue;
+        const res = c.replaceChildRecursive(child, node);
+        return this.replaceChild(n.copy(res), i);
+      }
+      throw new MethodError(
+        "Failed to recursively find the specified child in the Fragment",
+        "Fragment.replaceChildRecursive",
+      );
     }
   }
 

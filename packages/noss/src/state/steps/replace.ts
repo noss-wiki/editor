@@ -1,8 +1,10 @@
 import type { Node } from "../../model/node";
 import type { PositionLike } from "../../model/position";
 import type { Slice } from "../../model/slice";
-import { Position } from "../../model/position";
+import type { Position } from "../../model/position";
 import { Step } from "../step";
+import { NotImplementedError } from "../../error";
+import { Result } from "../../result";
 
 export class ReplaceStep extends Step {
   id = "replace";
@@ -27,8 +29,9 @@ export class ReplaceStep extends Step {
     super();
   }
 
-  apply(boundary: Node): boolean {
-    this.$from ??= Position.softResolve(boundary, this.from);
+  apply(boundary: Node): Result<null> {
+    return Result.Error("Not implemented");
+    /* this.$from ??= Position.softResolve(boundary, this.from);
     this.$to ??= Position.softResolve(boundary, this.to);
     if (!this.$from || !this.$to) return false;
     else if (
@@ -40,11 +43,6 @@ export class ReplaceStep extends Step {
     const parent = this.$from.node(this.$from.depth - this.slice.openStart);
     // TODO: Verify if content is allowed before replacing
 
-    return false;
-  }
-
-  undo(boundary: Node): boolean {
-    // Can be assumed that the slice fit into the content
-    return false;
+    return false; */
   }
 }

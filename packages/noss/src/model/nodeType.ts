@@ -139,6 +139,7 @@ export class NodeType {
    *
    * @param other The NodeType to override
    * @param type The new (partial) type definition
+   * @throws {MethodError} If the nodeType to extend doesn't exist
    */
   static extend(other: string | NodeTypeDefinition, type: ExtendNodeTypeDefinition) {
     if (typeof other === "string") {
@@ -168,6 +169,7 @@ export class NodeType {
    * This can be used to overwrite the default text node for example.
    *
    * @param type The type definition for the node type
+   * @throws {MethodError} If the overridden nodeType doesn't exist
    */
   static override(type: NodeTypeDefinition) {
     if (definitions[type.name] === undefined)
@@ -182,6 +184,8 @@ export class NodeType {
 
   /**
    * Gets the nodeType with `name`, will throw if the nodeType was not found.
+   *
+   * @throws {MethodError} If the nodeType was not found
    */
   static get(name: string) {
     const res = definitions[name];

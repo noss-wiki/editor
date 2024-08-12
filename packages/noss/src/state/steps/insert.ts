@@ -14,7 +14,7 @@ export class InsertStep extends Step {
     super();
   }
 
-  apply(boundary: Node) {
+  apply(boundary: Node): Result<null | Node> {
     const pos = Position.softResolve(boundary, this.pos);
     if (pos === undefined) return Result.Error("Failed to resolve position");
     this.pos = pos;
@@ -24,26 +24,13 @@ export class InsertStep extends Step {
       if (!this.node.type.schema.text && !pos.parent.type.schema.text)
         return Result.Error("Position doesn't resolve to an index, and nodes aren't text nodes");
       else {
-        // Fragment.replaceChildRecursive
         const res = pos.parent.insert(offset, (<Text>this.node).text);
-        return Result.Error("");
+        const c = boundary.content.replaceChildRecursive(pos.parent, res);
+        return Result.Ok(boundary.copy(c));
       }
 
-    // Fragment.replaceChildRecursive
-    const res = pos.parent.content.insert(this.node, index);
-    return Result.Error("");
-  }
-
-  undo(boundary: Node): boolean {
-    const pos = Position.softResolve(boundary, this.pos);
-    if (pos === undefined) return false;
-    this.pos = pos;
-
-    const index = Position.offsetToIndex(pos.parent, pos.offset);
-    if (index === undefined) return false;
-    else if (pos.parent.content.nodes[index] !== this.node) return false;
-
-    //return pos.parent.content.remove(this.node);
-    return false;
+    const res = pos.parent.copy(pos.parent.content.insert(this.node, index));
+    const c = boundary.content.replaceChildRecursive(pos.parent, res);
+    return Result.Ok(boundary.copy(c));
   }
 }

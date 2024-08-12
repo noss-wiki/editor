@@ -1,6 +1,8 @@
+import { MethodError } from "../../error";
 import type { Node } from "../../model/node";
 import type { LocateData } from "../../model/position";
 import { locateNode } from "../../model/position";
+import { Result, wrap } from "../../result";
 import { Step } from "../step";
 
 export class RemoveStep extends Step {
@@ -12,25 +14,16 @@ export class RemoveStep extends Step {
     super();
   }
 
-  apply(boundary: Node) {
+  apply(boundary: Node): Result<null | Node> {
     this.locate = locateNode(boundary, this.node);
-    if (!this.locate) return false;
+    if (!this.locate) return Result.Error("The given node couldn't be located in the boundary");
 
     const parent = this.locate.steps[this.locate.steps.length - 2].node;
+    const res = wrap(() => parent.content.remove(this.node)).unwrapToError();
+    if (res instanceof MethodError) return Result.Error(res._message, res);
 
-    //return parent.content.remove(this.node);
-    return false;
-  }
-
-  undo(boundary: Node): boolean {
-    if (!this.locate || this.locate.boundary !== boundary) return false;
-
-    const parent = this.locate.steps[this.locate.steps.length - 2].node;
-
-    /* return parent.content.insert(
-      this.node,
-      this.locate.steps[this.locate.steps.length - 1].index
-    ); */
-    return false;
+    const node = parent.copy(res);
+    const c = boundary.content.replaceChildRecursive(parent, node);
+    return Result.Ok(boundary.copy(c));
   }
 }

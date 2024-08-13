@@ -52,7 +52,6 @@ export class Result<T> {
     return new Result(value);
   }
 
-  // TODO: Include stack info if methodError
   static Error(reason: string, err?: MethodError) {
     return new Result(null, reason, err);
   }

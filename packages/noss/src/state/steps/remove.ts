@@ -1,8 +1,8 @@
-import { MethodError } from "../../error";
+import { MethodError } from "@noss-editor/utils";
 import type { Node } from "../../model/node";
 import type { LocateData } from "../../model/position";
 import { locateNode } from "../../model/position";
-import { Result, wrap } from "../../result";
+import { Result, wrap } from "@noss-editor/utils";
 import { Step } from "../step";
 
 export class RemoveStep extends Step {

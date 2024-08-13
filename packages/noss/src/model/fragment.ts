@@ -1,7 +1,7 @@
 import type { Node, Text, NodeJSON } from "./node";
 import type { Position } from "./position";
 import type { Slice } from "./slice";
-import { MethodError, NotImplementedError } from "../error";
+import { MethodError, NotImplementedError } from "@noss-editor/utils";
 
 export class Fragment {
   readonly nodes: Node[];

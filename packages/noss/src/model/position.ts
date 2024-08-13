@@ -1,6 +1,6 @@
-import { MethodError } from "../error";
 import type { Fragment } from "./fragment";
 import { Node } from "./node";
+import { MethodError } from "@noss-editor/utils";
 
 /**
  * A position or a resolvable position in a boundary.

@@ -9,5 +9,3 @@ export { NodeType } from "./model/nodeType";
 export { Position, locateNode } from "./model/position";
 export { Selection } from "./model/selection";
 export { Slice } from "./model/slice";
-
-export { MethodError, NotImplementedError, stack } from "./error";

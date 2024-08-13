@@ -4,15 +4,15 @@ import type { Step } from "./step";
 import type { PositionLike } from "../model/position";
 import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
+import { Result, MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 // Steps
 import { InsertStep } from "./steps/insert";
 import { RemoveStep } from "./steps/remove";
-import { MethodError, NotImplementedError, stack } from "../error";
-import { Result } from "../result";
 
 export class Transaction {
   readonly steps: Step[] = [];
   readonly mod: Node[];
+  readonly original: Node;
 
   /**
    * The modified boundary with all the steps applied to it.
@@ -25,6 +25,7 @@ export class Transaction {
     readonly state: EditorState,
     boundary: Node,
   ) {
+    this.original = boundary;
     this.mod = [boundary];
   }
 

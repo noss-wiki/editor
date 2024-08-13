@@ -2,7 +2,7 @@ import type { Node } from "./node";
 import type { PositionLike } from "./position";
 import { Position } from "./position";
 import { Fragment } from "./fragment";
-import { MethodError } from "../error";
+import { MethodError } from "@noss-editor/utils";
 
 export class Slice {
   /**

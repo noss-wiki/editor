@@ -1,6 +1,6 @@
-import { MethodError, stack } from "../error";
-import type { ContentExpression } from "../schema/expression";
 import type { Node } from "./node";
+import type { ContentExpression } from "../schema/expression";
+import { MethodError, stack } from "@noss-editor/utils";
 
 // TODO: Add dom representation, probably same as ProseMirror (via schema.toDom)
 export interface NodeTypeDefinition {

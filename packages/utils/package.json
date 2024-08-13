@@ -1,5 +1,5 @@
 {
-  "name": "noss-editor",
+  "name": "@noss-editor/utils",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -10,8 +10,7 @@
   "author": "Codefoxdev",
   "license": "MIT",
   "devDependencies": {
-    "unbuild": "^2.0.0",
-    "@noss-editor/utils": "workspace:*"
+    "unbuild": "^2.0.0"
   },
   "publishConfig": {
     "main": "dist/index.js"

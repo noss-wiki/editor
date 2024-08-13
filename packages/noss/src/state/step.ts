@@ -1,5 +1,5 @@
 import type { Node } from "../model/node";
-import type { Result } from "../result";
+import type { Result } from "@noss-editor/utils";
 
 export type StepJSON = {
   stepId: string;

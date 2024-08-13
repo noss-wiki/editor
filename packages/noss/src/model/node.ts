@@ -3,7 +3,7 @@ import type { Slice } from "./slice";
 import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
 import { Position } from "./position";
-import { MethodError, NotImplementedError, stack } from "../error";
+import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 
 /**
  * The base Node class

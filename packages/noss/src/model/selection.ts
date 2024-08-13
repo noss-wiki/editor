@@ -1,7 +1,7 @@
 import type { Node } from "./node";
 import { Position } from "./position";
 import { Slice } from "./slice";
-import { MethodError } from "../error";
+import { MethodError } from "@noss-editor/utils";
 
 export class Selection {
   constructor(

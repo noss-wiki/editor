@@ -27,7 +27,7 @@ export class Result<T> {
    */
   unwrap<F extends NonNullable<T>>(fallback: F): F;
   unwrap(fallback?: T): T | null {
-    if (this.value !== null) return this.value;
+    if (this.error === undefined) return this.value;
     else if (fallback !== undefined) return fallback;
     return null;
   }
@@ -37,14 +37,14 @@ export class Result<T> {
    */
   unwrapToError(method?: string) {
     method ??= "anonymous";
-    if (this.value !== null) return this.value;
+    if (this.error === undefined) return this.value;
     // biome-ignore lint: Either value or error is defined
     else if (!this.methodError) return new MethodError(this.error!, [method, "Result.unwrapToError"]);
     else return this.methodError.extend(undefined, [method, "Result.unwrapToError"]);
   }
 
   isError(): boolean {
-    if (this.value !== null) return false;
+    if (this.error === undefined) return false;
     else return true;
   }
 

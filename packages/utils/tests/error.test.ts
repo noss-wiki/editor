@@ -1,5 +1,5 @@
 import { test, expect, describe } from "vitest";
-import { MethodError, stack, NotImplementedError } from "@noss-editor/utils";
+import { MethodError, stack, NotImplementedError } from "../src";
 
 test("The stack method should add methods to the error stack", () => {
   expect(() => {

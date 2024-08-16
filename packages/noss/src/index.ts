@@ -6,6 +6,7 @@ export type {
   NodeTypeDefinition,
 } from "./model/nodeType";
 export { NodeType } from "./model/nodeType";
+export { NodeView, DefintionNodeView } from "./model/nodeView";
 export { Position, locateNode } from "./model/position";
 export { Selection } from "./model/selection";
 export { Slice } from "./model/slice";

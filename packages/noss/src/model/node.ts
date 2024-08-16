@@ -1,5 +1,6 @@
 import type { FragmentJSON } from "./fragment";
 import type { Slice } from "./slice";
+import { NodeView } from "./nodeView";
 import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
 import { Position } from "./position";
@@ -8,11 +9,13 @@ import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 /**
  * The base Node class
  */
-export class Node {
+export abstract class Node {
   static readonly type: NodeType;
   readonly type: NodeType;
 
   readonly id: string;
+
+  readonly view?: NodeView;
 
   /**
    * This node's children
@@ -62,10 +65,11 @@ export class Node {
       );
 
     this.type.node = <typeof Node>this.constructor;
-
     this.id = Math.random().toString(36).slice(2);
-
     this.content = content || new Fragment([]);
+
+    // @ts-ignore : This is a hack to allow the view to be initialized outside the constructor in subclasses
+    this.view?.bind(this);
   }
 
   child(index: number): Node {
@@ -200,8 +204,9 @@ export class Node {
 
     const Class = <typeof Node>this.constructor;
     // TODO: Also include other things, like marks, etc.
-    const inst = new Class(content);
-    // @ts-ignore
+    // @ts-ignore : `Class` will never be the direct Node instance, but a subclass of it.
+    const inst = new Class(content) as Node;
+    // @ts-ignore : id shouldn't be settable from outside the class, but it still needs to be copied.
     if (keepId) inst.id = this.id;
     return inst;
   }
@@ -221,6 +226,13 @@ export class Node {
   }
 }
 
+export class TextView extends NodeView {
+  declare node: Text;
+  override render() {
+    return document.createTextNode(this.node.text);
+  }
+}
+
 export class Text extends Node {
   static override type = NodeType.from({
     name: "text",
@@ -232,6 +244,8 @@ export class Text extends Node {
   });
 
   declare readonly text: string;
+
+  override readonly view = new TextView();
 
   override get textContent() {
     return this.text;
@@ -276,6 +290,12 @@ export class Text extends Node {
   }
 
   override replace(from: number, to: number, slice: string) {
+    if (from < 0 || to > this.text.length)
+      throw new MethodError(
+        `One or more of the positions ${from} and ${to} are outside of the allowed range`,
+        "Text.replace",
+      );
+
     return this.copy(this.text.slice(0, from) + slice + this.text.slice(to));
   }
 

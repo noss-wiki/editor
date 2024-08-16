@@ -47,6 +47,7 @@ export interface NodeSchema {
   /**
    * Whether or not this node is similar to a text node, in that it only has plain text as content, not a fragment with nodes.
    * This assumes `Node.text` is of type string, else the program will throw unexpectedly.
+   * In order for Node methods to work, you'll need to extend (or override) the builtin text nodeType, or reimplement the methods to support text content yourself.
    */
   text?: boolean;
   /**
@@ -157,7 +158,7 @@ export class NodeType {
 
     for (const prop in other.schema) {
       const key = prop as keyof NodeSchema;
-      // @ts-ignore
+      // @ts-ignore : TS somehow doesn't understand that it should be changed if it's undefined
       if (type.schema[key] === undefined) type.schema[key] = other.schema[key];
     }
 

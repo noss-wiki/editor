@@ -35,11 +35,11 @@ export class Result<T> {
   /**
    * Unwraps the Result to either the value or a {@link MethodError}.
    */
-  unwrapToError(method?: string) {
+  unwrapToError(method?: string): NonNullable<T> | MethodError {
     method ??= "anonymous";
-    if (this.error === undefined) return this.value;
     // biome-ignore lint: Either value or error is defined
-    else if (!this.methodError) return new MethodError(this.error!, [method, "Result.unwrapToError"]);
+    if (this.error === undefined) return this.value!;
+    else if (!this.methodError) return new MethodError(this.error, [method, "Result.unwrapToError"]);
     else return this.methodError.extend(undefined, [method, "Result.unwrapToError"]);
   }
 

@@ -17,8 +17,4 @@ export class EditorState {
   apply(tr: Transaction) {
     throw new NotImplementedError("EditorState.apply");
   }
-
-  undo(tr: Transaction) {
-    throw new NotImplementedError("EditorState.undo");
-  }
 }

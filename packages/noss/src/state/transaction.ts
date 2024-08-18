@@ -4,7 +4,7 @@ import type { Step } from "./step";
 import type { PositionLike } from "../model/position";
 import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
-import { Result, MethodError, NotImplementedError, stack } from "@noss-editor/utils";
+import { MethodError, NotImplementedError, Ok, stack } from "@noss-editor/utils";
 // Steps
 import { InsertStep } from "./steps/insert";
 import { RemoveStep } from "./steps/remove";
@@ -47,9 +47,8 @@ export class Transaction {
    */
   step(step: Step) {
     const res = this.softStep(step);
-    const val = res.unwrapToError("Transaction.step");
-    if (val instanceof MethodError) throw val;
-    return Result.Ok(val);
+    if (res.err) throw res.val;
+    return Ok(res.val);
   }
 
   /**
@@ -58,7 +57,7 @@ export class Transaction {
    */
   softStep(step: Step) {
     const res = step.apply(this.boundary);
-    const val = res.unwrap();
+    const val = res.unwrap(null);
     if (val !== null) {
       this.mod.push(val);
       this.steps.push(step);

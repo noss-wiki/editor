@@ -11,7 +11,7 @@ export abstract class Step {
   /**
    * @returns If the Step succeeded return true, else return false
    */
-  abstract apply(boundary: Node): Result<null | Node>;
+  abstract apply(boundary: Node): Result<Node, string>;
 
   /* abstract toJSON(): StepJSON; */
 }

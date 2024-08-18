@@ -3,8 +3,8 @@ import type { PositionLike } from "../../model/position";
 import type { Slice } from "../../model/slice";
 import type { Position } from "../../model/position";
 import { Step } from "../step";
-import { NotImplementedError } from "../../error";
-import { Result } from "../../result";
+import type { Result } from "@noss-editor/utils";
+import { Err } from "@noss-editor/utils";
 
 export class ReplaceStep extends Step {
   id = "replace";
@@ -29,8 +29,8 @@ export class ReplaceStep extends Step {
     super();
   }
 
-  apply(boundary: Node): Result<null> {
-    return Result.Error("Not implemented");
+  apply(boundary: Node): Result<never, string> {
+    return Err("Not implemented");
     /* this.$from ??= Position.softResolve(boundary, this.from);
     this.$to ??= Position.softResolve(boundary, this.to);
     if (!this.$from || !this.$to) return false;

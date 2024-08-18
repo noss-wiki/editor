@@ -1,59 +1,38 @@
 import { MethodError } from "./error";
 
-export class Result<T> {
-  /**
-   * Use the `Result.Ok` and `Result.Error` methods instead of this constructor.
-   *
-   * @internal
-   */
-  constructor(
-    private value: T,
-    private error?: string,
-    private methodError?: MethodError,
-  ) {}
+interface BaseResult<T, E> {
+  readonly ok: boolean;
+  readonly err: boolean;
 
-  /**
-   * Unwraps the value of this Result,
-   * may return null if this Result has no value.
-   */
-  unwrap(): T;
-  /**
-   * Unwraps the value of this Result,
-   * or returns the fallback if this Result has no value.
-   *
-   * @param fallback
-   *   The fallback value to use, if this Result has no value.
-   *   Must be of the same type as this Result can return.
-   */
-  unwrap<F extends NonNullable<T>>(fallback: F): F;
-  unwrap(fallback?: T): T | null {
-    if (this.error === undefined) return this.value;
-    else if (fallback !== undefined) return fallback;
-    return null;
+  unwrap(fallback: T): T;
+}
+
+export const Ok = <T>(val: T) => new Ok_(val);
+export const Err = <E>(val: E) => new Err_(val);
+
+export type Ok<T> = Ok_<T>;
+export type Err<E> = Err_<E>;
+export type Result<T, E> = Ok<T> | Err<E>;
+
+class Ok_<T> implements BaseResult<T, never> {
+  readonly ok = true;
+  readonly err = false;
+
+  constructor(readonly val: T) {}
+
+  unwrap(): T {
+    return this.val;
   }
+}
 
-  /**
-   * Unwraps the Result to either the value or a {@link MethodError}.
-   */
-  unwrapToError(method?: string): NonNullable<T> | MethodError {
-    method ??= "anonymous";
-    // biome-ignore lint: Either value or error is defined
-    if (this.error === undefined) return this.value!;
-    else if (!this.methodError) return new MethodError(this.error, [method, "Result.unwrapToError"]);
-    else return this.methodError.extend(undefined, [method, "Result.unwrapToError"]);
-  }
+class Err_<E> implements BaseResult<never, E> {
+  readonly ok = false;
+  readonly err = true;
 
-  isError(): boolean {
-    if (this.error === undefined) return false;
-    else return true;
-  }
+  constructor(readonly val: E) {}
 
-  static Ok<T>(value: T) {
-    return new Result(value);
-  }
-
-  static Error(reason: string, err?: MethodError) {
-    return new Result(null, reason, err);
+  unwrap<T>(fallback: T): T {
+    throw fallback;
   }
 }
 
@@ -62,12 +41,12 @@ export class Result<T> {
  * if the throwed value is a {@link MethodError} or a generic Error it will return a `Result.Error`.
  * If the value is unknown it will still be thrown.
  */
-export function wrap<T extends () => ReturnType<T>>(fn: T): Result<null | ReturnType<T>> {
+export function wrap<T extends () => ReturnType<T>>(fn: T): Result<ReturnType<T>, string> {
   try {
-    return Result.Ok(fn());
+    return Ok(fn());
   } catch (e) {
-    if (e instanceof MethodError) return Result.Error(e._message, e);
-    else if (e instanceof Error) return Result.Error(e.message);
+    if (e instanceof MethodError) return Err(e._message);
+    else if (e instanceof Error) return Err(e.message);
     else throw e;
   }
 }

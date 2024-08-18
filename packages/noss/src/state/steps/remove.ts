@@ -2,7 +2,8 @@ import { MethodError } from "@noss-editor/utils";
 import type { Node } from "../../model/node";
 import type { LocateData } from "../../model/position";
 import { locateNode } from "../../model/position";
-import { Result, wrap } from "@noss-editor/utils";
+import type { Result } from "@noss-editor/utils";
+import { Ok, Err, wrap } from "@noss-editor/utils";
 import { Step } from "../step";
 
 export class RemoveStep extends Step {
@@ -14,16 +15,16 @@ export class RemoveStep extends Step {
     super();
   }
 
-  apply(boundary: Node): Result<null | Node> {
+  apply(boundary: Node): Result<Node, string> {
     this.locate = locateNode(boundary, this.node);
-    if (!this.locate) return Result.Error("The given node couldn't be located in the boundary");
+    if (!this.locate) return Err("The given node couldn't be located in the boundary");
 
     const parent = this.locate.steps[this.locate.steps.length - 2].node;
-    const res = wrap(() => parent.content.remove(this.node)).unwrapToError();
-    if (res instanceof MethodError) return Result.Error(res._message, res);
+    const res = wrap(() => parent.content.remove(this.node));
+    if (res.err) return Err(res.val); // keep res somehow?
 
-    const node = parent.copy(res);
+    const node = parent.copy(res.val);
     const c = boundary.content.replaceChildRecursive(parent, node);
-    return Result.Ok(boundary.copy(c));
+    return Ok(boundary.copy(c));
   }
 }

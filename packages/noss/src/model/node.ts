@@ -1,10 +1,12 @@
+import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
+
 import type { FragmentJSON } from "./fragment";
 import type { Slice } from "./slice";
-import { NodeView } from "./nodeView";
+import type { NodeView } from "./nodeView";
+import { TextView } from "./nodeView";
 import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
 import { Position } from "./position";
-import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 
 /**
  * The base Node class
@@ -15,7 +17,7 @@ export abstract class Node {
 
   readonly id: string;
 
-  readonly view?: NodeView;
+  readonly view?: NodeView<unknown>;
 
   /**
    * This node's children
@@ -223,13 +225,6 @@ export abstract class Node {
       type: this.type.name,
       content: this.content.toJSON(),
     };
-  }
-}
-
-export class TextView extends NodeView {
-  declare node: Text;
-  override render() {
-    return document.createTextNode(this.node.text);
   }
 }
 

@@ -10,7 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@noss-editor/utils": "workspace:*"
+    "@noss-editor/utils": "workspace:*",
+    "noss-editor": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.3",

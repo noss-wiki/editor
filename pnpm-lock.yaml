@@ -30,6 +30,9 @@ importers:
       '@noss-editor/utils':
         specifier: workspace:*
         version: link:../utils
+      noss-editor:
+        specifier: workspace:*
+        version: link:../noss
     devDependencies:
       typescript:
         specifier: ^5.5.3

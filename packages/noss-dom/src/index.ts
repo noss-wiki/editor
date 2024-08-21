@@ -1,1 +1,1 @@
-// lib
+export { DOMView } from "./view";

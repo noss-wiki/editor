@@ -1,3 +1,4 @@
+// TODO: Move to shared package
 import { Fragment, Node, Text, NodeType, NodeView } from "../src";
 export { Node, Text };
 
@@ -10,7 +11,7 @@ export class Document extends Node {
     },
   });
 
-  get nodeSize() {
+  override get nodeSize() {
     return this.content.size; // document start and end brackets don't count, as you can't focus outside of document
   }
 }

@@ -254,6 +254,7 @@ export class Text extends Node {
     super(undefined);
     if (!content) throw new MethodError("Empty text nodes are not allowed", "Text.constructor");
     this.text = content;
+    this.view.bind(this);
   }
 
   override child(index: number): Node {

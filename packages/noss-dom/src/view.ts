@@ -1,6 +1,6 @@
 import { MethodError } from "@noss-editor/utils";
-import type { View, Node, NodeView } from "noss-editor";
-import { DocumentView } from "noss-editor";
+import type { View, Node } from "noss-editor";
+import { NodeView, DocumentView } from "noss-editor";
 
 export class DOMView extends DocumentView<HTMLElement> {
   /**
@@ -29,8 +29,9 @@ export class DOMView extends DocumentView<HTMLElement> {
 
 function renderNodeRecursive(node: Node): HTMLElement | Text | null {
   const view = <NodeView<HTMLElement> | undefined>node.view;
-  if (!view) return null;
-  else if (view.name === "text") {
+  if (!view || !(view instanceof NodeView)) return null;
+
+  if (view.name === "text" || view.node?.type.schema.text) {
     const res = (<NodeView<string>>node.view).render();
     return document.createTextNode(res);
   }

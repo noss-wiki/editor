@@ -27,6 +27,22 @@ export class MethodError extends Error {
 
 /**
  * Adds a method to the error stack, which gets logged if an error is thrown inside the called method.
+ *
+ * @usage
+    ```ts
+    const res = stack("EditorState.apply")(functionThatCanThrow());
+    ```
+ * If `functionThatCanThrow` throws a {@link MethodError}, the provided name will be added to the stack, and show up in the error message.
+ * The only thing the function does is add the method to the stack when called initially,
+ * and remove it when the returned function is called (and return the parameter to allow easy inlining).
+ * So you can achieve the same by doing this
+    ```ts
+    const s = stack("EditorState.apply");
+    functionThatCanThrow();
+    anotherFunctionThatCanThrow();
+    s();
+    ```
+ * This adds the method to the stack on both methods, and removes it when `s` is called.
  */
 export function stack(method: string) {
   activeStack.push(method);

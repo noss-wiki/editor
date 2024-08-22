@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "lib": ["ES2020"],
     "module": "ESNext",
@@ -7,6 +8,9 @@
     "strict": true,
     "declaration": true,
     "noImplicitOverride": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "exclude": ["node_modules", "dist"],
+  "include": ["packages"]
 }

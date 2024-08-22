@@ -7,14 +7,20 @@ interface BaseResult<T, E> {
   unwrap(fallback: T): T;
 }
 
-export const Ok = <T>(val: T) => new Ok_(val);
-export const Err = <E>(val: E) => new Err_(val);
+export const Ok = <T>(val: T): Ok<T> => new Ok_(val);
+export const Err = <E>(val: E): Err<E> => new Err_(val);
 
-export type Ok<T> = Ok_<T>;
-export type Err<E> = Err_<E>;
 export type Result<T, E> = Ok<T> | Err<E>;
 
-class Ok_<T> implements BaseResult<T, never> {
+interface Ok<T> extends BaseResult<T, never> {
+  readonly val: T;
+  readonly ok: true;
+  readonly err: false;
+
+  unwrap(): T;
+}
+
+class Ok_<T> implements Ok<T> {
   readonly ok = true;
   readonly err = false;
 
@@ -25,7 +31,15 @@ class Ok_<T> implements BaseResult<T, never> {
   }
 }
 
-class Err_<E> implements BaseResult<never, E> {
+interface Err<E> extends BaseResult<never, E> {
+  readonly val: E;
+  readonly ok: false;
+  readonly err: true;
+
+  unwrap<T>(fallback: T): T;
+}
+
+class Err_<E> implements Err<E> {
   readonly ok = false;
   readonly err = true;
 

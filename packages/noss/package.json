@@ -6,7 +6,8 @@
   "scripts": {
     "build": "unbuild",
     "test": "vitest",
-    "check": "biome check"
+    "check": "biome check",
+    "tsc": "tsc"
   },
   "author": "Codefoxdev",
   "license": "MIT",
@@ -14,6 +15,7 @@
     "@noss-editor/utils": "workspace:*"
   },
   "devDependencies": {
+    "typescript": "^5.5.3",
     "unbuild": "^2.0.0"
   },
   "publishConfig": {

@@ -8,7 +8,8 @@
     "build": "pnpm -r --filter='./packages/*' run build",
     "test": "vitest",
     "check": "biome check",
-    "fix": "biome check --write"
+    "fix": "biome check --write",
+    "tsc": "pnpm -r --filter='./packages/*' run tsc"
   },
   "devDependencies": {
     "@biomejs/biome": "1.8.3",

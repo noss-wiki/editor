@@ -18,7 +18,7 @@ export class Transaction {
   /**
    * The modified boundary with all the steps applied to it.
    */
-  get boundary() {
+  get modified() {
     return this.mod[this.mod.length - 1];
   }
 
@@ -48,7 +48,7 @@ export class Transaction {
   step(step: Step) {
     const res = this.softStep(step);
     if (res.err) throw res.val;
-    return Ok(res.val);
+    return res.val;
   }
 
   /**
@@ -56,7 +56,7 @@ export class Transaction {
    * will ignore the step if applying failed.
    */
   softStep(step: Step) {
-    const res = step.apply(this.boundary);
+    const res = step.apply(this.modified);
     const val = res.unwrap(null);
     if (val !== null) {
       this.mod.push(val);
@@ -80,7 +80,7 @@ export class Transaction {
   }
 
   insertText(text: string, pos: PositionLike) {
-    const resolvedPos = stack("Transaction.insertText")(Position.resolve(this.boundary, pos));
+    const resolvedPos = stack("Transaction.insertText")(Position.resolve(this.modified, pos));
     const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
 
     if (index !== undefined) {

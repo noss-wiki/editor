@@ -1,18 +1,29 @@
 import { MethodError } from "./error";
 
 interface BaseResult<T, E> {
+  readonly val: T | E;
   readonly ok: boolean;
   readonly err: boolean;
 
+  isOk(): boolean;
+  isErr(): boolean;
+
+  /**
+   * Extracts the `Ok` value, returning a default value if the result is an `Err`.
+   */
   unwrap(fallback: T): T;
   /**
-   * Updates a value held within the `Ok` of a result by calling `callback` with it.
-   * If this is an `Error` rather than `Ok` `callback` is not called and the result stays the same.
+   * Returns this value if it is `Ok`, otherwise returns `fallback`.
+   */
+  or(fallback: Result<T, E>): Result<T, E>;
+  /**
+   * Updates the value held within the `Ok` of this result by calling `callback` with it.
+   * If this is an `Err` rather than `Ok` `callback` is not called and this `Result` stays the same.
    */
   map<C>(callback: (val: T) => C): Result<C, E>;
   /**
-   * “Updates” an Ok result by passing its value to a function that yields a result, and returning the yielded result. (This may “replace” the Ok with an Error.)
-   * If the input is an Error rather than an Ok, the function is not called and the original Error is returned.
+   * Updates this `Ok` result by passing its value to a function that returns a `Result`, and returning the updated result. (This may replace the `Ok` with an `Err`.)
+   * If this is an `Err` rather than an `Ok`, the function is not called and the original `Err` is returned.
    */
   try<C>(callback: (val: T) => Result<C, E>): Result<C, E>;
 }
@@ -30,7 +41,11 @@ interface Ok<T> extends BaseResult<T, never> {
   readonly ok: true;
   readonly err: false;
 
+  isOk(): true;
+  isErr(): false;
+
   unwrap(): T;
+  or(): this;
   map<C>(callback: (val: T) => C): Ok<C>;
   /**
    * Updates a value held within the `Ok` of a result by calling `callback` with it.
@@ -48,8 +63,15 @@ class Ok_<T> implements Ok<T> {
 
   constructor(readonly val: T) {}
 
+  isOk = () => true as const;
+  isErr = () => false as const;
+
   unwrap(): T {
     return this.val;
+  }
+
+  or() {
+    return this;
   }
 
   map<C extends (val: T) => unknown>(callback: C) {
@@ -67,7 +89,11 @@ interface Err<E> extends BaseResult<never, E> {
   readonly ok: false;
   readonly err: true;
 
+  isOk(): false;
+  isErr(): true;
+
   unwrap<T>(fallback: T): T;
+  or<T>(fallback: T): T;
   map(): this;
   try(): this;
 }
@@ -78,8 +104,15 @@ class Err_<E> implements Err<E> {
 
   constructor(readonly val: E) {}
 
+  isOk = () => false as const;
+  isErr = () => true as const;
+
   unwrap<T>(fallback: T): T {
     throw fallback;
+  }
+
+  or<T>(fallback: T): T {
+    return fallback;
   }
 
   map() {

@@ -23,7 +23,7 @@ export class InsertStep extends Step {
     const { index, offset } = Position.offsetToIndex(pos.parent, pos.offset, true);
     if (offset !== 0)
       if (!this.node.type.schema.text && !pos.parent.type.schema.text)
-        return Err("Position doesn't resolve to an index, and nodes aren't text nodes");
+        return Err("Position doesn't resolve to an index and provided node and/or position node aren't text nodes");
       else {
         const res = pos.parent.insert(offset, (<Text>this.node).text);
         const c = boundary.content.replaceChildRecursive(pos.parent, res);

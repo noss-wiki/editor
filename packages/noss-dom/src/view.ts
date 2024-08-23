@@ -2,15 +2,14 @@ import { MethodError } from "@noss-editor/utils";
 import type { View, Node } from "noss-editor";
 import { NodeView, DocumentView } from "noss-editor";
 
+// TODO: Allow to derive state from the content of the root node
 export class DOMView extends DocumentView<HTMLElement> {
   /**
    * Either inserts this element in the DOM or call the `mount` method to use a custom root element.
    */
   root: HTMLElement = document.createElement("div");
 
-  mount(element: HTMLElement) {
-    this.root = element;
-  }
+  //override update()
 
   override render() {
     const document = this.state.document;
@@ -21,6 +20,7 @@ export class DOMView extends DocumentView<HTMLElement> {
         "DOMView.render",
       );
 
+    this.root.innerHTML = "";
     this.root.appendChild(ele);
 
     return ele as HTMLElement;

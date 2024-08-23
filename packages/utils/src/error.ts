@@ -45,10 +45,12 @@ export class MethodError extends Error {
  * This adds the method to the stack on both methods, and removes it when `s` is called.
  */
 export function stack(method: string) {
-  activeStack.push(method);
+  let same = false;
+  if (activeStack[activeStack.length - 1] === method) same = true;
+  else activeStack.push(method);
 
   return <T>(target: T) => {
-    activeStack.pop();
+    if (!same) activeStack.pop();
     return target;
   };
 }

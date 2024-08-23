@@ -16,7 +16,25 @@ export interface View<T> {
 }
 
 export abstract class DocumentView<T> implements View<T> {
-  constructor(readonly state: EditorState) {}
+  readonly editable: boolean;
+  abstract root: T;
+
+  constructor(
+    readonly state: EditorState,
+    root?: T,
+  ) {
+    this.editable = state.editable;
+    // @ts-ignore : Constructor is not called in the this class
+    if (root) this.root = root;
+  }
+
+  mount(root: T) {
+    this.root = root;
+  }
+
+  update() {
+    return this.render();
+  }
 
   abstract render(): T;
 

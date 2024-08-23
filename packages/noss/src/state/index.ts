@@ -1,8 +1,11 @@
 import type { Node } from "../model/node";
-import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
+import type { EventMap } from "@noss-editor/utils";
+import { MethodError, NotImplementedError, stack, EventFull } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
 
-export class EditorState {
+interface EventData extends EventMap {}
+
+export class EditorState extends EventFull<EventData> {
   /**
    * The initial document node that this editor was instantiated with.
    */
@@ -35,23 +38,28 @@ export class EditorState {
   }
 
   constructor(document: Node) {
+    super("EditorState");
     this.original = document;
     this.mod = [this.original];
   }
 
   apply(tr: Transaction) {
+    // emit some event where the transction can be modified / cancelled?
+
     const doc = stack("EditorState.apply")(this.constructDocument(tr));
     this.transactions.push(tr);
     this.mod.push(doc);
 
-    // Calculate updated nodes
+    // Calculate updated nodes (prob from steps)
     // emit `update` event with changed nodes
+    // this.emit("update", { changedNodes: [] })
 
     return doc;
   }
 
   private constructDocument(tr: Transaction) {
-    if (this.document === tr.original) return tr.modified;
+    // Fast comparison first, if false the entire document structure will be checked (slow).
+    if (this.document === tr.original || this.document.eq(tr.original)) return tr.modified;
 
     if (!this.document.content.contains(tr.original))
       throw new MethodError(

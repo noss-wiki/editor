@@ -2,6 +2,7 @@ import type { RenderResult } from "./types";
 import { NodeView } from "noss-editor";
 import { stack, MethodError } from "@noss-editor/utils";
 
+// TODO: Refactor to allow access to node instance (and attrs, etc.)
 export class DefintionNodeView extends NodeView<RenderResult> {
   constructor(
     readonly definition: RenderDefinition,

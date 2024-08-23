@@ -43,21 +43,25 @@ export interface NodeMeta {
   visible?: boolean;
 }
 
+// TODO: Create resolved type for this
 export interface NodeSchema {
   /**
    * Whether or not this node is similar to a text node, in that it only has plain text as content, not a fragment with nodes.
    * This assumes `Node.text` is of type string, else the program will throw unexpectedly.
    * In order for Node methods to work, you'll need to extend (or override) the builtin text nodeType, or reimplement the methods to support text content yourself.
+   * @default false
    */
   text?: boolean;
   /**
    * The content expression for this node, when left empty it allows no content.
+   * @default ""
    */
   content?: string | ContentExpression;
   /**
-   * The group or space seperated groups to which this Node belongs.
+   * The group, space seperated groups or array of group names to which this Node belongs.
+   * @default ""
    */
-  group?: string;
+  group?: string | string[];
   /**
    * Whether this node is an inline node, if `false` it will be a block node.
    * @default false
@@ -168,6 +172,7 @@ export class NodeType {
   /**
    * Overrides an existing type with a new definition.
    * This can be used to overwrite the default text node for example.
+   * The type to override is inferred from the name property.
    *
    * @param type The type definition for the node type
    * @throws {MethodError} If the overridden nodeType doesn't exist

@@ -52,7 +52,7 @@ export class EditorState extends EventFull<EventData> {
 
     // Calculate updated nodes (prob from steps)
     // emit `update` event with changed nodes
-    // this.emit("update", { changedNodes: [] })
+    // this.emit("update", { changedNodes: [] }) or maybe just view.update
 
     return doc;
   }

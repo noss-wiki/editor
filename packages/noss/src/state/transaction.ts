@@ -2,9 +2,10 @@ import type { EditorState } from ".";
 import type { Node } from "../model/node";
 import type { Step } from "./step";
 import type { PositionLike } from "../model/position";
+import type { Result } from "@noss-editor/utils";
 import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
-import { MethodError, NotImplementedError, Ok, stack } from "@noss-editor/utils";
+import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 // Steps
 import { InsertStep } from "./steps/insert";
 import { RemoveStep } from "./steps/remove";
@@ -56,13 +57,11 @@ export class Transaction {
    * will ignore the step if applying failed.
    */
   softStep(step: Step) {
-    const res = step.apply(this.modified);
-    const val = res.unwrap(null);
-    if (val !== null) {
+    return step.apply(this.modified).map<Node, string>((val) => {
       this.mod.push(val);
       this.steps.push(step);
-    }
-    return res;
+      return val;
+    });
   }
 
   /**

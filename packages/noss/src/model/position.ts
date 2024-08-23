@@ -1,6 +1,8 @@
 import type { Fragment } from "./fragment";
 import { Node } from "./node";
 import { MethodError } from "@noss-editor/utils";
+import type { Result } from "@noss-editor/utils";
+import { Err, Ok } from "@noss-editor/utils";
 
 /**
  * A position or a resolvable position in a boundary.
@@ -28,17 +30,16 @@ export class RelativePosition {
     else if (location === "childOffset") this.offset = anchor.content.size;
   }
 
-  resolve(boundary: Node): Position | undefined {
+  resolve(boundary: Node): Result<Position, string> {
     const locate = locateNode(boundary, this.anchor);
-    if (!locate) return;
+    if (!locate) return Err("Failed to locate node in the provided boundary");
 
     const parent = locate.steps[locate.steps.length - 2];
     const found = locate.steps[locate.steps.length - 1];
     let offset = 0;
 
     if (this.location === "after" || this.location === "before") {
-      if (found.node === locate.boundary)
-        throw new MethodError("Can't resolve a position before or after the boundary node", "RelativePosition.resolve");
+      if (found.node === locate.boundary) return Err("Can't resolve a position before or after the boundary node");
 
       if (found.index > 0)
         for (const [child, i] of parent.node.content.iter())
@@ -47,13 +48,15 @@ export class RelativePosition {
 
       if (this.location === "after") offset += this.anchor.nodeSize;
 
-      return new Position(boundary, found.depth, parent.node, offset, popSteps(locate));
+      return Ok(new Position(boundary, found.depth, parent.node, offset, popSteps(locate)));
     } else if (this.location === "childIndex" || this.location === "childOffset") {
       if (this.location === "childIndex") offset = Position.indexToOffset(this.anchor, this.offset);
       else offset = this.offset;
 
-      return new Position(boundary, found.depth + 1, this.anchor, offset, locate);
+      return Ok(new Position(boundary, found.depth + 1, this.anchor, offset, locate));
     }
+
+    return Err("Failed to resolve position in the provided boundary");
   }
 }
 
@@ -201,8 +204,8 @@ export class Position {
    */
   static resolve(boundary: Node, pos: PositionLike) {
     const res = Position.softResolve(boundary, pos);
-    if (!res) throw new MethodError("Failed to resolve the position in the given boundary", "Position.resolve");
-    return res;
+    if (res.err) throw new MethodError("Failed to resolve the position in the given boundary", "Position.resolve");
+    return res.val;
   }
 
   /**
@@ -212,8 +215,8 @@ export class Position {
    * @param boundary The boundary to resolve the position in
    * @param pos The PositionLike to resolve, can be a absolute position (number), relative position or an already resolved position.
    */
-  static softResolve(boundary: Node, pos: PositionLike) {
-    if (pos instanceof Position) return pos;
+  static softResolve(boundary: Node, pos: PositionLike): Result<Position, string> {
+    if (pos instanceof Position) return Ok(pos);
     else if (pos instanceof RelativePosition) return pos.resolve(boundary);
     else return Position.absoluteToPosition(boundary, pos);
   }
@@ -224,13 +227,15 @@ export class Position {
    * @param pos The absolute position to resolve
    * @returns The resolved position, or undefined if it failed.
    */
-  static absoluteToPosition(boundary: Node, pos: number): Position | undefined {
-    if (pos < 0 || pos > boundary.nodeSize) return;
+  static absoluteToPosition(boundary: Node, pos: number): Result<Position, string> {
+    if (pos < 0 || pos > boundary.nodeSize) return Err(`The position ${pos}, is outside of the allowed range`);
     else if (pos === 0)
-      return new Position(boundary, 0, boundary, 0, {
-        boundary,
-        steps: [{ node: boundary, depth: 0, index: 0 }],
-      });
+      return Ok(
+        new Position(boundary, 0, boundary, 0, {
+          boundary,
+          steps: [{ node: boundary, depth: 0, index: 0 }],
+        }),
+      );
 
     const steps: LocateStep[] = [];
 
@@ -265,10 +270,10 @@ export class Position {
 
     steps.push({ node: boundary, index: 0, depth: 0, pos: 0 });
     const res = deepestOffset(boundary, 1, pos);
-    if (!res) return;
+    if (!res) return Err("Failed to resolve the position in the given boundary");
 
     const locate: LocateData = { boundary, steps };
-    return new Position(boundary, res.depth, res.parent, res.offset, locate);
+    return Ok(new Position(boundary, res.depth, res.parent, res.offset, locate));
   }
 
   /**

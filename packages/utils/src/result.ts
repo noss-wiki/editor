@@ -6,7 +6,7 @@ export const Err = <B>(val: B): Err<B> => new Err_(val);
 /**
  * Implements part of Gleam's Result type in typescript.
  * The `Result` type represents a value that can be either a success (`Ok`) or a failure (`Err`).
- * If you simply want to use an `Option` type, use `Result<T, never>` instead.
+ * If you simply want to use an `Option` type, use `Result<T, null>` instead.
  */
 export type Result<A, B> = Ok<A> | Err<B>;
 

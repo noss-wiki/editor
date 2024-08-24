@@ -6,7 +6,7 @@ import type { EditorState } from "../state";
  * E.g. when defining a view for a web targeted platform `T` would be `HTMLElement` (or better `HTMLElement | Text`).
  */
 export interface View<T> {
-  // TODO: Maybe also allow undefined?
+  // TODO: Maybe also allow undefined? (or `Result<T, string>` so that the error message can be used to help debugging)
   render(): T;
   /**
    * This hook is called when this view is destroyed.
@@ -37,11 +37,6 @@ export abstract class DocumentView<T> implements View<T> {
   }
 
   abstract render(): T;
-
-  //call render when update returns null or something (result? / option?)
-  //update() {
-  //  return null;
-  //}
 
   destroy() {}
 }

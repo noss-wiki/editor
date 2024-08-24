@@ -16,15 +16,17 @@ export class RemoveStep extends Step {
   }
 
   apply(boundary: Node): Result<Node, string> {
-    this.locate = locateNode(boundary, this.node);
-    if (!this.locate) return Err("The given node couldn't be located in the boundary");
+    return locateNode(boundary, this.node)
+      .replaceErr("The given node couldn't be located in the boundary")
+      .try((locate) => {
+        this.locate = locate;
 
-    const parent = this.locate.steps[this.locate.steps.length - 2].node;
-    const res = wrap(() => parent.content.remove(this.node));
-    if (res.err) return Err(res.val); // keep res somehow?
-
-    const node = parent.copy(res.val);
-    const c = boundary.content.replaceChildRecursive(parent, node);
-    return Ok(boundary.copy(c));
+        const parent = this.locate.steps[this.locate.steps.length - 2].node;
+        return wrap(() => parent.content.remove(this.node)).map((res) => {
+          const node = parent.copy(res);
+          const c = boundary.content.replaceChildRecursive(parent, node);
+          return boundary.copy(c);
+        });
+      });
   }
 }

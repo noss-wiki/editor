@@ -31,32 +31,33 @@ export class RelativePosition {
   }
 
   resolve(boundary: Node): Result<Position, string> {
-    const locate = locateNode(boundary, this.anchor);
-    if (!locate) return Err("Failed to locate node in the provided boundary");
+    return locateNode(boundary, this.anchor)
+      .replaceErr("Failed to locate node in the provided boundary")
+      .try((locate) => {
+        const parent = locate.steps[locate.steps.length - 2];
+        const found = locate.steps[locate.steps.length - 1];
+        let offset = 0;
 
-    const parent = locate.steps[locate.steps.length - 2];
-    const found = locate.steps[locate.steps.length - 1];
-    let offset = 0;
+        if (this.location === "after" || this.location === "before") {
+          if (found.node === locate.boundary) return Err("Can't resolve a position before or after the boundary node");
 
-    if (this.location === "after" || this.location === "before") {
-      if (found.node === locate.boundary) return Err("Can't resolve a position before or after the boundary node");
+          if (found.index > 0)
+            for (const [child, i] of parent.node.content.iter())
+              if (i === found.index) break;
+              else offset += child.nodeSize;
 
-      if (found.index > 0)
-        for (const [child, i] of parent.node.content.iter())
-          if (i === found.index) break;
-          else offset += child.nodeSize;
+          if (this.location === "after") offset += this.anchor.nodeSize;
 
-      if (this.location === "after") offset += this.anchor.nodeSize;
+          return Ok(new Position(boundary, found.depth, parent.node, offset, popSteps(locate)));
+        } else if (this.location === "childIndex" || this.location === "childOffset") {
+          if (this.location === "childIndex") offset = Position.indexToOffset(this.anchor, this.offset);
+          else offset = this.offset;
 
-      return Ok(new Position(boundary, found.depth, parent.node, offset, popSteps(locate)));
-    } else if (this.location === "childIndex" || this.location === "childOffset") {
-      if (this.location === "childIndex") offset = Position.indexToOffset(this.anchor, this.offset);
-      else offset = this.offset;
+          return Ok(new Position(boundary, found.depth + 1, this.anchor, offset, locate));
+        }
 
-      return Ok(new Position(boundary, found.depth + 1, this.anchor, offset, locate));
-    }
-
-    return Err("Failed to resolve position in the provided boundary");
+        return Err("Failed to resolve position in the provided boundary");
+      });
   }
 }
 
@@ -444,38 +445,37 @@ function popSteps(data: LocateData) {
  * @param node The node to search for
  * @returns Info about the node if found, else it returns undefined
  */
-export function locateNode(boundary: Node, node: Node): LocateData | undefined {
+export function locateNode(boundary: Node, node: Node): Result<LocateData, null> {
   if (boundary === node) {
     const step = {
       depth: 0,
       index: 0,
       node: boundary,
     };
-    return {
+    return Ok({
       boundary,
       steps: [step],
-    };
+    });
   }
-  const res = bfsSteps(boundary, 0, 0, node);
-  if (res) return { boundary, steps: res };
+  return bfsSteps(boundary, 0, 0, node).map((steps) => ({ boundary, steps }));
 }
 
-function bfsSteps(node: Node, nodeIndex: number, depth: number, search: Node): LocateStep[] | undefined {
+function bfsSteps(node: Node, nodeIndex: number, depth: number, search: Node): Result<LocateStep[], null> {
   const a: [Node, number][] = [];
 
   for (const [child, i] of node.content.iter()) {
     if (search === child)
-      return [
+      return Ok([
         { depth, node, index: nodeIndex },
         { depth: depth + 1, node: child, index: i },
-      ];
+      ]);
     else a.push([child, i]);
   }
 
   for (const [c, i] of a) {
     const res = bfsSteps(c, i, depth + 1, search);
-    if (res) {
-      res.unshift({
+    if (res.ok) {
+      res.val.unshift({
         depth: depth,
         node,
         index: nodeIndex,
@@ -483,9 +483,9 @@ function bfsSteps(node: Node, nodeIndex: number, depth: number, search: Node): L
       return res;
     }
   }
-}
 
-// TODO: Returns something else instead of throwing, but include the reason why it failed
+  return Err(null);
+}
 
 /**
  * Tries to find the deepest possible common parent between two positions.

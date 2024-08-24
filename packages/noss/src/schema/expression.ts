@@ -149,8 +149,10 @@ function matchAll(expression: string, regex: RegExp) {
 }
 
 function matchSelector(selector: string, node: Node): boolean {
-  if (node.type.name === selector) return true;
-  const nodeGroups = node.type.schema.group?.split(" ");
-  if (nodeGroups?.includes(selector)) return true;
   return false;
+
+  //if (node.type.name === selector) return true;
+  //const nodeGroups = node.type.schema.group?.split(" ");
+  //if (nodeGroups?.includes(selector)) return true;
+  //return false;
 }

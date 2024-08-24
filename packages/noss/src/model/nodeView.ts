@@ -42,7 +42,12 @@ export abstract class NodeView<T> implements View<T> {
     this.name ??= this.node.type.name;
   }
 
-  wrapRender() {
+  /**
+   * Wraps the render hook to bind the node and save the root/outlet.
+   */
+  _render(node?: Node) {
+    if (!this.node && node) this.bind(node);
+
     this.outlet = undefined;
     this.root = this.render();
     this.outlet ??= this.root;
@@ -50,6 +55,20 @@ export abstract class NodeView<T> implements View<T> {
   }
 
   abstract render(): T;
+}
+
+export abstract class BoundaryView<T> extends NodeView<T> {
+  /**
+   * This is what renders the node itself, it is part of the parent boundary.
+   * Defining outlet is not still necessary, as the result of `renderBoundary` is inserted as child of the outlet.
+   */
+  abstract override render(): T;
+  /**
+   * This is the boundary of the node, it wraps the node's content,
+   * but isn't part of the parent boundary in the view.
+   * This will be the only child of `outlet`.
+   */
+  abstract renderBoundary(): T;
 }
 
 /**

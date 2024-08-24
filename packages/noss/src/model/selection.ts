@@ -42,10 +42,10 @@ export class Selection {
 
     boundary ??= this.anchor.boundary;
     const pos = Position.offset(node, offset).resolve(boundary);
-    if (!pos)
+    if (pos.err)
       throw new MethodError("Failed to resolve node in the current boundary of the selection", "Selection.collapse");
 
-    this.head = this.anchor = pos;
+    this.head = this.anchor = pos.val;
   }
 
   /**
@@ -55,10 +55,10 @@ export class Selection {
    */
   static select(boundary: Node, node: Node) {
     const before = Position.before(node).resolve(boundary);
-    if (!before) return;
+    if (before.err) return;
     const after = Position.after(node).resolve(boundary);
-    if (!after) return;
+    if (after.err) return;
 
-    return new Selection(before, after);
+    return new Selection(before.val, after.val);
   }
 }

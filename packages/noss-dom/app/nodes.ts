@@ -1,4 +1,4 @@
-import { Fragment, Node, Text, NodeType, NodeView } from "noss-editor";
+import { Fragment, Node, AttrNode, Text, NodeType, NodeView } from "noss-editor";
 import { DefintionNodeView } from "../src/definitionView";
 export { Node, Text };
 
@@ -26,7 +26,17 @@ export class Document extends Node {
   }
 }
 
-export class Paragraph extends Node {
+class ParagraphView extends NodeView<HTMLElement> {
+  declare node: Paragraph;
+
+  override render() {
+    const p = document.createElement("p");
+    p.style.setProperty("color", this.node.attrs.color);
+    return p;
+  }
+}
+
+export class Paragraph extends AttrNode<{ color: string }> {
   static override type = NodeType.from({
     name: "paragraph",
     schema: {
@@ -35,7 +45,7 @@ export class Paragraph extends Node {
     },
   });
 
-  override view = new DefintionNodeView(["p", 0]);
+  override view = new ParagraphView();
 }
 
 export class Header extends Node {
@@ -51,7 +61,7 @@ export function doc(...content: (Node | string)[]) {
 }
 
 export function p(...content: (Node | string)[]) {
-  return new Paragraph(parseContent(content));
+  return new Paragraph({ color: Math.floor(Math.random() * 2) === 0 ? "yellow" : "white" }, parseContent(content));
 }
 
 export function h1(...content: (Node | string)[]) {

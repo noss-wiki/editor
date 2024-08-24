@@ -1,5 +1,5 @@
 export { Fragment } from "./model/fragment";
-export { Node, Text } from "./model/node";
+export { Node, AttrNode, Text } from "./model/node";
 export type {
   NodeMeta,
   NodeSchema,

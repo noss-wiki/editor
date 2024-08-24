@@ -35,7 +35,7 @@ function renderNodeRecursive(node: Node): HTMLElement | Text | null {
     const res = (<NodeView<string>>node.view).render();
     return document.createTextNode(res);
   }
-  const { root, outlet } = view.wrapRender();
+  const { root, outlet } = view._render(node);
 
   for (const [child] of node.content.iter()) {
     const childEle = renderNodeRecursive(child);

@@ -8,6 +8,10 @@ import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
 import { Position } from "./position";
 
+type NodeAttrs = {
+  readonly [x: string]: unknown;
+};
+
 /**
  * The base Node class
  */
@@ -19,6 +23,11 @@ export abstract class Node {
 
   readonly view?: NodeView<unknown>;
 
+  /**
+   * This node's attributes, if you want to define that a node has attributes,
+   * you should extend `AttrNode` instead of the normal `Node` class.
+   */
+  readonly attrs: NodeAttrs | null = null;
   /**
    * This node's children
    */
@@ -50,8 +59,15 @@ export abstract class Node {
   }
 
   // also add marks later
-  constructor(content?: Fragment | string) {
+  constructor(content?: Fragment | string)
+  constructor(attrs: NodeAttrs, content?: Fragment | string)
+  constructor(attrs?: Fragment | string | NodeAttrs, content?: Fragment | string) {
     this.type = (<typeof Node>this.constructor).type;
+
+    if (typeof attrs === "string" || attrs instanceof Fragment) {
+      content = attrs;
+      attrs = undefined;
+    }
 
     if (typeof content === "string")
       throw new MethodError(
@@ -69,8 +85,10 @@ export abstract class Node {
     this.type.node = <typeof Node>this.constructor;
     this.id = Math.random().toString(36).slice(2);
     this.content = content || new Fragment([]);
+    if (attrs) this.attrs = attrs;
 
     // @ts-ignore : This is a hack to allow the view to be initialized outside the constructor in subclasses
+    console.log(this, this.view);
     this.view?.bind(this);
   }
 
@@ -228,6 +246,19 @@ export abstract class Node {
   }
 }
 
+/**
+ * A node that can have attributes.
+ * This class is purely for type safety, and setting the attrs property, so you don't have to.
+ * Everything else is handled by the `Node` class.
+ */
+export class AttrNode<A extends NodeAttrs = NodeAttrs> extends Node {
+  declare attrs: A;
+
+  constructor(attrs: A, content?: Fragment | string) {
+    super(attrs, content);
+  }
+}
+
 export class Text extends Node {
   static override type = NodeType.from({
     name: "text",
@@ -251,7 +282,7 @@ export class Text extends Node {
   }
 
   constructor(content?: string) {
-    super(undefined);
+    super();
     if (!content) throw new MethodError("Empty text nodes are not allowed", "Text.constructor");
     this.text = content;
     this.view.bind(this);

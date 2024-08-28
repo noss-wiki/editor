@@ -31,12 +31,11 @@ class ParagraphView extends NodeView<HTMLElement> {
 
   override render() {
     const p = document.createElement("p");
-    p.style.setProperty("color", this.node.attrs.color);
     return p;
   }
 }
 
-export class Paragraph extends AttrNode<{ color: string }> {
+export class Paragraph extends Node {
   static override type = NodeType.from({
     name: "paragraph",
     schema: {
@@ -61,7 +60,7 @@ export function doc(...content: (Node | string)[]) {
 }
 
 export function p(...content: (Node | string)[]) {
-  return new Paragraph({ color: Math.floor(Math.random() * 2) === 0 ? "yellow" : "white" }, parseContent(content));
+  return new Paragraph(parseContent(content));
 }
 
 export function h1(...content: (Node | string)[]) {

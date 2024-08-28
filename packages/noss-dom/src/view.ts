@@ -1,11 +1,12 @@
 import { MethodError } from "@noss-editor/utils";
 import type { View, Node } from "noss-editor";
-import { NodeView, DocumentView } from "noss-editor";
+import { NodeView, EditorView } from "noss-editor";
 
 // TODO: Allow to derive state from the content of the root node
-export class DOMView extends DocumentView<HTMLElement> {
+export class DOMView extends EditorView<HTMLElement> {
   /**
-   * Either inserts this element in the DOM or call the `mount` method to use a custom root element.
+   * The provided element, either via the constructor or via the `mount` method,
+   * or a created element that can be appended to the document.
    */
   root: HTMLElement = document.createElement("div");
 

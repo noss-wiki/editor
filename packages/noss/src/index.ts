@@ -10,5 +10,5 @@ export { NodeView, TextView } from "./model/nodeView";
 export { Position, locateNode } from "./model/position";
 export { Selection } from "./model/selection";
 export { Slice } from "./model/slice";
-export { DocumentView } from "./model/view";
+export { EditorView } from "./model/view";
 export type { View } from "./model/view";

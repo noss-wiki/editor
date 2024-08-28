@@ -15,7 +15,7 @@ export interface View<T> {
   destroy?(): void;
 }
 
-export abstract class DocumentView<T> implements View<T> {
+export abstract class EditorView<T> implements View<T> {
   readonly editable: boolean;
   abstract root: T;
 

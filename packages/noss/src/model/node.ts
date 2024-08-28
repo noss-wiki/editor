@@ -21,6 +21,10 @@ export abstract class Node {
 
   readonly id: string;
 
+  /**
+   * The view that is responsible for rendering this node.
+   * Use `getView()` wherever possible to ensure this node is bound to the view.
+   */
   readonly view?: NodeView<unknown>;
 
   /**
@@ -59,8 +63,8 @@ export abstract class Node {
   }
 
   // also add marks later
-  constructor(content?: Fragment | string)
-  constructor(attrs: NodeAttrs, content?: Fragment | string)
+  constructor(content?: Fragment | string);
+  constructor(attrs: NodeAttrs, content?: Fragment | string);
   constructor(attrs?: Fragment | string | NodeAttrs, content?: Fragment | string) {
     this.type = (<typeof Node>this.constructor).type;
 
@@ -86,10 +90,16 @@ export abstract class Node {
     this.id = Math.random().toString(36).slice(2);
     this.content = content || new Fragment([]);
     if (attrs) this.attrs = attrs;
+  }
 
-    // @ts-ignore : This is a hack to allow the view to be initialized outside the constructor in subclasses
-    console.log(this, this.view);
-    this.view?.bind(this);
+  /**
+   * Returns the view that belongs to this node, or undefined if not set.
+   * This also binds this node to the view, if not done already.
+   */
+  getView(): this["view"] {
+    if (!this.view) return;
+    else if (!this.view.node) this.view.bind(this);
+    return this.view;
   }
 
   child(index: number): Node {

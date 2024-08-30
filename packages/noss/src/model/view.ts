@@ -1,3 +1,4 @@
+import type { Position, PositionLike } from "./position";
 import type { Node } from "./node";
 import type { EditorState } from "../state";
 
@@ -15,7 +16,16 @@ export interface View<T> {
   destroy?(): void;
 }
 
-export abstract class EditorView<T> implements View<T> {
+/**
+ * Defines what an EditorView should look like.
+ *
+ * `T` defines the type that is returned from the render hook and the type of the root element of this view.
+ * E.g. this will be `HTMLElement` when rendering to the DOM.
+ *
+ * `R` is by default the same as `T`, this defines the types of `NodeView`, that can occur in the document.
+ * E.g. this will be `Node` or `Text | HTMLElement` when rendering to the DOM.
+ */
+export abstract class EditorView<T, R = T> implements View<T> {
   readonly editable: boolean;
   abstract root: T;
 
@@ -33,10 +43,21 @@ export abstract class EditorView<T> implements View<T> {
   }
 
   update() {
-    return this.render();
+    this.render();
   }
 
   abstract render(): T;
 
   destroy() {}
+
+  // Util methods
+
+  /**
+   * Gets the position that `element` represents to in the Editor document.
+   */
+  abstract toPos(element: R): Position;
+  /**
+   * Gets the `element` in the rendered editor, that represents the node at pos.
+   */
+  abstract fromPos(pos: PositionLike): R;
 }

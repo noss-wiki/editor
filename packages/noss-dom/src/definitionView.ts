@@ -1,9 +1,9 @@
-import type { RenderResult } from "./types";
+import type { NodeRoot } from "./types";
 import { NodeView } from "noss-editor";
 import { stack, MethodError } from "@noss-editor/utils";
 
 // TODO: Refactor to allow access to node instance (and attrs, etc.)
-export class DefintionNodeView extends NodeView<RenderResult> {
+export class DefintionNodeView extends NodeView<NodeRoot> {
   constructor(
     readonly definition: RenderDefinition,
     node?: Node,
@@ -11,7 +11,7 @@ export class DefintionNodeView extends NodeView<RenderResult> {
     super();
   }
 
-  override render(): RenderResult {
+  override render(): NodeRoot {
     const { root, outlet } = stack("DefintionNodeView.render")(renderDefintion(this.definition));
     this.root = root;
     this.outlet = outlet;
@@ -36,7 +36,7 @@ export type RenderDefinition =
     ]
   | [keyof HTMLElementTagNameMap, ...ChildDefintion[]];
 
-type ChildDefintion = RenderDefinition | RenderResult | string | number | boolean;
+type ChildDefintion = RenderDefinition | NodeRoot | string | number | boolean;
 
 function renderDefintion(definition: RenderDefinition) {
   let [tag, attrs, ...children] = definition;

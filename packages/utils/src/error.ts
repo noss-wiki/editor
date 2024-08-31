@@ -35,19 +35,27 @@ export class MethodError extends Error {
  * If `functionThatCanThrow` throws a {@link MethodError}, the provided name will be added to the stack, and show up in the error message.
  * The only thing the function does is add the method to the stack when called initially,
  * and remove it when the returned function is called (and return the parameter to allow easy inlining).
- * So you can achieve the same by doing this
+ * If you want to wrap an entire section of code, you can use the second overload, like this:
     ```ts
-    const s = stack("EditorState.apply");
-    functionThatCanThrow();
-    anotherFunctionThatCanThrow();
-    s();
+    stack("EditorState.apply", () => {
+        functionThatCanThrow();
+        anotherFunctionThatCanThrow();
+    });
     ```
- * This adds the method to the stack on both methods, and removes it when `s` is called.
+ * This will call the method that wass passed to the second argument and return its result, while wrapping the entire section.
  */
-export function stack(method: string) {
+export function stack(method: string): <T>(target: T) => T;
+export function stack<T>(method: string, target: () => T): T;
+export function stack<T>(method: string, callback?: () => T) {
   let same = false;
   if (activeStack[activeStack.length - 1] === method) same = true;
   else activeStack.push(method);
+
+  if (callback !== undefined) {
+    const res = callback();
+    if (!same) activeStack.pop();
+    return res;
+  }
 
   return <T>(target: T) => {
     if (!same) activeStack.pop();

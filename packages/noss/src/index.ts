@@ -12,3 +12,9 @@ export { Selection } from "./model/selection";
 export { Slice } from "./model/slice";
 export { EditorView } from "./model/view";
 export type { View } from "./model/view";
+
+export { EditorState } from "./state";
+export { Transaction } from "./state/transaction";
+export { Step } from "./state/step";
+export { InsertStep, InsertTextStep } from "./state/steps/insert";
+export { RemoveStep } from "./state/steps/remove";

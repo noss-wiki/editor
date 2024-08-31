@@ -5,6 +5,10 @@ export type DOMNode = globalThis.Node & {
   _boundView?: NodeView<Node>;
   _boundNode?: EditorNode;
 };
+export type DOMElement = globalThis.HTMLElement & {
+  _boundView?: NodeView<Node>;
+  _boundNode?: EditorNode;
+};
 export const DOMText = globalThis.Text;
 export type DOMText = globalThis.Text & {
   _boundNode?: Text;
@@ -13,7 +17,7 @@ export type DOMText = globalThis.Text & {
  * Possible results from a render method;
  * a `Text` node or an `HTMLElement`.
  */
-export type NodeRoot = DOMText | HTMLElement;
+export type NodeRoot = DOMText | DOMElement;
 
 /**
  * Interface for the properties that are attached to a root node element that is created by the editor.

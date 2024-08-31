@@ -1,5 +1,5 @@
 import type { EditorState } from ".";
-import type { Node } from "../model/node";
+import type { Node, Text } from "../model/node";
 import type { Step } from "./step";
 import type { PositionLike } from "../model/position";
 import type { Result } from "@noss-editor/utils";
@@ -7,8 +7,8 @@ import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
 import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 // Steps
-import { InsertStep } from "./steps/insert";
-import { RemoveStep } from "./steps/remove";
+import { InsertStep, InsertTextStep } from "./steps/insert";
+import { RemoveStep, RemoveTextStep } from "./steps/remove";
 
 export class Transaction {
   readonly steps: Step[] = [];
@@ -79,20 +79,15 @@ export class Transaction {
   }
 
   insertText(text: string, pos: PositionLike) {
-    const resolvedPos = stack("Transaction.insertText")(Position.resolve(this.modified, pos));
-    const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
+    return stack("Transaction.insertText", () => {
+      const resolvedPos = Position.resolve(this.modified, pos);
+      const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
 
-    if (index !== undefined) {
-      // New node needs to be created
-      const node = stack("Transaction.insertText")(createTextNode(text));
-      stack("Transaction.inserText")(this.step(new InsertStep(resolvedPos, node)));
-    } else {
-      // content needs to be inserted in existing node
-      // -> use replace step with collapsed selection
-      throw new NotImplementedError("Transaction.inserText", true);
-    }
+      if (index !== undefined) this.insert(createTextNode(text), pos);
+      else this.step(new InsertTextStep(pos, text));
 
-    return this;
+      return this;
+    });
   }
 
   /**
@@ -103,6 +98,15 @@ export class Transaction {
   remove(node: Node) {
     stack("Transaction.remove")(this.step(new RemoveStep(node)));
     return this;
+  }
+
+  removeText(node: Text, text: string) {
+    return stack("Transaction.removeText", () => {
+      if (text === node.text || text.length > node.text.length) this.remove(node);
+      else this.step(new RemoveTextStep(node, text));
+
+      return this;
+    });
   }
 
   /**

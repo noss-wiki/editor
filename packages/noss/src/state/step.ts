@@ -6,6 +6,8 @@ export type StepJSON = {
   [x: string]: unknown;
 };
 
+// TODO: implement method to register custom steps
+//       and to get the step corresponding to a given id.
 export abstract class Step {
   abstract id: string;
   /**

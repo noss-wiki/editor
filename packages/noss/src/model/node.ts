@@ -150,6 +150,10 @@ export abstract class Node {
     return this.copy(this.content.remove(from, to));
   }
 
+  removeChild(child: Node) {
+    return this.copy(this.content.remove(child));
+  }
+
   /**
    * Replaces the selection with the provided slice, if it fits.
    *

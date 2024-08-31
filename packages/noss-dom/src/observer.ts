@@ -5,6 +5,10 @@ export class DOMObserver {
   readonly observer: MutationObserver;
   readonly view!: DOMView;
 
+  get stateTr() {
+    return this.view.state.tr;
+  }
+
   constructor() {
     this.observer = new MutationObserver((e) => this.callback(e));
   }
@@ -30,7 +34,11 @@ export class DOMObserver {
   private callback(e: MutationRecord[]) {
     for (const record of e) {
       if (record.type === "characterData") {
-        console.log(record);
+        const t = record.target;
+        if (t.nodeType === DOMNode.TEXT_NODE) {
+          const node = this.view.toNode(t);
+          console.log(record, node);
+        }
       }
     }
   }

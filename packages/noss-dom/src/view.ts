@@ -1,6 +1,6 @@
 import { MethodError } from "@noss-editor/utils";
-import type { View, Node, Text } from "noss-editor";
-import type { NodeRoot, NodeViewElement, TextViewElement, DOMText } from "./types";
+import type { View, Node, Text, Position } from "noss-editor";
+import type { NodeRoot, DOMNode, DOMElement, DOMText } from "./types";
 import { NodeView, EditorView } from "noss-editor";
 import { DOMObserver } from "./observer";
 
@@ -34,16 +34,27 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
     return ele as HTMLElement;
   }
+
+  override toNode(element: DOMNode): Node {
+    const bound = element._boundNode;
+    if (bound) return bound;
+    else if ((element as HTMLElement).tagName === "BODY")
+      throw new MethodError("Failed to get bound node, searched up to the body tag", "DOMView.toNode");
+    else if (!element.parentNode)
+      throw new MethodError("Failed to get bound node, node doesn't have a parentNode", "DOMView.toNode");
+
+    return this.toNode(element.parentNode);
+  }
 }
 
-function renderNodeRecursive(node: Node): HTMLElement | DOMText | null {
+function renderNodeRecursive(node: Node): DOMElement | DOMText | null {
   const view = <NodeView<HTMLElement> | undefined>node.view;
   if (!view || !(view instanceof NodeView)) return null;
 
   if (view.name === "text" || view.node?.type.schema.text) {
     const res = (<NodeView<string>>node.view).render();
     const text = document.createTextNode(res);
-    (<TextViewElement>text)._boundNode = <Text>node;
+    (<DOMText>text)._boundNode = <Text>node;
     return text;
   }
   const { root, outlet } = view._render(node);
@@ -54,8 +65,8 @@ function renderNodeRecursive(node: Node): HTMLElement | DOMText | null {
     outlet.appendChild(childEle);
   }
 
-  (<NodeViewElement>root)._boundNode = node;
-  (<NodeViewElement>root)._boundView = view;
+  (<DOMNode>root)._boundNode = node;
+  (<DOMNode>root)._boundView = view;
 
   return root;
 }

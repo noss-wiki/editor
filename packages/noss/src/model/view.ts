@@ -1,5 +1,5 @@
 import type { Position, PositionLike } from "./position";
-import type { Node } from "./node";
+import type { Node, Text } from "./node";
 import type { EditorState } from "../state";
 
 /**
@@ -48,16 +48,20 @@ export abstract class EditorView<T, R = T> implements View<T> {
 
   abstract render(): T;
 
-  destroy() {}
+  destroy() { }
 
   // Util methods
 
   /**
    * Gets the position that `element` represents to in the Editor document.
    */
-  abstract toPos(element: R): Position;
+  abstract toNode(element: R): Node;
+  /**
+   * Gets the position that `element` represents to in the Editor document.
+   */
+  //abstract toPos(element: R): Position;
   /**
    * Gets the `element` in the rendered editor, that represents the node at pos.
    */
-  abstract fromPos(pos: PositionLike): R;
+  //abstract fromPos(pos: PositionLike): R;
 }

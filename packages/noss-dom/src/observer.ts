@@ -1,5 +1,8 @@
 import type { DOMView } from "./view";
-import { DOMNode } from "./types";
+import type { Node, Text } from "noss-editor";
+import { MethodError } from "@noss-editor/utils";
+import { DOMNode, DOMText } from "./types";
+import { diffText } from "./diff";
 
 export class DOMObserver {
   readonly observer: MutationObserver;
@@ -36,8 +39,12 @@ export class DOMObserver {
       if (record.type === "characterData") {
         const t = record.target;
         if (t.nodeType === DOMNode.TEXT_NODE) {
-          const node = this.view.toNode(t);
-          console.log(record, node);
+          const node = this.view.toNode(t) as Text;
+          const text = record.target as DOMText;
+          if (!node.type.schema.text)
+            throw new MethodError("Node type mismatch; DOM node is text node, but bound node isn't", "anonymous");
+          const diff = diffText(node.text, text.data);
+          console.log(diff)
         }
       }
     }

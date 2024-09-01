@@ -6,7 +6,7 @@ import { Ok, Err, wrap } from "@noss-editor/utils";
 import { Step } from "../step";
 
 export class RemoveStep extends Step {
-  id = "remove";
+  readonly id = "remove";
 
   private locate?: LocateData;
 
@@ -31,23 +31,38 @@ export class RemoveStep extends Step {
 }
 
 export class RemoveTextStep extends Step {
-  id = "removeText";
+  readonly id = "removeText";
 
   private locate?: LocateData;
 
+  readonly to: number;
+
   constructor(
     readonly node: Text,
-    readonly content: string,
+    readonly from: number,
+    to?: number,
   ) {
     super();
+    this.to = to || node.text.length;
   }
 
   apply(boundary: Node): Result<Node, string> {
-    if (!this.node.text.includes(this.content))
-      return Err(`Can't remove string ${this.content}, from text node with content ${this.node.content}`);
+    if (this.from === 0 && this.to === this.node.text.length)
+      return Err("Can't remove the entire text node, use RemoveStep instead");
+    else if (this.from === this.to) return Ok(boundary);
 
-    const node = this.node.copy(this.node.text.replace(this.content, ""));
+    const node = this.node.remove(this.from, this.to);
     return wrap(() => boundary.content.replaceChildRecursive(this.node, node)) //
       .map((c) => boundary.copy(c));
+  }
+
+  override merge(other: Step): Result<Step, null> {
+    if (!(other instanceof RemoveTextStep) || this.node !== other.node) return Err();
+
+    const from = Math.min(this.from, other.from);
+    const to = Math.max(this.to, other.to);
+    if (from === 0 && to == this.node.text.length) return Err();
+
+    return Ok(new RemoveTextStep(this.node, from, to));
   }
 }

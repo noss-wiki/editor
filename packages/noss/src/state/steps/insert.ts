@@ -1,12 +1,12 @@
 import type { Node, Text } from "../../model/node";
-import type { PositionLike } from "../../model/position";
+import type { AbsoluteLike, PositionLike } from "../../model/position";
 import type { Result } from "@noss-editor/utils";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { Position } from "../../model/position";
 import { Step } from "../step";
 
 export class InsertStep extends Step {
-  id = "insert";
+  readonly id = "insert";
 
   constructor(
     public pos: PositionLike, //
@@ -34,10 +34,10 @@ export class InsertStep extends Step {
 }
 
 export class InsertTextStep extends Step {
-  id = "insertText";
+  readonly id = "insertText";
 
   constructor(
-    public pos: PositionLike, //
+    public pos: AbsoluteLike, //
     readonly content: string,
   ) {
     super();
@@ -56,5 +56,24 @@ export class InsertTextStep extends Step {
         const c = boundary.content.replaceChildRecursive(parent, res);
         return Ok(boundary.copy(c));
       });
+  }
+
+  /**
+   * Tries to merge two `InsertTextStep` steps.
+   * If this position resolves to the same postion as the other step,
+   * the content of the this step takes priority, and the content of the other step will be concatenated to the end.
+   */
+  override merge(other: Step): Result<Step, null> {
+    if (!(other instanceof InsertTextStep)) return Err();
+    const tPos = Position.positionToAbsolute(this.pos);
+    const oPos = Position.positionToAbsolute(other.pos);
+
+    if (tPos > oPos && tPos < oPos + other.content.length) {
+      const content = other.content.slice(0, tPos - oPos) + this.content + other.content.slice(tPos - oPos);
+      return Ok(new InsertTextStep(oPos, content));
+    } else if (oPos > tPos && oPos < tPos + this.content.length) {
+      const content = this.content.slice(0, oPos - tPos) + other.content + this.content.slice(oPos - tPos);
+      return Ok(new InsertTextStep(tPos, content));
+    } else return Err();
   }
 }

@@ -1,7 +1,7 @@
 import type { EditorState } from ".";
 import type { Node, Text } from "../model/node";
 import type { Step } from "./step";
-import type { PositionLike } from "../model/position";
+import type { AbsoluteLike, PositionLike } from "../model/position";
 import type { Result } from "@noss-editor/utils";
 import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
@@ -78,7 +78,8 @@ export class Transaction {
     return this;
   }
 
-  insertText(text: string, pos: PositionLike) {
+  // TODO: Allow `PositionLike`?
+  insertText(text: string, pos: AbsoluteLike) {
     return stack("Transaction.insertText", () => {
       const resolvedPos = Position.resolve(this.modified, pos);
       const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);

@@ -1,7 +1,13 @@
 import { MethodError } from "./error";
 
 export const Ok = <A>(val: A): Ok<A> => new Ok_(val);
-export const Err = <B>(val: B): Err<B> => new Err_(val);
+
+export function Err(): Err<null>;
+export function Err<B>(val: B): Err<B>;
+export function Err<B>(val?: B) {
+  if (!val) return new Err_(null);
+  return new Err_(val);
+}
 
 /**
  * Implements part of Gleam's Result type in typescript.
@@ -99,7 +105,7 @@ class Ok_<A> implements Ok<A> {
   readonly ok = true;
   readonly err = false;
 
-  constructor(readonly val: A) {}
+  constructor(readonly val: A) { }
 
   isOk = () => true as const;
   isErr = () => false as const;
@@ -130,7 +136,7 @@ class Err_<B> implements Err<B> {
   readonly ok = false;
   readonly err = true;
 
-  constructor(readonly val: B) {}
+  constructor(readonly val: B) { }
 
   isOk = () => false as const;
   isErr = () => true as const;

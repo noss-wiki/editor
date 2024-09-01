@@ -56,12 +56,16 @@ export class RemoveTextStep extends Step {
       .map((c) => boundary.copy(c));
   }
 
-  override merge(other: Step): Result<Step, null> {
-    if (!(other instanceof RemoveTextStep) || this.node !== other.node) return Err();
+  override merge(other: Step): Result<Step, string> {
+    if (!(other instanceof RemoveTextStep)) return Err("Other step is not a RemoveTextStep");
+    else if (this.node !== other.node) return Err("Both steps must target the same text node");
+
+    if (this.from > other.to || other.from > this.to) return Err("Steps don't overlap, apply steps seperately");
 
     const from = Math.min(this.from, other.from);
     const to = Math.max(this.to, other.to);
-    if (from === 0 && to == this.node.text.length) return Err();
+    if (from === 0 && to === this.node.text.length)
+      return Err("Can't remove the entire text node, use RemoveStep instead");
 
     return Ok(new RemoveTextStep(this.node, from, to));
   }

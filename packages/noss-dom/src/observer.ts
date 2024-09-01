@@ -1,7 +1,8 @@
 import type { DOMView } from "./view";
 import type { Node, Text } from "noss-editor";
+import type { DOMText } from "./types";
 import { MethodError } from "@noss-editor/utils";
-import { DOMNode, DOMText } from "./types";
+import { DOMNode } from "./types";
 import { diffText } from "./diff";
 
 export class DOMObserver {
@@ -44,7 +45,7 @@ export class DOMObserver {
           if (!node.type.schema.text)
             throw new MethodError("Node type mismatch; DOM node is text node, but bound node isn't", "anonymous");
           const diff = diffText(node.text, text.data);
-          console.log(diff)
+          console.log(diff);
         }
       }
     }

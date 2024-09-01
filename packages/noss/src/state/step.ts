@@ -16,7 +16,7 @@ export abstract class Step {
    */
   abstract apply(boundary: Node): Result<Node, string>;
 
-  merge(other: Step): Result<Step, null> {
+  merge(other: Step): Result<Step, null | string> {
     return Err();
   }
 

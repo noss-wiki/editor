@@ -101,10 +101,14 @@ export class Transaction {
     return this;
   }
 
-  removeText(node: Text, text: string) {
+  removeText(node: Text, from: number, to?: number) {
+    if (from < 0) from = node.text.length + from;
+    // Useless step
+    if (from === to || from > node.text.length || (to && to < 0)) return this;
+
     return stack("Transaction.removeText", () => {
-      if (text === node.text || text.length > node.text.length) this.remove(node);
-      else this.step(new RemoveTextStep(node, text));
+      if (from === 0 && (!to || to > node.text.length)) this.remove(node);
+      else this.step(new RemoveTextStep(node, from, to));
 
       return this;
     });

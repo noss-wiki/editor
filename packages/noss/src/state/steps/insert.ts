@@ -36,26 +36,21 @@ export class InsertStep extends Step {
 export class InsertTextStep extends Step {
   readonly id = "insertText";
 
+  readonly offset: number;
+
   constructor(
-    public pos: AbsoluteLike, //
+    readonly node: Text,
     readonly content: string,
+    offset?: number,
   ) {
     super();
+    this.offset = offset || node.text.length;
   }
 
   apply(boundary: Node): Result<Node, string> {
-    return Position.softResolve(boundary, this.pos) //
-      .try((pos) => {
-        this.pos = pos;
-
-        const parent = pos.parent as Text;
-        if (!parent.type.schema.text)
-          return Err("Position doesn't resolves inside a text node, use InsertStep when inserting non-text content");
-
-        const res = parent.insert(pos.offset, this.content);
-        const c = boundary.content.replaceChildRecursive(parent, res);
-        return Ok(boundary.copy(c));
-      });
+    const res = this.node.insert(this.offset, this.content);
+    const c = boundary.content.replaceChildRecursive(this.node, res);
+    return Ok(boundary.copy(c));
   }
 
   /**
@@ -63,17 +58,27 @@ export class InsertTextStep extends Step {
    * If this position resolves to the same postion as the other step,
    * the content of the this step takes priority, and the content of the other step will be concatenated to the end.
    */
-  override merge(other: Step): Result<Step, null> {
-    if (!(other instanceof InsertTextStep)) return Err();
-    const tPos = Position.positionToAbsolute(this.pos);
-    const oPos = Position.positionToAbsolute(other.pos);
+  override merge(other: Step): Result<Step, string> {
+    if (!(other instanceof InsertTextStep)) return Err("Other step is not a RemoveTextStep");
+    else if (this.node !== other.node) return Err("Both steps must target the same text node");
 
-    if (tPos > oPos && tPos < oPos + other.content.length) {
-      const content = other.content.slice(0, tPos - oPos) + this.content + other.content.slice(tPos - oPos);
-      return Ok(new InsertTextStep(oPos, content));
-    } else if (oPos > tPos && oPos < tPos + this.content.length) {
-      const content = this.content.slice(0, oPos - tPos) + other.content + this.content.slice(oPos - tPos);
-      return Ok(new InsertTextStep(tPos, content));
-    } else return Err();
+    if (this.offset + this.content.length < other.offset || other.offset + other.content.length < this.offset)
+      return Err("Steps don't overlap, apply steps seperately");
+
+    if (this.offset === other.offset)
+      return Ok(new InsertTextStep(this.node, this.content + other.content, this.offset));
+    else if (this.offset > other.offset) {
+      const content =
+        other.content.slice(0, this.offset - other.offset) +
+        this.content +
+        other.content.slice(this.offset - other.offset);
+      return Ok(new InsertTextStep(this.node, content, other.offset));
+    } else {
+      const content =
+        this.content.slice(0, other.offset - this.offset) +
+        other.content +
+        this.content.slice(other.offset - this.offset);
+      return Ok(new InsertTextStep(this.node, content, this.offset));
+    }
   }
 }

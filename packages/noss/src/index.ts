@@ -17,4 +17,4 @@ export { EditorState } from "./state";
 export { Transaction } from "./state/transaction";
 export { Step } from "./state/step";
 export { InsertStep, InsertTextStep } from "./state/steps/insert";
-export { RemoveStep } from "./state/steps/remove";
+export { RemoveStep, RemoveTextStep } from "./state/steps/remove";

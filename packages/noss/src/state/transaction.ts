@@ -24,18 +24,13 @@ export class Transaction {
   }
 
   /**
-   * @param state The state this transaction belongs to.
    * @param boundary The boundary node where this transaction originates, positions are resolved in this node.
    * @param addToHistory
    *    Whether to add this transaction to the history stack.
    *    When set to false, the transaction will not be added to the history stack
    *    and thus ignored by undo/redo actions, this is usefull for e.g. collaborative editing.
    */
-  constructor(
-    readonly state: EditorState,
-    boundary: Node,
-    addToHistory = true,
-  ) {
+  constructor(boundary: Node, addToHistory = true) {
     this.original = boundary;
     this.mod = [boundary];
     this.history = addToHistory;
@@ -79,13 +74,13 @@ export class Transaction {
   }
 
   // TODO: Allow `PositionLike`?
-  insertText(text: string, pos: AbsoluteLike) {
+  insertText(node: Text, text: string, pos: AbsoluteLike) {
     return stack("Transaction.insertText", () => {
       const resolvedPos = Position.resolve(this.modified, pos);
       const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
 
       if (index !== undefined) this.insert(createTextNode(text), pos);
-      else this.step(new InsertTextStep(pos, text));
+      else this.step(new InsertTextStep(resolvedPos.parent as Text, text, resolvedPos.offset));
 
       return this;
     });
@@ -112,14 +107,6 @@ export class Transaction {
 
       return this;
     });
-  }
-
-  /**
-   * Calls the `apply` function on the linked editor state, which adds this transaction to the editor state.
-   * After calling this or the function on the editor state, changes to this transaction are not allowed.
-   */
-  apply() {
-    return this.state.apply(this);
   }
 }
 

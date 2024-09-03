@@ -2,7 +2,7 @@ import type { DOMView } from "./view";
 import type { Node, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { InsertTextStep, Position, RemoveTextStep } from "noss-editor";
+import { InsertTextStep, RemoveTextStep } from "noss-editor";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
@@ -24,7 +24,6 @@ export class DOMObserver {
   start() {
     this.observer.observe(this.view.root, {
       characterData: true,
-      characterDataOldValue: true,
       childList: true,
       subtree: true,
     });
@@ -45,23 +44,30 @@ export class DOMObserver {
             throw new MethodError("Node type mismatch; DOM node is text node, but bound node isn't", "anonymous");
 
           const tr = this.view.state.tr;
-          const res = calculateText(node, text.data)
-            .replaceErr("Failed to calculate steps to update node")
-            .try((step) => tr.softStep(step));
+          const res = calculateText(tr, node, text.data);
 
           // TODO: apply if Ok and throw(?) if Err
           if (res.ok) this.pending.push(tr);
+          console.log(res.val);
         }
       }
     }
   }
 }
 
-function calculateText(node: Text, expected: string): Result<InsertTextStep | RemoveTextStep, null> {
+/**
+ * Calculates the transaction steps to apply to the text node to make it match the expected text.
+ * This method only expects the changes to have happened on one position in the text node.
+ * This method modifies the transaction and returns the result, but that parameter is still modified.
+ */
+function calculateText(tr: Transaction, node: Text, expected: string): Result<Transaction, string> {
   const diff = diffText(node.text, expected);
-  if (diff.type === "none") return Err();
+  if (diff.type === "none") return Err("No changes detected in the text node");
   else if (diff.type === "replace") {
-    return Err();
-  } else if (diff.type === "insert") return Ok(new InsertTextStep(node, diff.change, diff.start));
-  else return Ok(new RemoveTextStep(node, diff.start, diff.end));
+    return tr
+      .softStep(new RemoveTextStep(node, diff.start, diff.end))
+      .try(() => tr.softStep(new InsertTextStep(node, diff.added, diff.start)))
+      .replace(tr);
+  } else if (diff.type === "insert") return tr.softStep(new InsertTextStep(node, diff.change, diff.start)).replace(tr);
+  else return tr.softStep(new RemoveTextStep(node, diff.start, diff.end)).replace(tr);
 }

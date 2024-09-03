@@ -105,7 +105,7 @@ class Ok_<A> implements Ok<A> {
   readonly ok = true;
   readonly err = false;
 
-  constructor(readonly val: A) { }
+  constructor(readonly val: A) {}
 
   isOk = () => true as const;
   isErr = () => false as const;
@@ -136,7 +136,7 @@ class Err_<B> implements Err<B> {
   readonly ok = false;
   readonly err = true;
 
-  constructor(readonly val: B) { }
+  constructor(readonly val: B) {}
 
   isOk = () => false as const;
   isErr = () => true as const;
@@ -176,15 +176,15 @@ export function flatten<A, B>(result: Result<Result<A, B>, B>) {
 
 /**
  * Wraps a function that can throw,
- * if the throwed value is a {@link MethodError} or a generic Error it will return a `Result.Error`.
- * If the value is unknown it will still be thrown.
+ * if the throwed value is a {@link MethodError} or a generic Error it will return a `Err`.
  */
 export function wrap<T>(fn: () => T): Result<T, string> {
   try {
-    return Ok(fn());
+    const res = fn();
+    return Ok(res);
   } catch (e) {
     if (e instanceof MethodError) return Err(e._message);
     else if (e instanceof Error) return Err(e.message);
-    else throw e;
+    else return Err("Unknown error");
   }
 }

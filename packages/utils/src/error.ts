@@ -9,7 +9,7 @@ export class MethodError extends Error {
 
     for (const i of activeStack.slice().reverse()) log += `  at ${i}\n`;
 
-    super(log);
+    super(`${log}\n`);
     this._stack = [...activeStack, ...(Array.isArray(method) ? method : [method])].reverse();
     this._message = msg;
   }

@@ -49,8 +49,7 @@ export class InsertTextStep extends Step {
 
   apply(boundary: Node): Result<Node, string> {
     const res = this.node.insert(this.offset, this.content);
-    const c = boundary.content.replaceChildRecursive(this.node, res);
-    return Ok(boundary.copy(c));
+    return wrap(() => boundary.content.replaceChildRecursive(this.node, res)).map((c) => boundary.copy(c));
   }
 
   /**

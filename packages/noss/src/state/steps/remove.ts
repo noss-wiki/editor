@@ -22,10 +22,8 @@ export class RemoveStep extends Step {
 
         const parent = this.locate.steps[this.locate.steps.length - 2].node;
         return wrap(() => parent.removeChild(this.node)) //
-          .map((node) => {
-            const c = boundary.content.replaceChildRecursive(parent, node);
-            return boundary.copy(c);
-          });
+          .try((node) => wrap(() => boundary.content.replaceChildRecursive(parent, node)))
+          .map((c) => boundary.copy(c));
       });
   }
 }

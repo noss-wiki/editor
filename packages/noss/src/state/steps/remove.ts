@@ -21,17 +21,15 @@ export class RemoveStep extends Step {
         this.locate = locate;
 
         const parent = this.locate.steps[this.locate.steps.length - 2].node;
-        return wrap(() => parent.removeChild(this.node)) //
-          .try((node) => wrap(() => boundary.content.replaceChildRecursive(parent, node)))
-          .map((c) => boundary.copy(c));
+        const node = parent.removeChild(this.node);
+
+        return this.hintReplaceChildRecursive(boundary, parent, node);
       });
   }
 }
 
 export class RemoveTextStep extends Step {
   readonly id = "removeText";
-
-  private locate?: LocateData;
 
   readonly to: number;
 
@@ -50,8 +48,7 @@ export class RemoveTextStep extends Step {
     else if (this.from === this.to) return Ok(boundary);
 
     const node = this.node.remove(this.from, this.to);
-    return wrap(() => boundary.content.replaceChildRecursive(this.node, node)) //
-      .map((c) => boundary.copy(c));
+    return this.hintReplaceChildRecursive(boundary, this.node, node);
   }
 
   override merge(other: Step): Result<Step, string> {

@@ -10,10 +10,13 @@ import { diffText } from "./diff";
 export class DOMObserver {
   readonly observer: MutationObserver;
   readonly view!: DOMView;
-  readonly pending: Transaction[] = [];
+  readonly pending: MutationRecord[] = [];
 
   constructor() {
-    this.observer = new MutationObserver((e) => this.callback(e));
+    this.observer = new MutationObserver((e) => {
+      for (const record of e) //this.pending.push(record);
+        this.callback(record);
+    });
   }
 
   bind(view: DOMView) {
@@ -33,23 +36,19 @@ export class DOMObserver {
     this.observer.disconnect();
   }
 
-  private callback(e: MutationRecord[]) {
-    for (const record of e) {
-      if (record.type === "characterData") {
-        const t = record.target;
-        if (t.nodeType === DOMNode.TEXT_NODE) {
-          const node = this.view.toNode(t) as Text;
-          const text = record.target as DOMText;
-          if (!node.type.schema.text)
-            throw new MethodError("Node type mismatch; DOM node is text node, but bound node isn't", "anonymous");
+  private callback(record: MutationRecord) {
+    if (record.type === "characterData") {
+      const t = record.target;
+      if (t.nodeType === DOMNode.TEXT_NODE) {
+        const node = this.view.toNode(t) as Text;
+        const text = record.target as DOMText;
+        if (!node.type.schema.text)
+          throw new MethodError("Node type mismatch; DOM node is text node, but bound node isn't", "anonymous");
 
-          const tr = this.view.state.tr;
-          const res = calculateText(tr, node, text.data);
-
-          // TODO: apply if Ok and throw(?) if Err
-          if (res.ok) this.pending.push(tr);
-          console.log(res.val);
-        }
+        const tr = this.view.state.tr;
+        const res = calculateText(tr, node, text.data).try((t) => this.view.state.apply(t));
+        if (res.err) console.warn(res.val);
+        else console.log(res.val);
       }
     }
   }

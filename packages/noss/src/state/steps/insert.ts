@@ -1,7 +1,7 @@
 import type { Node, Text } from "../../model/node";
 import type { AbsoluteLike, PositionLike } from "../../model/position";
 import type { Result } from "@noss-editor/utils";
-import { Err, Ok, wrap } from "@noss-editor/utils";
+import { Err, Ok } from "@noss-editor/utils";
 import { Position } from "../../model/position";
 import { Step } from "../step";
 
@@ -26,9 +26,8 @@ export class InsertStep extends Step {
             return Err("Position doesn't resolve to an index");
           else return Err("Position resolves inside a text node, use InsertTextStep if this was intentional");
 
-        const res = pos.parent.copy(pos.parent.content.insert(this.node, index));
-        return wrap(() => boundary.content.replaceChildRecursive(pos.parent, res)) //
-          .map((c) => boundary.copy(c));
+        const node = pos.parent.copy(pos.parent.content.insert(this.node, index));
+        return this.hintReplaceChildRecursive(boundary, pos.parent, node);
       });
   }
 }
@@ -48,8 +47,8 @@ export class InsertTextStep extends Step {
   }
 
   apply(boundary: Node): Result<Node, string> {
-    const res = this.node.insert(this.offset, this.content);
-    return wrap(() => boundary.content.replaceChildRecursive(this.node, res)).map((c) => boundary.copy(c));
+    const node = this.node.insert(this.offset, this.content);
+    return this.hintReplaceChildRecursive(boundary, this.node, node);
   }
 
   /**

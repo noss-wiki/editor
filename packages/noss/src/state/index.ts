@@ -1,10 +1,9 @@
 import type { Node } from "../model/node";
 import type { EventMap, Result } from "@noss-editor/utils";
-import type { ChangedNode } from "./step";
 import type { EditorView } from "../model/view";
+import type { Diff } from "./diff";
 import { MethodError, NotImplementedError, stack, EventFull, Ok, Err } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
-import { ChangeType } from "./step";
 
 interface EventData extends EventMap {}
 
@@ -55,14 +54,16 @@ export class EditorState extends EventFull<EventData> {
   apply(tr: Transaction): Result<Node, string> {
     // emit some event where the transction can be modified / cancelled?
     return constructDocument(this.document, tr).map((doc) => {
-      this.transactions.push(tr);
-      this.mod.push(doc);
+      mergeDiffs(tr)
+        .map((diffs) => {
+          this.transactions.push(tr);
+          this.mod.push(doc);
 
-      const changes = calculateUpdated(tr);
-      this.view?.update(changes);
-      // Calculate updated nodes (prob from steps)
-      // emit `update` event with changed nodes
-      // this.emit("update", { changedNodes: [] }) or maybe just view.update
+          this.view?.update(diffs);
+        })
+        .mapErr((err) => {
+          // emit error or warn event or smth
+        });
 
       return doc;
     });
@@ -82,16 +83,12 @@ export function constructDocument(document: Node, tr: Transaction): Result<Node,
   return Ok(document.copy(content));
 }
 
-function calculateUpdated(tr: Transaction) {
-  const changes: ChangedNode[] = [];
-
-  for (const step of tr.steps) {
-    if (step.hints) {
-      for (const hint of step.hints) changes.push(hint);
-      //continue;
-    }
-    // analyze documents for changes
+function mergeDiffs(tr: Transaction): Result<Diff, string> {
+  let diff = tr.diff[0];
+  for (let i = 1; i < tr.diff.length; i++) {
+    const res = diff.merge(tr.diff[i]);
+    if (res.ok) diff = res.val;
+    else return res;
   }
-
-  return changes;
+  return Ok(diff);
 }

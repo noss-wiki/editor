@@ -4,6 +4,7 @@ import type { Result } from "@noss-editor/utils";
 import { Err, Ok } from "@noss-editor/utils";
 import { Position } from "../../model/position";
 import { Step } from "../step";
+import { Diff } from "../diff";
 
 export class InsertStep extends Step {
   readonly id = "insert";
@@ -15,7 +16,7 @@ export class InsertStep extends Step {
     super();
   }
 
-  apply(boundary: Node): Result<Node, string> {
+  apply(boundary: Node): Result<Diff, string> {
     return Position.softResolve(boundary, this.pos) //
       .try((pos) => {
         this.pos = pos;
@@ -27,7 +28,7 @@ export class InsertStep extends Step {
           else return Err("Position resolves inside a text node, use InsertTextStep if this was intentional");
 
         const node = pos.parent.copy(pos.parent.content.insert(this.node, index));
-        return this.hintReplaceChildRecursive(boundary, pos.parent, node);
+        return Diff.replaceChild(boundary, pos.parent, node);
       });
   }
 }
@@ -46,9 +47,9 @@ export class InsertTextStep extends Step {
     this.offset = offset || node.text.length;
   }
 
-  apply(boundary: Node): Result<Node, string> {
+  apply(boundary: Node): Result<Diff, string> {
     const node = this.node.insert(this.offset, this.content);
-    return this.hintReplaceChildRecursive(boundary, this.node, node);
+    return Diff.replaceChild(boundary, this.node, node);
   }
 
   /**

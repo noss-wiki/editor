@@ -1,9 +1,10 @@
-import { MethodError } from "@noss-editor/utils";
 import type { View, Node, Text, Position } from "noss-editor";
 import type { NodeRoot, DOMNode, DOMElement, DOMText } from "./types";
+import type { Diff } from "noss-editor";
+import { MethodError } from "@noss-editor/utils";
 import { NodeView, EditorView } from "noss-editor";
 import { DOMObserver } from "./observer";
-import { ChangedNode } from "noss-editor/src/state/step";
+import { ChangeType } from "noss-editor";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -15,8 +16,18 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
   observer: DOMObserver = new DOMObserver();
 
+  override update(diff: Diff) {
+    for (const change of diff.changes) {
+      if (change.type === ChangeType.insert) {
+        // figure out pos
+      } else {
+        // renderNodeRecursive
+      }
+    }
+  }
+
   override render() {
-    this.observer.bind(this);
+    this.observer.stop();
     const document = this.state.document;
     const ele = renderNodeRecursive(document);
     if (!ele)
@@ -28,6 +39,8 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.root.innerHTML = "";
     this.root.appendChild(ele);
     this.root.contentEditable = "true";
+
+    this.observer.bind(this);
     this.observer.start();
 
     return ele as HTMLElement;

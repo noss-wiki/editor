@@ -6,6 +6,8 @@ class DocumentView extends NodeView<HTMLElement> {
   override render() {
     const div = document.createElement("div");
     div.className = "noss-document";
+    // Fixes issues with trailing spaces
+    div.style.setProperty("white-space", "pre-wrap");
     return div;
   }
 }

@@ -4,6 +4,7 @@ import { locateNode } from "../../model/position";
 import type { Result } from "@noss-editor/utils";
 import { Ok, Err, wrap } from "@noss-editor/utils";
 import { Step } from "../step";
+import { Diff } from "../diff";
 
 export class RemoveStep extends Step {
   readonly id = "remove";
@@ -14,7 +15,7 @@ export class RemoveStep extends Step {
     super();
   }
 
-  apply(boundary: Node): Result<Node, string> {
+  apply(boundary: Node): Result<Diff, string> {
     return locateNode(boundary, this.node)
       .replaceErr("The given node couldn't be located in the boundary")
       .try((locate) => {
@@ -23,7 +24,7 @@ export class RemoveStep extends Step {
         const parent = this.locate.steps[this.locate.steps.length - 2].node;
         const node = parent.removeChild(this.node);
 
-        return this.hintReplaceChildRecursive(boundary, parent, node);
+        return Diff.replaceChild(boundary, parent, node);
       });
   }
 }
@@ -42,13 +43,13 @@ export class RemoveTextStep extends Step {
     this.to = to || node.text.length;
   }
 
-  apply(boundary: Node): Result<Node, string> {
+  apply(boundary: Node): Result<Diff, string> {
     if (this.from === 0 && this.to === this.node.text.length)
       return Err("Can't remove the entire text node, use RemoveStep instead");
-    else if (this.from === this.to) return Ok(boundary);
+    else if (this.from === this.to) return Ok(Diff.none(boundary));
 
     const node = this.node.remove(this.from, this.to);
-    return this.hintReplaceChildRecursive(boundary, this.node, node);
+    return Diff.replaceChild(boundary, this.node, node);
   }
 
   override merge(other: Step): Result<Step, string> {

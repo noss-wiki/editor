@@ -14,6 +14,7 @@ export class DOMObserver {
 
   constructor() {
     this.observer = new MutationObserver((e) => {
+      console.log(e);
       for (const record of e) //this.pending.push(record);
         this.callback(record);
     });
@@ -27,6 +28,7 @@ export class DOMObserver {
   start() {
     this.observer.observe(this.view.root, {
       characterData: true,
+      characterDataOldValue: true,
       childList: true,
       subtree: true,
     });
@@ -61,11 +63,17 @@ export class DOMObserver {
 function calculateText(tr: Transaction, node: Text, expected: string): Result<Transaction, string> {
   const diff = diffText(node.text, expected);
   if (diff.type === "none") return Err("No changes detected in the text node");
-  else if (diff.type === "replace") {
+  else if (diff.type === "replace")
     return tr
       .softStep(new RemoveTextStep(node, diff.start, diff.end))
       .try(() => tr.softStep(new InsertTextStep(node, diff.added, diff.start)))
       .replace(tr);
-  } else if (diff.type === "insert") return tr.softStep(new InsertTextStep(node, diff.change, diff.start)).replace(tr);
-  else return tr.softStep(new RemoveTextStep(node, diff.start, diff.end)).replace(tr);
+  else if (diff.type === "insert")
+    return tr //
+      .softStep(new InsertTextStep(node, diff.change, diff.start))
+      .replace(tr);
+  else
+    return tr //
+      .softStep(new RemoveTextStep(node, diff.start, diff.end))
+      .replace(tr);
 }

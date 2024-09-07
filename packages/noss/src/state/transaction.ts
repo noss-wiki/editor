@@ -1,18 +1,19 @@
+import type { Result, MethodError } from "@noss-editor/utils";
 import type { EditorState } from ".";
 import type { Node, Text } from "../model/node";
 import type { Step } from "./step";
 import type { AbsoluteLike, PositionLike } from "../model/position";
-import type { Result } from "@noss-editor/utils";
+import { stack } from "@noss-editor/utils";
 import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
-import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
+import { Diff } from "./diff";
 // Steps
 import { InsertStep, InsertTextStep } from "./steps/insert";
 import { RemoveStep, RemoveTextStep } from "./steps/remove";
 
 export class Transaction {
   readonly steps: Step[] = [];
-  readonly mod: Node[];
+  readonly diff: Diff[] = [];
   readonly original: Node;
   readonly history: boolean;
 
@@ -20,7 +21,8 @@ export class Transaction {
    * The modified boundary with all the steps applied to it.
    */
   get modified() {
-    return this.mod[this.mod.length - 1];
+    // modified is checked before adding to diff.
+    return this.diff[this.diff.length - 1].modified.val as Node;
   }
 
   /**
@@ -32,7 +34,7 @@ export class Transaction {
    */
   constructor(boundary: Node, addToHistory = true) {
     this.original = boundary;
-    this.mod = [boundary];
+    this.diff = [Diff.none(boundary)];
     this.history = addToHistory;
   }
 
@@ -50,11 +52,14 @@ export class Transaction {
   /**
    * Tries to apply a step and add it to this transaction,
    * will ignore the step if applying failed.
+   * @returns A Result containing either the new boundary or an error message.
    */
   softStep(step: Step) {
-    return step.apply(this.modified).map<Node, string>((val) => {
-      this.mod.push(val);
-      this.steps.push(step);
+    return step.apply(this.modified).map<Diff, string>((val) => {
+      val.modified.map((node) => {
+        this.diff.push(val);
+        this.steps.push(step);
+      });
       return val;
     });
   }

@@ -7,6 +7,23 @@ export type StepJSON = {
   [x: string]: unknown;
 };
 
+export enum ChangeType {
+  /**
+   * Changes to the node itself, and not its children.
+   */
+  node = "node",
+  /**
+   * Changes to a node tree.
+   */
+  tree = "tree",
+}
+
+export interface ChangedNode {
+  old: Node;
+  modified: Node;
+  type: ChangeType;
+}
+
 // TODO: implement method to register custom steps
 //       and to get the step corresponding to a given id.
 export abstract class Step {
@@ -15,7 +32,7 @@ export abstract class Step {
   /**
    * @internal
    */
-  public hints: { old: Node; replacement: Node }[] = [];
+  public hints: ChangedNode[] = [];
 
   /**
    * @returns A result containing the new boundary node or an error message.
@@ -40,7 +57,7 @@ return wrap(() => boundary.content.replaceChildRecursive(child, node)) //
 ```
    */
   hintReplaceChildRecursive(boundary: Node, child: Node, node: Node): Result<Node, string> {
-    this.hints.push({ old: child, replacement: node });
+    this.hints.push({ old: child, modified: node, type: ChangeType.tree });
     return wrap(() => boundary.content.replaceChildRecursive(child, node)) //
       .map((c) => boundary.copy(c));
   }

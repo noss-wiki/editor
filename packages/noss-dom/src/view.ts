@@ -3,6 +3,7 @@ import type { View, Node, Text, Position } from "noss-editor";
 import type { NodeRoot, DOMNode, DOMElement, DOMText } from "./types";
 import { NodeView, EditorView } from "noss-editor";
 import { DOMObserver } from "./observer";
+import { ChangedNode } from "noss-editor/src/state/step";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -14,10 +15,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
   observer: DOMObserver = new DOMObserver();
 
-  //override update()
-
   override render() {
-    console.log(this.state.document);
     this.observer.bind(this);
     const document = this.state.document;
     const ele = renderNodeRecursive(document);

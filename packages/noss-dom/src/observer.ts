@@ -48,7 +48,6 @@ export class DOMObserver {
         const tr = this.view.state.tr;
         const res = calculateText(tr, node, text.data).try((t) => this.view.state.apply(t));
         if (res.err) console.warn(res.val);
-        else console.log(res.val);
       }
     }
   }

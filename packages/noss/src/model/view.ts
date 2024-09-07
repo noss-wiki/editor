@@ -1,6 +1,7 @@
 import type { Position, PositionLike } from "./position";
 import type { Node, Text } from "./node";
 import type { EditorState } from "../state";
+import type { ChangedNode } from "../state/step";
 
 /**
  * A generic view where `T` represents what is rendered; what the render hook returns.
@@ -36,19 +37,21 @@ export abstract class EditorView<T, R = T> implements View<T> {
     this.editable = state.editable;
     // @ts-ignore : Constructor is not called in the this class
     if (root) this.root = root;
+
+    this.state.bind(this);
   }
 
   mount(root: T) {
     this.root = root;
   }
 
-  update() {
+  update(changes: ChangedNode[]) {
     this.render();
   }
 
   abstract render(): T;
 
-  destroy() { }
+  destroy() {}
 
   // Util methods
 

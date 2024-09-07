@@ -213,6 +213,8 @@ export abstract class Node {
    */
   eq(other: Node): boolean {
     if (this === other) return true;
+
+    if (this.type.name !== other.type.name) return false;
     // TODO: also check if markup is the same
     return this.content.eq(other.content);
   }
@@ -345,6 +347,11 @@ export class Text extends Node {
       throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Text.resolve");
 
     throw new MethodError(`The position ${pos}, cannot be resolved inside a text node`, "Text.resolve");
+  }
+
+  override eq(other: Node): boolean {
+    if (!(other instanceof Text)) return false;
+    return this.text === other.text;
   }
 
   override copy(content?: string): Node {

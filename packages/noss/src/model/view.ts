@@ -2,6 +2,7 @@ import type { Position, PositionLike } from "./position";
 import type { Node, Text } from "./node";
 import type { EditorState } from "../state";
 import type { Diff } from "../state/diff";
+import type { Result } from "@noss-editor/utils";
 
 /**
  * A generic view where `T` represents what is rendered; what the render hook returns.
@@ -58,7 +59,11 @@ export abstract class EditorView<T, R = T> implements View<T> {
   /**
    * Gets the position that `element` represents to in the Editor document.
    */
-  abstract toNode(element: R): Node;
+  abstract toNode(element: R): Result<Node, string>;
+  /**
+   * Gets the `element` in the rendered editor, that is bound to `node`.
+   */
+  abstract toDom(node: Node): Result<R, string>;
   /**
    * Gets the position that `element` represents to in the Editor document.
    */

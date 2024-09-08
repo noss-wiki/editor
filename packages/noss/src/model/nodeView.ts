@@ -75,7 +75,8 @@ export abstract class BoundaryView<T> extends NodeView<T> {
  * The default text view, the render hook just returns the text content,
  * and the renderer takes care of actually creating the correct elements.
  */
-export class TextView extends NodeView<string> {
+export class TextView<T> extends NodeView<string> {
+  public textRoot?: T;
   declare node: Text;
   override render() {
     return this.node.text;

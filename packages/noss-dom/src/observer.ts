@@ -42,13 +42,14 @@ export class DOMObserver {
     if (record.type === "characterData") {
       const t = record.target;
       if (t.nodeType === DOMNode.TEXT_NODE) {
-        const node = this.view.toNode(t) as Text;
+        const node = this.view.toNode(t);
         const text = record.target as DOMText;
-        if (!node.type.schema.text)
+        if (node.err) throw new MethodError("Failed to get bound node from DOM node", "anonymous");
+        if (!node.val.type.schema.text)
           throw new MethodError("Node type mismatch; DOM node is text node, but bound node isn't", "anonymous");
 
         const tr = this.view.state.tr;
-        const res = calculateText(tr, node, text.data).try((t) => this.view.state.apply(t));
+        const res = calculateText(tr, node.val as Text, text.data).try((t) => this.view.state.apply(t));
         if (res.err) console.warn(res.val);
       }
     }

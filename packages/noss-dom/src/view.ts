@@ -1,8 +1,8 @@
 import type { Result } from "@noss-editor/utils";
-import type { View, Node, Text, Position, Diff, TextView } from "noss-editor";
+import type { View, Node, Text, Diff, TextView, Transaction } from "noss-editor";
 import type { NodeRoot, DOMNode, DOMElement, DOMText } from "./types";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
-import { NodeView, EditorView, ChangeType } from "noss-editor";
+import { NodeView, EditorView, ChangeType, Position, Selection } from "noss-editor";
 import { DOMObserver } from "./observer";
 
 // TODO: Allow to derive state from the content of the root node
@@ -15,7 +15,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
   observer: DOMObserver = new DOMObserver();
 
-  override update(diff: Diff) {
+  override update(tr: Transaction, diff: Diff) {
     this.observer.stop();
     for (const change of diff.changes) {
       if (change.type === ChangeType.insert) {
@@ -39,6 +39,8 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         }
       }
     }
+
+    if (tr.selection) this.setSelection(tr.selection);
     this.observer.start();
   }
 
@@ -83,6 +85,28 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
       if (view?.root) return Ok(view.root);
       else return Err("Node doesn't have a root");
     }
+  }
+
+  override getSelection(boundary: Node): Result<Selection, string> {
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode || !sel.focusNode) return Err("No selection found");
+
+    const anchor = this.toNode(sel.anchorNode) //
+      .try((node) => Position.offset(node, sel.anchorOffset).resolve(boundary));
+    const focus = this.toNode(sel.focusNode) //
+      .try((node) => Position.offset(node, sel.focusOffset).resolve(boundary));
+
+    if (anchor.err || focus.err) return Err("Failed to resolve selection node positions");
+    return Ok(new Selection(anchor.val, focus.val));
+  }
+
+  setSelection(sel: Selection) {
+    const anchor = this.toDom(sel.anchor.parent);
+    const focus = this.toDom(sel.focus.parent);
+
+    if (anchor.err || focus.err) return;
+    const selection = window.getSelection();
+    selection?.setBaseAndExtent(anchor.val, sel.anchor.offset, focus.val, sel.focus.offset);
   }
 }
 

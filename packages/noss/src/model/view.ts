@@ -1,4 +1,4 @@
-import type { Position, PositionLike } from "./position";
+import type { Selection } from "./selection";
 import type { Node, Text } from "./node";
 import type { EditorState } from "../state";
 import type { Diff } from "../state/diff";
@@ -54,7 +54,7 @@ export abstract class EditorView<T, R = T> implements View<T> {
 
   destroy() {}
 
-  // Util methods
+  // Util methods are target specific
 
   /**
    * Gets the position that `element` represents to in the Editor document.
@@ -64,12 +64,11 @@ export abstract class EditorView<T, R = T> implements View<T> {
    * Gets the `element` in the rendered editor, that is bound to `node`.
    */
   abstract toDom(node: Node): Result<R, string>;
+
   /**
-   * Gets the position that `element` represents to in the Editor document.
+   * Gets the current selection in the editor.
+   * This is for example used in transactions as the base selection,
+   * to be able to restore the selection after updating the ui.
    */
-  //abstract toPos(element: R): Position;
-  /**
-   * Gets the `element` in the rendered editor, that represents the node at pos.
-   */
-  //abstract fromPos(pos: PositionLike): R;
+  abstract getSelection(boundary: Node): Result<Selection, string>;
 }

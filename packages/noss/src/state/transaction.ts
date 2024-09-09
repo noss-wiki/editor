@@ -3,6 +3,7 @@ import type { EditorState } from ".";
 import type { Node, Text } from "../model/node";
 import type { Step } from "./step";
 import type { AbsoluteLike, PositionLike } from "../model/position";
+import type { Selection } from "../model/selection";
 import { stack } from "@noss-editor/utils";
 import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
@@ -16,6 +17,8 @@ export class Transaction {
   readonly diff: Diff[] = [];
   readonly original: Node;
   readonly history: boolean;
+
+  readonly selection?: Selection;
 
   /**
    * The modified boundary with all the steps applied to it.
@@ -32,10 +35,20 @@ export class Transaction {
    *    When set to false, the transaction will not be added to the history stack
    *    and thus ignored by undo/redo actions, this is usefull for e.g. collaborative editing.
    */
-  constructor(boundary: Node, addToHistory = true) {
+  constructor(
+    readonly state: EditorState,
+    boundary?: Node,
+    addToHistory = true,
+  ) {
+    boundary ||= state.document;
     this.original = boundary;
     this.diff = [Diff.none(boundary)];
     this.history = addToHistory;
+
+    this.state.getSelection(boundary).map((val) => {
+      // @ts-ignore : Typescript doesn't allow assigning in callback, but it's fine here.
+      this.selection = val;
+    });
   }
 
   /**

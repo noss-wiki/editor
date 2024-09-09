@@ -5,7 +5,7 @@ import type { Diff } from "./diff";
 import { MethodError, NotImplementedError, stack, EventFull, Ok, Err } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
 
-interface EventData extends EventMap {}
+interface EventData extends EventMap { }
 
 export class EditorState extends EventFull<EventData> {
   /**
@@ -38,7 +38,11 @@ export class EditorState extends EventFull<EventData> {
    * The transaction will be created in the document boundary, and with history enabled.
    */
   get tr() {
-    return new Transaction(this.document);
+    return new Transaction(this);
+  }
+
+  boundaryTr(boundary: Node) {
+    return new Transaction(this, boundary);
   }
 
   constructor(document: Node) {
@@ -59,7 +63,7 @@ export class EditorState extends EventFull<EventData> {
           this.transactions.push(tr);
           this.mod.push(doc);
 
-          this.view?.update(diffs);
+          this.view?.update(tr, diffs);
         })
         .mapErr((err) => {
           // emit error or warn event or smth
@@ -67,6 +71,13 @@ export class EditorState extends EventFull<EventData> {
 
       return doc;
     });
+  }
+
+  // view wrapper methods
+
+  getSelection(boundary?: Node) {
+    const res = this.view?.getSelection(boundary || this.document);
+    return res ?? Err("No view is bound to the state");
   }
 }
 

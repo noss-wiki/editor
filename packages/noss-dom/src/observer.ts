@@ -2,8 +2,8 @@ import type { DOMView } from "./view";
 import type { Node, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { InsertTextStep, RemoveTextStep } from "noss-editor";
-import { Err, MethodError, Ok } from "@noss-editor/utils";
+import { InsertTextStep, locateNode, NodeType, Position, RemoveStep, RemoveTextStep } from "noss-editor";
+import { Err, MethodError, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
 
@@ -15,8 +15,11 @@ export class DOMObserver {
   constructor() {
     this.observer = new MutationObserver((e) => {
       console.log(e);
-      for (const record of e) //this.pending.push(record);
-        this.callback(record);
+      for (const record of e) {
+        this.callback(record)
+          .try((tr) => this.view.state.apply(tr))
+          .mapErr((err) => console.error(err));
+      }
     });
   }
 
@@ -44,15 +47,28 @@ export class DOMObserver {
       if (t.nodeType === DOMNode.TEXT_NODE) {
         const node = this.view.toNode(t);
         const text = record.target as DOMText;
-        if (node.err) throw new MethodError("Failed to get bound node from DOM node", "anonymous");
+        if (node.err) return Err("Failed to get bound node from DOM node");
         if (!node.val.type.schema.text)
-          throw new MethodError("Node type mismatch; DOM node is text node, but bound node isn't", "anonymous");
+          return Err(`Node type mismatch; DOM node is text node, but bound node type: ${node.val.type.name}, isn't`);
 
-        const tr = this.view.state.tr;
-        const res = calculateText(tr, node.val as Text, text.data).try((t) => this.view.state.apply(t));
-        if (res.err) console.warn(res.val);
+        return calculateText(this.view.state.tr, node.val as Text, text.data);
+      }
+    } else if (record.type === "childList") {
+      const parent = this.view.toNode(record.target);
+      if (parent.err) return parent;
+
+      for (const c of record.addedNodes) {
+        const index = wrap(() => Array.from(record.target.childNodes).indexOf(c as ChildNode)).unwrap(-1);
+        if (index === -1) return Err("Failed to get index of added node");
+
+        if (c.nodeType === DOMNode.TEXT_NODE) {
+          if ((c as DOMText).data === "") continue;
+          const text = createTextNode((c as DOMText).data);
+          return Ok(this.view.state.tr.insertChild(text, parent.val, index));
+        }
       }
     }
+    return Err("Unhandled case");
   }
 }
 
@@ -62,6 +78,11 @@ export class DOMObserver {
  * This method modifies the transaction and returns the result, but that parameter is still modified.
  */
 function calculateText(tr: Transaction, node: Text, expected: string): Result<Transaction, string> {
+  if (expected === "")
+    return tr //
+      .softStep(new RemoveStep(node))
+      .replace(tr);
+
   const diff = diffText(node.text, expected);
   if (diff.type === "none") return Err("No changes detected in the text node");
   else if (diff.type === "replace")
@@ -77,4 +98,12 @@ function calculateText(tr: Transaction, node: Text, expected: string): Result<Tr
     return tr //
       .softStep(new RemoveTextStep(node, diff.start, diff.end))
       .replace(tr);
+}
+
+/**
+ * @throws {MethodError}
+ */
+function createTextNode(content: string): Text {
+  // @ts-ignore : `node` will never be the direct Node instance, but a subclass of it.
+  return new (NodeType.get("text").node)(content);
 }

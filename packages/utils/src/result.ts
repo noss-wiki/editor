@@ -5,7 +5,7 @@ export const Ok = <A>(val: A): Ok<A> => new Ok_(val);
 export function Err(): Err<null>;
 export function Err<B>(val: B): Err<B>;
 export function Err<B>(val?: B) {
-  if (!val) return new Err_(null);
+  if (val == null) return new Err_(null);
   return new Err_(val);
 }
 

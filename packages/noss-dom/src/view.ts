@@ -2,8 +2,9 @@ import type { Result } from "@noss-editor/utils";
 import type { View, Node, Text, Diff, TextView, Transaction } from "noss-editor";
 import type { NodeRoot, DOMNode, DOMElement, DOMText } from "./types";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
-import { NodeView, EditorView, ChangeType, Position, Selection } from "noss-editor";
+import { NodeView, EditorView, ChangeType, Position, Selection, getParentNode } from "noss-editor";
 import { DOMObserver } from "./observer";
+import { getNodeById } from "noss-editor/src/model/position";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -19,7 +20,9 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.observer.stop();
     for (const change of diff.changes) {
       if (change.type === ChangeType.insert) {
-        // figure out pos
+        const child = change.modified;
+        const parent = getParentNode(change.modified, child);
+        console.log(parent.val);
       } else {
         const domNode = this.toDom(change.old);
         if (domNode.err) continue;
@@ -28,7 +31,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           if (change.old.type.schema.text) {
             const text = domNode.val as DOMText;
             text.data = (change.modified as Text).text;
-            text._boundNode = <Text>change.modified;
+            text._nodeId = change.modified.id;
             if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
           } else {
             // TODO: don't rerender entire tree of children are not modified (change.kind)
@@ -65,9 +68,11 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   }
 
   override toNode(element: DOMNode): Result<Node, string> {
-    const bound = element._boundNode;
-    if (bound) return Ok(bound);
-    else if ((element as HTMLElement).tagName === "BODY")
+    const id = element._nodeId;
+    if (id) {
+      const bound = getNodeById(this.state.document, id);
+      return bound.replaceErr(`Failed to find node with id: ${id}`);
+    } else if ((element as HTMLElement).tagName === "BODY")
       return Err("Failed to get bound node, searched up to the body tag");
     else if (!element.parentNode) return Err("Failed to get bound node, node doesn't have a parentNode");
 
@@ -118,7 +123,7 @@ function renderNodeRecursive(node: Node): DOMElement | DOMText | null {
     const res = (<TextView<DOMText>>node.view).render();
     const text = document.createTextNode(res);
     (<TextView<DOMText>>node.view).textRoot = text;
-    (<DOMText>text)._boundNode = <Text>node;
+    (<DOMText>text)._nodeId = node.id;
     return text;
   }
   const { root, outlet } = view._render(node);
@@ -129,8 +134,7 @@ function renderNodeRecursive(node: Node): DOMElement | DOMText | null {
     outlet.appendChild(childEle);
   }
 
-  (<DOMNode>root)._boundNode = node;
-  (<DOMNode>root)._boundView = view;
+  (<DOMNode>root)._nodeId = node.id;
 
   return root;
 }

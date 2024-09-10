@@ -1,6 +1,7 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "../model/node";
 import { Ok, Err, wrap } from "@noss-editor/utils";
+import { getParentNode } from "../model/position";
 
 /**
  * Represents a single change to a node.
@@ -109,6 +110,8 @@ export class Diff {
    */
   static replaceChild(boundary: Node, child: Node, modified: Node): Result<Diff, string> {
     if (!boundary.content.contains(child)) return Err("Boundary does not contain the specified child");
+    // parent node has changed
+
     return Ok(
       new Diff(boundary, [
         {

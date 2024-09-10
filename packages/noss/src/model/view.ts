@@ -3,6 +3,7 @@ import type { Node, Text } from "./node";
 import type { EditorState } from "../state";
 import type { Diff } from "../state/diff";
 import type { Result } from "@noss-editor/utils";
+import type { Transaction } from "../state/transaction";
 
 /**
  * A generic view where `T` represents what is rendered; what the render hook returns.
@@ -46,7 +47,7 @@ export abstract class EditorView<T, R = T> implements View<T> {
     this.root = root;
   }
 
-  update(diff: Diff) {
+  update(tr: Transaction, diff: Diff) {
     this.render();
   }
 

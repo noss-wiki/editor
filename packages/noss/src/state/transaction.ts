@@ -80,15 +80,19 @@ export class Transaction {
   /**
    * Adds an {@link InsertStep} to this transaction, which inserts a node into the current document.
    *
-   * @param node The node to add, or the node type (node will be created automatically).
+   * @param node The node to add
    * @param pos The position where to insert the node, see {@link Position}.
    * @throws {MethodError} When the node is provided as string, and that nodeType doesn't exist.
    * @throws {MethodError} If the step failed to apply
    */
-  insert(node: string | Node, pos: PositionLike) {
-    const insertNode = stack("Transaction.insert")(getNode(node));
-    stack("Transaction.insert")(this.step(new InsertStep(pos, insertNode)));
+  insert(node: Node, pos: PositionLike) {
+    stack("Transaction.insert")(this.step(new InsertStep(pos, node)));
     return this;
+  }
+
+  insertChild(node: Node, parent: Node, index?: number) {
+    const pos = Position.child(parent, index);
+    return this.insert(node, pos);
   }
 
   // TODO: Allow `PositionLike`?

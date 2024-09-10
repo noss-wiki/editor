@@ -439,6 +439,26 @@ function popSteps(data: LocateData) {
   return data;
 }
 
+export function getParentNode(boundary: Node, child: Node) {
+  return locateNode(boundary, child)
+    .replaceErr("Failed to locate the child node in the boundary")
+    .try((locate) => {
+      if (locate.steps.length <= 1) return Err("Child doesn't have a parent node");
+      return Ok(locate.steps[locate.steps.length - 1].node);
+    });
+}
+
+export function getNodeById(boundary: Node, id: string): Result<Node, null> {
+  if (boundary.id === id) return Ok(boundary);
+  else if (boundary.type.schema.text) return Err();
+
+  for (const [c] of boundary.content.iter()) {
+    const res = getNodeById(c, id);
+    if (res.ok) return res;
+  }
+  return Err();
+}
+
 /**
  * Performs a breath-first search on the boundary to try to find the provided node
  * @param boundary The boundary node to search in

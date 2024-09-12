@@ -210,13 +210,14 @@ export abstract class Node {
   /**
    * Checks if `other` is equal to this node
    * @param other The node to check
+   * @param ignoreContent If true, only the type, attributes and markup is checked, not the content
    */
-  eq(other: Node): boolean {
+  eq(other: Node, ignoreContent = false): boolean {
     if (this === other) return true;
-
     if (this.type.name !== other.type.name) return false;
     // TODO: also check if markup is the same
-    return this.content.eq(other.content);
+    if (ignoreContent === true) return true;
+    else return this.content.eq(other.content);
   }
 
   /**
@@ -349,9 +350,11 @@ export class Text extends Node {
     throw new MethodError(`The position ${pos}, cannot be resolved inside a text node`, "Text.resolve");
   }
 
-  override eq(other: Node): boolean {
-    if (!(other instanceof Text)) return false;
-    return this.text === other.text;
+  override eq(other: Node, ignoreContent = false): boolean {
+    if (other.type.schema.text !== true) return false;
+    const res = super.eq(other, true);
+    if (ignoreContent === true) return res;
+    else return res && this.text === other.text;
   }
 
   override copy(content?: string): Node {

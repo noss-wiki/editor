@@ -80,7 +80,7 @@ export class Fragment {
     if (node instanceof Fragment) node = node.nodes;
     const nodes: readonly Node[] = Array.isArray(node) ? node : [node];
 
-    const i = this.resolveIndex(index);
+    const i = index === undefined ? this.nodes.length : this.resolveIndex(index);
     if (!this.isValidIndex(i)) throw new MethodError(`Index ${index} is not in the allowed range`, "Fragment.insert");
 
     const content = this.nodes.slice();

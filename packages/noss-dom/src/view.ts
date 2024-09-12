@@ -19,6 +19,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   override update(tr: Transaction, diff: Diff) {
     this.observer.stop();
     for (const change of diff.changes) {
+      console.log(change);
       if (change.type === ChangeType.insert) {
         const child = change.modified;
         const parent = getParentNode(change.modified, child);

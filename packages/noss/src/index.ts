@@ -15,7 +15,7 @@ export type { View } from "./model/view";
 
 export { EditorState, constructDocument } from "./state";
 export type { Change } from "./state/diff";
-export { Diff, ChangeKind, ChangeType } from "./state/diff";
+export { Diff, ChangeType, compareNodes } from "./state/diff";
 export { Transaction } from "./state/transaction";
 export { Step } from "./state/step";
 export { InsertStep, InsertTextStep } from "./state/steps/insert";

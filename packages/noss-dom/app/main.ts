@@ -1,4 +1,4 @@
-import { EditorState } from "noss-editor/src/state";
+import { EditorState } from "noss-editor";
 import { DOMView } from "../src";
 import { doc, p, h1, text } from "./nodes";
 

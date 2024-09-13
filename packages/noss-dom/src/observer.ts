@@ -1,8 +1,8 @@
 import type { DOMView } from "./view";
-import type { Node, Text, Transaction } from "noss-editor";
+import type { Node, Step, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { InsertTextStep, locateNode, NodeType, Position, RemoveStep, RemoveTextStep } from "noss-editor";
+import { InsertTextStep, locateNode, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep } from "noss-editor";
 import { Err, MethodError, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
@@ -14,10 +14,9 @@ export class DOMObserver {
 
   constructor() {
     this.observer = new MutationObserver((e) => {
-      console.log(e);
       for (const record of e) {
         this.callback(record)
-          .try((tr) => this.view.state.apply(tr))
+          .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
           .mapErr((err) => console.error(err));
       }
     });
@@ -41,7 +40,8 @@ export class DOMObserver {
     this.observer.disconnect();
   }
 
-  private callback(record: MutationRecord) {
+  private callback(record: MutationRecord): Result<Transaction | null, string> {
+    console.log(record);
     if (record.type === "characterData") {
       const t = record.target;
       if (t.nodeType === DOMNode.TEXT_NODE) {
@@ -57,16 +57,36 @@ export class DOMObserver {
       const parent = this.view.toNode(record.target);
       if (parent.err) return parent;
 
+      const steps: Step[] = [];
       for (const c of record.addedNodes) {
+        if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
         const index = wrap(() => Array.from(record.target.childNodes).indexOf(c as ChildNode)).unwrap(-1);
         if (index === -1) return Err("Failed to get index of added node");
 
         if (c.nodeType === DOMNode.TEXT_NODE) {
           if ((c as DOMText).data === "") continue;
           const text = createTextNode((c as DOMText).data);
-          return Ok(this.view.state.tr.insertChild(text, parent.val, index));
+          console.log(parent.val);
+          steps.push(new InsertStep(Position.child(parent.val, index), text));
         }
       }
+
+      for (const c of record.removedNodes) {
+        if (c.nodeType === DOMNode.TEXT_NODE) {
+          const text = <DOMText>c;
+          if (text.data === "") {
+          }
+        }
+      }
+
+      if (steps.length === 0) return Ok(null);
+
+      const tr = this.view.state.tr;
+      for (const step of steps) {
+        const res = tr.softStep(step);
+        if (res.err) return Err(`Failed to apply step; ${res.val}`);
+      }
+      return Ok(tr);
     }
     return Err("Unhandled case");
   }

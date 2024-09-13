@@ -4,7 +4,7 @@ import type { Node, Text } from "../model/node";
 import type { Step } from "./step";
 import type { AbsoluteLike, PositionLike } from "../model/position";
 import type { Selection } from "../model/selection";
-import { stack } from "@noss-editor/utils";
+import { stack, Ok, Err } from "@noss-editor/utils";
 import { NodeType } from "../model/nodeType";
 import { Position } from "../model/position";
 import { Diff } from "./diff";
@@ -68,13 +68,13 @@ export class Transaction {
    * @returns A Result containing either the new boundary or an error message.
    */
   softStep(step: Step) {
-    return step.apply(this.modified).map<Diff, string>((val) => {
+    return step.apply(this.modified).try<Diff, string>((val) =>
       val.modified.map((node) => {
         this.diff.push(val);
         this.steps.push(step);
-      });
-      return val;
-    });
+        return val;
+      }),
+    );
   }
 
   /**

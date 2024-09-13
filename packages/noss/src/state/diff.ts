@@ -10,6 +10,7 @@ export type Change =
   | {
       old: undefined;
       modified: Node;
+      index: number;
       type: ChangeType.insert;
     }
   | {
@@ -46,17 +47,14 @@ enum ChangeKind {
 
 export class Diff {
   readonly empty: boolean;
-  private _modified?: Result<Node, string>;
-
-  get modified() {
-    return this._modified ?? (this._modified = this.reconstruct());
-  }
+  readonly modified: Result<Node, string>;
 
   constructor(
     readonly boundary: Node,
     readonly changes: Change[],
   ) {
     this.empty = this.changes.length === 0;
+    this.modified = this.reconstruct();
   }
 
   /**
@@ -87,8 +85,25 @@ export class Diff {
     if (change.type === ChangeType.replace) {
       return wrap(() => boundary.content.replaceChildRecursive(change.old, change.modified)) //
         .map((c) => boundary.copy(c));
+    } else if (change.type === ChangeType.insert) {
+      return getParentNode(boundary, change.modified).try((parent) =>
+        wrap(() =>
+          boundary.content.replaceChildRecursive(
+            parent,
+            parent.copy(parent.content.insert(change.modified, change.index)),
+          ),
+        ).map((c) => boundary.copy(c)),
+      );
+    } else {
+      return getParentNode(boundary, change.old).try((parent) =>
+        wrap(() =>
+          boundary.content.replaceChildRecursive(
+            parent,
+            parent.copy(parent.content.remove(change.old)), //
+          ),
+        ).map((c) => boundary.copy(c)),
+      );
     }
-    return Err("Case not implemented");
   }
 
   // static initializers
@@ -135,7 +150,7 @@ export function compareNodes(old?: Node, modified?: Node): Result<Change[], stri
 
   // non-text nodes
   return constructLcs(old.content.nodes, modified.content.nodes)
-    .replaceErr("Failed to construct calculate the longest common subsequence.")
+    .replaceErr("Failed to calculate the longest common subsequence.")
     .try((lcs) => {
       const oldIndices = lcs.map((l) => old.content.nodes.indexOf(l.old));
       const modifiedIndices = lcs.map((l) => modified.content.nodes.indexOf(l.modified));
@@ -145,7 +160,8 @@ export function compareNodes(old?: Node, modified?: Node): Result<Change[], stri
         if (!oldIndices.includes(i)) changes.push({ old: c, modified: undefined, type: ChangeType.remove });
 
       for (const [c, i] of modified.content.iter())
-        if (!modifiedIndices.includes(i)) changes.push({ old: undefined, modified: c, type: ChangeType.insert });
+        if (!modifiedIndices.includes(i))
+          changes.push({ old: undefined, modified: c, index: i, type: ChangeType.insert });
 
       for (const l of lcs) {
         const res = compareNodes(l.old, l.modified);
@@ -183,8 +199,8 @@ function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], nul
   let n = matrix[0].length - 1;
   for (;;) {
     // check if we can go left (left value is same as current value)
-    if (o > 0 && matrix[o][n] === matrix[o][n - 1]) n--;
-    else if (n > 0 && matrix[o][n] === matrix[o - 1][n]) o--;
+    if (n > 0 && matrix[o][n] === matrix[o][n - 1]) n--;
+    else if (o > 0 && matrix[o][n] === matrix[o - 1][n]) o--;
     else if (o > 0 && n > 0 && matrix[o][n] === matrix[o - 1][n - 1] + 1) {
       common.unshift({ old: oldNodes[o - 1], modified: newNodes[n - 1] });
       o--;

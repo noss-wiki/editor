@@ -444,7 +444,7 @@ export function getParentNode(boundary: Node, child: Node) {
     .replaceErr("Failed to locate the child node in the boundary")
     .try((locate) => {
       if (locate.steps.length <= 1) return Err("Child doesn't have a parent node");
-      return Ok(locate.steps[locate.steps.length - 1].node);
+      return Ok(locate.steps[locate.steps.length - 2].node);
     });
 }
 

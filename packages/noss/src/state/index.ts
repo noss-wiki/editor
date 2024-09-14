@@ -5,7 +5,7 @@ import type { Diff } from "./diff";
 import { MethodError, NotImplementedError, stack, EventFull, Ok, Err } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
 
-interface EventData extends EventMap { }
+interface EventData extends EventMap {}
 
 export class EditorState extends EventFull<EventData> {
   /**
@@ -57,20 +57,18 @@ export class EditorState extends EventFull<EventData> {
 
   apply(tr: Transaction): Result<Node, string> {
     // emit some event where the transction can be modified / cancelled?
-    return constructDocument(this.document, tr).map((doc) => {
-      mergeDiffs(tr)
-        .map((diffs) => {
-          this.transactions.push(tr);
-          this.mod.push(doc);
+    return constructDocument(this.document, tr)
+      .try((doc) => {
+        return mergeDiffs(tr)
+          .map((diffs) => {
+            this.transactions.push(tr);
+            this.mod.push(doc);
 
-          this.view?.update(tr, diffs);
-        })
-        .mapErr((err) => {
-          // emit error or warn event or smth
-        });
-
-      return doc;
-    });
+            this.view?.update(tr, diffs);
+          })
+          .replace(doc);
+      })
+      .trace("EditorState.apply");
   }
 
   // view wrapper methods

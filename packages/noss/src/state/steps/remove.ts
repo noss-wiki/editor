@@ -25,7 +25,8 @@ export class RemoveStep extends Step {
         const node = parent.removeChild(this.node);
 
         return Diff.replaceChild(boundary, parent, node);
-      });
+      })
+      .trace("RemoveStep.apply");
   }
 }
 
@@ -45,23 +46,24 @@ export class RemoveTextStep extends Step {
 
   apply(boundary: Node): Result<Diff, string> {
     if (this.from === 0 && this.to === this.node.text.length)
-      return Err("Can't remove the entire text node, use RemoveStep instead");
+      return Err("Can't remove the entire text node, use RemoveStep instead", "RemoveTextStep.apply");
     else if (this.from === this.to) return Ok(Diff.none(boundary));
 
     const node = this.node.remove(this.from, this.to);
-    return Diff.replaceChild(boundary, this.node, node);
+    return Diff.replaceChild(boundary, this.node, node).trace("RemoveTextStep.apply");
   }
 
   override merge(other: Step): Result<Step, string> {
-    if (!(other instanceof RemoveTextStep)) return Err("Other step is not a RemoveTextStep");
-    else if (this.node !== other.node) return Err("Both steps must target the same text node");
+    if (!(other instanceof RemoveTextStep)) return Err("Other step is not a RemoveTextStep", "RemoveTextStep.merge");
+    else if (this.node !== other.node) return Err("Both steps must target the same text node", "RemoveTextStep.merge");
 
-    if (this.from > other.to || other.from > this.to) return Err("Steps don't overlap, apply steps seperately");
+    if (this.from > other.to || other.from > this.to)
+      return Err("Steps don't overlap, apply steps seperately", "RemoveTextStep.merge");
 
     const from = Math.min(this.from, other.from);
     const to = Math.max(this.to, other.to);
     if (from === 0 && to === this.node.text.length)
-      return Err("Can't remove the entire text node, use RemoveStep instead");
+      return Err("Can't remove the entire text node, use RemoveStep instead", "RemoveTextStep.merge");
 
     return Ok(new RemoveTextStep(this.node, from, to));
   }

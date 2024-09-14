@@ -30,7 +30,7 @@ export class ReplaceStep extends Step {
   }
 
   apply(boundary: Node): Result<never, string> {
-    return Err("Not implemented");
+    return Err("Not implemented", "ReplaceStep.apply");
     /* this.$from ??= Position.softResolve(boundary, this.from);
     this.$to ??= Position.softResolve(boundary, this.to);
     if (!this.$from || !this.$to) return false;

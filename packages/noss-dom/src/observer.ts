@@ -16,8 +16,9 @@ export class DOMObserver {
     this.observer = new MutationObserver((e) => {
       for (const record of e) {
         this.callback(record)
+          .trace("DOMObserver.callback", "private")
           .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
-          .mapErr((err) => console.error(err));
+          .warn((e) => console.warn(e));
       }
     });
   }
@@ -67,7 +68,9 @@ export class DOMObserver {
           if ((c as DOMText).data === "") continue;
           const text = createTextNode((c as DOMText).data);
           c.parentNode?.removeChild(c);
-          tr.insertChild(text, parent.val, index);
+          wrap(() => tr.insertChild(text, parent.val, index))
+            .trace("DOMObserver.callback", "private")
+            .warn((e) => console.warn(e));
         }
       }
 
@@ -94,6 +97,7 @@ function calculateText(tr: Transaction, node: Text, expected: string): Result<Tr
   if (expected === "")
     return tr //
       .softStep(new RemoveStep(node))
+      .trace("calculateText")
       .replace(tr);
 
   const diff = diffText(node.text, expected);
@@ -102,14 +106,17 @@ function calculateText(tr: Transaction, node: Text, expected: string): Result<Tr
     return tr
       .softStep(new RemoveTextStep(node, diff.start, diff.end))
       .try(() => tr.softStep(new InsertTextStep(node, diff.added, diff.start)))
+      .trace("calculateText")
       .replace(tr);
   else if (diff.type === "insert")
     return tr //
       .softStep(new InsertTextStep(node, diff.change, diff.start))
+      .trace("calculateText")
       .replace(tr);
   else
     return tr //
       .softStep(new RemoveTextStep(node, diff.start, diff.end))
+      .trace("calculateText")
       .replace(tr);
 }
 

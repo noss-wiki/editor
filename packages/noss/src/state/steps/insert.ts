@@ -29,7 +29,8 @@ export class InsertStep extends Step {
 
         const node = pos.parent.copy(pos.parent.content.insert(this.node, index));
         return Diff.replaceChild(boundary, pos.parent, node);
-      });
+      })
+      .trace("InserStep.apply");
   }
 }
 
@@ -49,7 +50,7 @@ export class InsertTextStep extends Step {
 
   apply(boundary: Node): Result<Diff, string> {
     const node = this.node.insert(this.offset, this.content);
-    return Diff.replaceChild(boundary, this.node, node);
+    return Diff.replaceChild(boundary, this.node, node).trace("InsertTextStep.apply");
   }
 
   /**
@@ -58,11 +59,11 @@ export class InsertTextStep extends Step {
    * the content of the this step takes priority, and the content of the other step will be concatenated to the end.
    */
   override merge(other: Step): Result<Step, string> {
-    if (!(other instanceof InsertTextStep)) return Err("Other step is not a RemoveTextStep");
-    else if (this.node !== other.node) return Err("Both steps must target the same text node");
+    if (!(other instanceof InsertTextStep)) return Err("Other step is not a RemoveTextStep", "InsertTextStep.merge");
+    else if (this.node !== other.node) return Err("Both steps must target the same text node", "InsertTextStep.merge");
 
     if (this.offset + this.content.length < other.offset || other.offset + other.content.length < this.offset)
-      return Err("Steps don't overlap, apply steps seperately");
+      return Err("Steps don't overlap, apply steps seperately", "InsertTextStep.merge");
 
     if (this.offset === other.offset)
       return Ok(new InsertTextStep(this.node, this.content + other.content, this.offset));

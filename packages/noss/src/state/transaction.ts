@@ -67,14 +67,17 @@ export class Transaction {
    * will ignore the step if applying failed.
    * @returns A Result containing either the new boundary or an error message.
    */
-  softStep(step: Step) {
-    return step.apply(this.modified).try<Diff, string>((val) =>
-      val.modified.map((node) => {
-        this.diff.push(val);
-        this.steps.push(step);
-        return val;
-      }),
-    );
+  softStep(step: Step): Result<Diff, string> {
+    return step
+      .apply(this.modified)
+      .try<Diff, string>((val) =>
+        val.modified.map((node) => {
+          this.diff.push(val);
+          this.steps.push(step);
+          return val;
+        }),
+      )
+      .trace("Transaction.softStep");
   }
 
   /**

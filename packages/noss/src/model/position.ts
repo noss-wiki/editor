@@ -57,7 +57,8 @@ export class RelativePosition {
         }
 
         return Err("Failed to resolve position in the provided boundary");
-      });
+      })
+      .trace("RelativePosition.resolve");
   }
 }
 
@@ -229,7 +230,8 @@ export class Position {
    * @returns The resolved position, or undefined if it failed.
    */
   static absoluteToPosition(boundary: Node, pos: number): Result<Position, string> {
-    if (pos < 0 || pos > boundary.nodeSize) return Err(`The position ${pos}, is outside of the allowed range`);
+    if (pos < 0 || pos > boundary.nodeSize)
+      return Err(`The position ${pos}, is outside of the allowed range`).trace("Position.absoluteToPosition", "static");
     else if (pos === 0)
       return Ok(
         new Position(boundary, 0, boundary, 0, {
@@ -271,7 +273,8 @@ export class Position {
 
     steps.push({ node: boundary, index: 0, depth: 0, pos: 0 });
     const res = deepestOffset(boundary, 1, pos);
-    if (!res) return Err("Failed to resolve the position in the given boundary");
+    if (!res)
+      return Err("Failed to resolve the position in the given boundary").trace("Position.absoluteToPosition", "static");
 
     const locate: LocateData = { boundary, steps };
     return Ok(new Position(boundary, res.depth, res.parent, res.offset, locate));
@@ -439,24 +442,25 @@ function popSteps(data: LocateData) {
   return data;
 }
 
-export function getParentNode(boundary: Node, child: Node) {
+export function getParentNode(boundary: Node, child: Node): Result<Node, string> {
   return locateNode(boundary, child)
     .replaceErr("Failed to locate the child node in the boundary")
     .try((locate) => {
       if (locate.steps.length <= 1) return Err("Child doesn't have a parent node");
       return Ok(locate.steps[locate.steps.length - 2].node);
-    });
+    })
+    .trace("getParentNode");
 }
 
 export function getNodeById(boundary: Node, id: string): Result<Node, null> {
   if (boundary.id === id) return Ok(boundary);
-  else if (boundary.type.schema.text) return Err();
+  else if (boundary.type.schema.text) return Err().trace("getNodeById");
 
   for (const [c] of boundary.content.iter()) {
     const res = getNodeById(c, id);
     if (res.ok) return res;
   }
-  return Err();
+  return Err().trace("getNodeById");
 }
 
 /**
@@ -477,7 +481,9 @@ export function locateNode(boundary: Node, node: Node): Result<LocateData, null>
       steps: [step],
     });
   }
-  return bfsSteps(boundary, 0, 0, node).map((steps) => ({ boundary, steps }));
+  return bfsSteps(boundary, 0, 0, node)
+    .map((steps) => ({ boundary, steps }))
+    .trace("locateNode");
 }
 
 function bfsSteps(node: Node, nodeIndex: number, depth: number, search: Node): Result<LocateStep[], null> {

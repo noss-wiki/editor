@@ -3,10 +3,12 @@ import { MethodError } from "./error";
 export const Ok = <A>(val: A): Ok<A> => new Ok_(val);
 
 export function Err(): Err<null>;
-export function Err<B>(val: B): Err<B>;
-export function Err<B>(val?: B) {
+export function Err<B>(val: B, method?: string, modifier?: TraceModifier): Err<B>;
+export function Err<B>(val: B, stackTrace?: Trace[]): Err<B>;
+export function Err<B>(val?: B, stackTrace?: Trace[] | string, modifier?: TraceModifier) {
   if (val == null) return new Err_(null);
-  return new Err_(val);
+  const stack = typeof stackTrace === "string" ? [{ method: stackTrace, modifier: modifier || "public" }] : stackTrace;
+  return new Err_(val, stack);
 }
 
 /**
@@ -51,6 +53,17 @@ interface BaseResult<A, B> {
 
   replace<C>(val: C): Result<C, B>;
   replaceErr<C>(val: C): Result<A, C>;
+
+  /**
+   * Adds a method to the stack trace if this result is an `Err`.
+   * This is useful for debugging.
+   */
+  trace(method: string, modifier?: TraceModifier): Result<A, B>;
+  /**
+   * Calls `callback` with a value and the stack trace if this result is an `Err`.
+   * If the value of the error type is a string or null, it will be a formatted message with the stack trace.
+   */
+  warn(callback: (msg: string | B, trace: Trace[]) => void): Result<A, B>;
 }
 
 interface Ok<A> extends BaseResult<A, never> {
@@ -65,6 +78,7 @@ interface Ok<A> extends BaseResult<A, never> {
   mapErr(): this;
   tryRecover(): this;
   replaceErr(): this;
+  trace(): this;
 
   unwrap(): A;
   map<C>(callback: (val: A) => C): Ok<C>;
@@ -84,6 +98,7 @@ interface Err<B> extends BaseResult<never, B> {
   readonly val: B;
   readonly ok: false;
   readonly err: true;
+  readonly stackTrace: Trace[];
 
   isOk(): false;
   isErr(): true;
@@ -114,6 +129,8 @@ class Ok_<A> implements Ok<A> {
   mapErr = () => this;
   tryRecover = () => this;
   replaceErr = () => this;
+  trace = () => this;
+  warn = () => this;
 
   unwrap(): A {
     return this.val;
@@ -132,11 +149,25 @@ class Ok_<A> implements Ok<A> {
   }
 }
 
+type TraceModifier = "public" | "static" | "private";
+
+interface Trace {
+  msg?: string;
+  method: string;
+  modifier: TraceModifier;
+}
+
 class Err_<B> implements Err<B> {
   readonly ok = false;
   readonly err = true;
+  readonly stackTrace: Trace[];
 
-  constructor(readonly val: B) {}
+  constructor(
+    readonly val: B,
+    stackTrace?: Trace[],
+  ) {
+    this.stackTrace = stackTrace || [];
+  }
 
   isOk = () => false as const;
   isErr = () => true as const;
@@ -146,7 +177,7 @@ class Err_<B> implements Err<B> {
   replace = () => this;
 
   unwrap<A>(fallback: A): A {
-    throw fallback;
+    return fallback;
   }
 
   or<A>(fallback: A): A {
@@ -154,7 +185,7 @@ class Err_<B> implements Err<B> {
   }
 
   mapErr<C>(callback: (val: B) => C) {
-    return Err(callback(this.val));
+    return Err(callback(this.val), this.stackTrace);
   }
 
   tryRecover<A, C>(callback: (val: B) => Result<A, C>): Result<A, C> {
@@ -162,7 +193,30 @@ class Err_<B> implements Err<B> {
   }
 
   replaceErr<C>(val: C) {
-    return Err(val);
+    return Err(val, this.stackTrace);
+  }
+
+  trace(method: string, modifier: TraceModifier = "public") {
+    this.stackTrace.push({ method, modifier });
+    return this;
+  }
+
+  warn(callback: (msg: string | B, trace: Trace[]) => void) {
+    if (this.val == null || typeof this.val === "string") {
+      const msg = this.stackTrace
+        .slice()
+        .reverse()
+        .map(({ method, modifier, msg: _msg }, i) => {
+          const msg = i === 0 ? this.val : _msg;
+          let part = "";
+          if (msg) part = `${msg}\n`;
+          return `${part}${formatMethod(method, modifier)}`;
+        })
+        .join("\n");
+
+      callback(msg, this.stackTrace);
+    } else callback(this.val, this.stackTrace);
+    return this;
   }
 }
 
@@ -183,8 +237,15 @@ export function wrap<T>(fn: () => T): Result<T, string> {
     const res = fn();
     return Ok(res);
   } catch (e) {
-    if (e instanceof MethodError) return Err(e._message);
-    else if (e instanceof Error) return Err(e.message);
-    else return Err("Unknown error");
+    if (e instanceof MethodError) return Err(e._message, "wrap\n  <throwed error was caught>");
+    else if (e instanceof Error) return Err(e.message, "wrap\n  <throwed error was caught>");
+    else if (typeof e === "string") return Err(e, "wrap\n  <throwed error was caught>");
+    else return Err("Unknown error", "wrap\n  <throwed error was caught>");
   }
+}
+
+function formatMethod(method: string, modifier: TraceModifier) {
+  if (modifier === "public") return `  at         ${method}`;
+  else if (modifier === "static") return `  at static  ${method}`;
+  else return `  at private ${method}`;
 }

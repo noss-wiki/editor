@@ -83,10 +83,11 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     const id = element._nodeId;
     if (id) {
       const bound = getNodeById(this.state.document, id);
-      return bound.replaceErr(`Failed to find node with id: ${id}`);
+      return bound.replaceErr(`Failed to find node with id: ${id}`).trace("DOMView.toNode");
     } else if ((element as HTMLElement).tagName === "BODY")
-      return Err("Failed to get bound node, searched up to the body tag");
-    else if (!element.parentNode) return Err("Failed to get bound node, node doesn't have a parentNode");
+      return Err("Failed to get bound node, searched up to the body tag").trace("DOMView.toNode");
+    else if (!element.parentNode)
+      return Err("Failed to get bound node, node doesn't have a parentNode").trace("DOMView.toNode");
 
     return this.toNode(element.parentNode);
   }
@@ -103,19 +104,19 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
     const domNode = findDOMNodeWithId(this.root, node.id);
     if (domNode) return Ok(domNode);
-    else return Err("Failed to find dom node");
+    else return Err("Failed to find dom node").trace("DOMView.toDom");
   }
 
   override getSelection(boundary: Node): Result<Selection, string> {
     const sel = window.getSelection();
-    if (!sel || !sel.anchorNode || !sel.focusNode) return Err("No selection found");
+    if (!sel || !sel.anchorNode || !sel.focusNode) return Err("No selection found").trace("DOMView.getSelection");
 
     const anchor = this.toNode(sel.anchorNode) //
       .try((node) => Position.offset(node, sel.anchorOffset).resolve(boundary));
     const focus = this.toNode(sel.focusNode) //
       .try((node) => Position.offset(node, sel.focusOffset).resolve(boundary));
 
-    if (anchor.err || focus.err) return Err("Failed to resolve selection node positions");
+    if (anchor.err || focus.err) return Err("Failed to resolve selection node positions").trace("DOMView.getSelection");
     return Ok(new Selection(anchor.val, focus.val));
   }
 

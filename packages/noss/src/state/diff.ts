@@ -65,7 +65,7 @@ export class Diff {
    * @returns A Result containing the merged diff or an error message.
    */
   merge(other: Diff): Result<Diff, string> {
-    if (this.boundary !== other.boundary) return Err("Cannot merge Diffs with different boundaries");
+    if (this.boundary !== other.boundary) return Err("Cannot merge Diffs with different boundaries", "Diff.merge");
 
     if (this.empty) return Ok(other);
     else if (other.empty) return Ok(this);
@@ -78,7 +78,7 @@ export class Diff {
     for (const change of this.changes) {
       const res = this.reconstructChange(last, change);
       if (res.ok) last = res.val;
-      else return res;
+      else return res.trace("Diff.reconstruct", "private");
     }
     return Ok(last);
   }
@@ -86,23 +86,28 @@ export class Diff {
   private reconstructChange(boundary: Node, change: Change): Result<Node, string> {
     if (change.type === ChangeType.replace) {
       return wrap(() => boundary.content.replaceChildRecursive(change.old, change.modified)) //
-        .map((c) => boundary.copy(c));
+        .map((c) => boundary.copy(c))
+        .trace("Diff.reconstructChange", "private");
     } else if (change.type === ChangeType.insert) {
       return wrap(() =>
         boundary.content.replaceChildRecursive(
           change.parent,
           change.parent.copy(change.parent.content.insert(change.modified, change.index)),
         ),
-      ).map((c) => boundary.copy(c));
+      )
+        .map((c) => boundary.copy(c))
+        .trace("Diff.reconstructChange", "private");
     } else {
-      return getParentNode(boundary, change.old).try((parent) =>
-        wrap(() =>
-          boundary.content.replaceChildRecursive(
-            parent,
-            parent.copy(parent.content.remove(change.old)), //
-          ),
-        ).map((c) => boundary.copy(c)),
-      );
+      return getParentNode(boundary, change.old)
+        .try((parent) =>
+          wrap(() =>
+            boundary.content.replaceChildRecursive(
+              parent,
+              parent.copy(parent.content.remove(change.old)), //
+            ),
+          ).map((c) => boundary.copy(c)),
+        )
+        .trace("Diff.reconstructChange", "private");
     }
   }
 
@@ -113,7 +118,9 @@ export class Diff {
   }
 
   static diff(boundary: Node, old?: Node, modified?: Node): Result<Diff, string> {
-    return compareNodes(old, modified).map((c) => new Diff(boundary, c));
+    return compareNodes(old, modified)
+      .map((c) => new Diff(boundary, c))
+      .trace("Diff.diff", "static");
   }
 
   /**
@@ -126,7 +133,7 @@ export class Diff {
     if (!boundary.content.contains(child)) return Err("Boundary does not contain the specified child");
     // parent node has changed
     const mod = boundary.copy(boundary.content.replaceChildRecursive(child, modified));
-    return Diff.diff(boundary, boundary, mod);
+    return Diff.diff(boundary, boundary, mod).trace("Diff.replaceChild", "static");
   }
 }
 
@@ -170,7 +177,8 @@ export function compareNodes(old?: Node, modified?: Node): Result<Change[], stri
       }
 
       return Ok(changes);
-    });
+    })
+    .trace("compareNodes");
 }
 
 interface LCSItem {

@@ -10,8 +10,10 @@ export type Change =
   | {
       old: undefined;
       modified: Node;
-      index: number;
       type: ChangeType.insert;
+      // info required to insert the node
+      index: number;
+      parent: Node;
     }
   | {
       old: Node;
@@ -86,14 +88,12 @@ export class Diff {
       return wrap(() => boundary.content.replaceChildRecursive(change.old, change.modified)) //
         .map((c) => boundary.copy(c));
     } else if (change.type === ChangeType.insert) {
-      return getParentNode(boundary, change.modified).try((parent) =>
-        wrap(() =>
-          boundary.content.replaceChildRecursive(
-            parent,
-            parent.copy(parent.content.insert(change.modified, change.index)),
-          ),
-        ).map((c) => boundary.copy(c)),
-      );
+      return wrap(() =>
+        boundary.content.replaceChildRecursive(
+          change.parent,
+          change.parent.copy(change.parent.content.insert(change.modified, change.index)),
+        ),
+      ).map((c) => boundary.copy(c));
     } else {
       return getParentNode(boundary, change.old).try((parent) =>
         wrap(() =>
@@ -161,7 +161,7 @@ export function compareNodes(old?: Node, modified?: Node): Result<Change[], stri
 
       for (const [c, i] of modified.content.iter())
         if (!modifiedIndices.includes(i))
-          changes.push({ old: undefined, modified: c, index: i, type: ChangeType.insert });
+          changes.push({ old: undefined, modified: c, type: ChangeType.insert, index: i, parent: old });
 
       for (const l of lcs) {
         const res = compareNodes(l.old, l.modified);

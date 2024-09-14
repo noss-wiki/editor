@@ -1,10 +1,11 @@
 import type { Result } from "@noss-editor/utils";
-import type { View, Node, Text, Diff, TextView, Transaction } from "noss-editor";
-import type { NodeRoot, DOMNode, DOMElement, DOMText } from "./types";
+import type { Node, Text, Diff, TextView, Transaction } from "noss-editor";
+import type { NodeRoot, DOMElement, DOMText } from "./types";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
-import { NodeView, EditorView, ChangeType, Position, Selection, getParentNode } from "noss-editor";
+import { NodeView, EditorView, ChangeType, Position, Selection } from "noss-editor";
+import { getNodeById } from "noss-editor/internal";
 import { DOMObserver } from "./observer";
-import { getNodeById } from "noss-editor/src/model/position";
+import { DOMNode } from "./types";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -19,11 +20,22 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   override update(tr: Transaction, diff: Diff) {
     this.observer.stop();
     for (const change of diff.changes) {
-      console.log(change);
       if (change.type === ChangeType.insert) {
         const child = change.modified;
-        const parent = getParentNode(change.modified, child);
-        console.log(parent.val);
+        const domParent = this.toDom(change.parent);
+        if (domParent.err) continue;
+        else if (domParent.val.nodeType === DOMNode.TEXT_NODE) continue; // parent can't be text node
+
+        const parent = domParent.val as DOMElement;
+        const domChild = renderNodeRecursive(child);
+        if (!domChild) continue;
+
+        if (change.index === change.parent.content.nodes.length - 1) parent.append(domChild);
+        else {
+          const anchor = parent.childNodes[change.index];
+          if (!anchor) continue; // err if anchor is not found
+          parent.insertBefore(domChild, anchor);
+        }
       } else {
         const domNode = this.toDom(change.old);
         if (domNode.err) continue;
@@ -35,7 +47,6 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
             text._nodeId = change.modified.id;
             if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
           } else {
-            // TODO: don't rerender entire tree of children are not modified (change.kind)
             const newNode = renderNodeRecursive(change.modified);
             if (!newNode) continue;
             domNode.val.replaceWith(newNode);
@@ -85,12 +96,14 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     if (node.type.schema.text) {
       const view = <TextView<DOMText> | undefined>node.view;
       if (view?.textRoot) return Ok(view.textRoot);
-      else return Err("Text node doesn't have a text root");
     } else {
       const view = <NodeView<HTMLElement> | undefined>node.view;
       if (view?.root) return Ok(view.root);
-      else return Err("Node doesn't have a root");
     }
+
+    const domNode = findDOMNodeWithId(this.root, node.id);
+    if (domNode) return Ok(domNode);
+    else return Err("Failed to find dom node");
   }
 
   override getSelection(boundary: Node): Result<Selection, string> {
@@ -138,4 +151,13 @@ function renderNodeRecursive(node: Node): DOMElement | DOMText | null {
   (<DOMNode>root)._nodeId = node.id;
 
   return root;
+}
+
+function findDOMNodeWithId(node: DOMNode, id: string): NodeRoot | undefined {
+  if (node._nodeId === id) return node as NodeRoot;
+  if (node.nodeType !== DOMNode.ELEMENT_NODE) return undefined;
+  for (const child of node.childNodes) {
+    const found = findDOMNodeWithId(child, id);
+    if (found) return found;
+  }
 }

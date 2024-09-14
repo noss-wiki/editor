@@ -9,6 +9,10 @@
     "check": "biome check",
     "tsc": "tsc"
   },
+  "exports": {
+    ".": "./src/index.ts",
+    "./internal": "./src/internal.ts"
+  },
   "author": "Codefoxdev",
   "license": "MIT",
   "dependencies": {
@@ -19,6 +23,16 @@
     "unbuild": "^2.0.0"
   },
   "publishConfig": {
-    "main": "dist/index.js"
+    "main": "dist/index.js",
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "require": "./dist/index.js"
+      },
+      "./internal": {
+        "import": "./dist/internal.js",
+        "require": "./dist/internal.js"
+      }
+    }
   }
 }

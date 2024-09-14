@@ -1,8 +1,8 @@
 import type { DOMView } from "./view";
-import type { Node, Step, Text, Transaction } from "noss-editor";
+import type { Node, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { InsertTextStep, locateNode, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep } from "noss-editor";
+import { InsertTextStep, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep } from "noss-editor";
 import { Err, MethodError, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
@@ -57,7 +57,7 @@ export class DOMObserver {
       const parent = this.view.toNode(record.target);
       if (parent.err) return parent;
 
-      const steps: Step[] = [];
+      const tr = this.view.state.tr;
       for (const c of record.addedNodes) {
         if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
         const index = wrap(() => Array.from(record.target.childNodes).indexOf(c as ChildNode)).unwrap(-1);
@@ -66,8 +66,8 @@ export class DOMObserver {
         if (c.nodeType === DOMNode.TEXT_NODE) {
           if ((c as DOMText).data === "") continue;
           const text = createTextNode((c as DOMText).data);
-          console.log(parent.val);
-          steps.push(new InsertStep(Position.child(parent.val, index), text));
+          c.parentNode?.removeChild(c);
+          tr.insertChild(text, parent.val, index);
         }
       }
 
@@ -79,13 +79,6 @@ export class DOMObserver {
         }
       }
 
-      if (steps.length === 0) return Ok(null);
-
-      const tr = this.view.state.tr;
-      for (const step of steps) {
-        const res = tr.softStep(step);
-        if (res.err) return Err(`Failed to apply step; ${res.val}`);
-      }
       return Ok(tr);
     }
     return Err("Unhandled case");

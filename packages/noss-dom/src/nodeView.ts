@@ -1,6 +1,21 @@
 import type { NodeRoot } from "./types";
+import type { Node } from "noss-editor";
+import type { Result } from "@noss-editor/utils";
 import { NodeView } from "noss-editor";
-import { stack, MethodError } from "@noss-editor/utils";
+import { stack, MethodError, Err } from "@noss-editor/utils";
+
+export type DOMTagParseRules = {
+  tag: string;
+  style: string;
+  type: "text" | "element";
+};
+
+export abstract class DOMNodeView extends NodeView<HTMLElement> {
+  declare static rules: DOMTagParseRules;
+  static override parse(e: HTMLElement): Result<Node | true, null> {
+    return Err();
+  }
+}
 
 // TODO: Refactor to allow access to node instance (and attrs, etc.)
 export class DefintionNodeView extends NodeView<NodeRoot> {

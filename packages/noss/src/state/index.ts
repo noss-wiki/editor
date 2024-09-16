@@ -2,7 +2,7 @@ import type { Node } from "../model/node";
 import type { EventMap, Result } from "@noss-editor/utils";
 import type { EditorView } from "../model/view";
 import type { Diff } from "./diff";
-import { MethodError, NotImplementedError, stack, EventFull, Ok, Err } from "@noss-editor/utils";
+import { stack, EventFull, Ok, Err } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
 
 interface EventData extends EventMap {}

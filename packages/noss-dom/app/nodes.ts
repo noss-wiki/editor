@@ -1,8 +1,8 @@
-import { Fragment, Node, AttrNode, Text, NodeType, NodeView } from "noss-editor";
-import { DefintionNodeView } from "../src/definitionView";
+import { Fragment, Node, Text, NodeType } from "noss-editor";
+import { DefintionNodeView, DOMNodeView } from "../src/nodeView";
 export { Node, Text };
 
-class DocumentView extends NodeView<HTMLElement> {
+class DocumentView extends DOMNodeView {
   override render() {
     const div = document.createElement("div");
     div.className = "noss-document";
@@ -28,7 +28,7 @@ export class Document extends Node {
   }
 }
 
-class ParagraphView extends NodeView<HTMLElement> {
+class ParagraphView extends DOMNodeView {
   declare node: Paragraph;
 
   override render() {

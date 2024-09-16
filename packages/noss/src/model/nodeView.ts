@@ -1,5 +1,6 @@
 import type { View } from "./view";
 import type { Node, Text } from "./node";
+import { Err, type Result } from "@noss-editor/utils";
 
 export abstract class NodeView<T> implements View<T> {
   /**
@@ -44,6 +45,7 @@ export abstract class NodeView<T> implements View<T> {
 
   /**
    * Wraps the render hook to bind the node and save the root/outlet.
+   * @internal
    */
   _render(node?: Node) {
     if (!this.node && node) this.bind(node);
@@ -55,6 +57,24 @@ export abstract class NodeView<T> implements View<T> {
   }
 
   abstract render(): T;
+
+  /**
+   * Defines a set of simple parse rules.
+   * This and/or the parse method can be used.
+   * Proper types should be provided by the editorView that is used in the environment, e.g. `noss-dom`.
+   */
+  static rules: Record<string | number | symbol, unknown>;
+
+  /**
+   * This and/or the rules property can be used.
+   * Proper types should be provided by the editorView that is used in the environment, e.g. `noss-dom`.
+   *
+   * @returns   An `Ok<true>` if it was a match or an `Ok<Node>` if additional values on the node are set,
+   *            or an `Err<null>` indicating it was not a match.
+   */
+  static parse(e: unknown): Result<Node | true, null> {
+    return Err();
+  }
 }
 
 export abstract class BoundaryView<T> extends NodeView<T> {

@@ -91,11 +91,7 @@ export interface NodeSchema {
   selectable?: boolean;
 }
 
-interface ExtendNodeTypeDefinition {
-  name: string;
-  meta?: NodeMeta;
-  schema?: NodeSchema;
-}
+type ExtendNodeTypeDefinition = Partial<Omit<NodeTypeDefinition, "name">> & { name: string };
 
 const definitions: Record<string, NodeType | undefined> = {};
 

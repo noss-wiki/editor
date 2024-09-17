@@ -2,8 +2,8 @@ import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 
 import type { FragmentJSON } from "./fragment";
 import type { Slice } from "./slice";
-import type { NodeView } from "./nodeView";
-import { TextView } from "./nodeView";
+import type { NodeView } from "./view";
+import { TextView } from "./view";
 import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
 import { Position } from "./position";

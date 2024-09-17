@@ -1,8 +1,9 @@
 import type { Result } from "@noss-editor/utils";
-import type { Node, Text, Diff, TextView, Transaction } from "noss-editor";
+import type { Node, Text, Diff, TextView, Transaction, NodeAttrs } from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
+import type { DOMTagParseRule } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
-import { NodeView, EditorView, ChangeType, Position, Selection } from "noss-editor";
+import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment } from "noss-editor";
 import { getNodeById } from "noss-editor/internal";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
@@ -22,7 +23,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     for (const change of diff.changes) {
       if (change.type === ChangeType.insert) {
         const child = change.modified;
-        const domParent = this.toDom(change.parent);
+        const domParent = this.toRendered(change.parent);
         if (domParent.err) continue;
         else if (domParent.val.nodeType === DOMNode.TEXT_NODE) continue; // parent can't be text node
 
@@ -37,7 +38,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           parent.insertBefore(domChild, anchor);
         }
       } else {
-        const domNode = this.toDom(change.old);
+        const domNode = this.toRendered(change.old);
         if (domNode.err) continue;
         if (change.type === ChangeType.remove) domNode.val.remove();
         else {
@@ -93,7 +94,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   }
 
   // TODO: maybe implement some more ways to get the node from the DOM (via parents?)
-  override toDom(node: Node): Result<NodeRoot, string> {
+  override toRendered(node: Node): Result<NodeRoot, string> {
     if (node.type.schema.text) {
       const view = <TextView<DOMText> | undefined>node.view;
       if (view?.textRoot) return Ok(view.textRoot);
@@ -105,6 +106,32 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     const domNode = findDOMNodeWithId(this.root, node.id);
     if (domNode) return Ok(domNode);
     else return Err("Failed to find dom node").trace("DOMView.toDom");
+  }
+
+  override parse(e: DOMNode): Result<Node, string> {
+    if (e.nodeType === DOMNode.TEXT_NODE) {
+      const text = e as DOMText;
+      return NodeType.softGet("text").map((type) => {
+        // @ts-ignore : type is not the base class but one that extends it
+        const construct = <typeof Text>type.node;
+        return new construct(text.data);
+      });
+    } else if (e.nodeType === DOMNode.ELEMENT_NODE) {
+      const node = e as DOMElement;
+      for (const name in NodeView.all) {
+        const view = NodeView.all[name];
+        const nodeType = NodeType.softGet(name);
+        if (!view || nodeType.err) continue;
+
+        const res = view.parse(node);
+        if (res.err) continue;
+
+        const nodeClass = nodeType.val.node;
+        // @ts-ignore : nodeClass is not the base class but one that extends it
+        return Ok(new nodeClass(Fragment.empty));
+      }
+    }
+    return Err("Unknown nodeType").trace("DOMView.parse");
   }
 
   override getSelection(boundary: Node): Result<Selection, string> {
@@ -121,8 +148,8 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   }
 
   setSelection(sel: Selection) {
-    const anchor = this.toDom(sel.anchor.parent);
-    const focus = this.toDom(sel.focus.parent);
+    const anchor = this.toRendered(sel.anchor.parent);
+    const focus = this.toRendered(sel.focus.parent);
 
     if (anchor.err || focus.err) return;
     const selection = window.getSelection();

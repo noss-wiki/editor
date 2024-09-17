@@ -1,8 +1,9 @@
 import type { Node } from "./node";
 import type { ContentExpression } from "../schema/expression";
-import { MethodError, stack } from "@noss-editor/utils";
+import type { Result } from "@noss-editor/utils";
+import { Err, MethodError, Ok, stack, wrap } from "@noss-editor/utils";
+import { Fragment } from "./fragment";
 
-// TODO: Add dom representation, probably same as ProseMirror (via schema.toDom)
 export interface NodeTypeDefinition {
   /**
    * The name of this type, this needs to be unique for every node type.
@@ -31,7 +32,7 @@ export interface NodeMeta {
    * The description that will be displayed to the user, e.g. in the commands menu
    */
   description: string;
-  // TODO: Create a type for this to not rely on svg strings
+  // TODO: Create a type for this to not rely on svg strings (probably a class that extends view (IconView?))
   /**
    * Raw html code for icon, import using `*.svg?raw`
    */
@@ -190,16 +191,35 @@ export class NodeType {
    * @throws {MethodError} If the nodeType was not found
    */
   static get(name: string) {
-    const res = definitions[name];
-    if (!res) throw new MethodError(`Cannot get the nodeType ${name}, is it defined?`, "NodeType.get");
-    return res;
+    const res = NodeType.softGet(name);
+    if (res.err) throw new MethodError(res.val, "NodeType.get");
+    return res.val;
+  }
+
+  /**
+   * Binds the Node classes to the NodeType instances.
+   * This is required for the parser to work.
+   * Make sure to register all nodes before creating the `EditorState`.
+   */
+  static register(...nodes: (typeof Node)[]) {
+    for (const node of nodes) {
+      node.type.node = node;
+      const content = node.type.schema.text ? "test" : Fragment.empty;
+      // @ts-ignore : node isn't the base class, but an extending class
+      wrap<Node>(() => new node(content)) //
+        .map((n) => n.getView())
+        .trace("NodeType.register", "static")
+        .throw();
+    }
   }
 
   /**
    * Tries to get the nodeType with `name`, will return undefined if the nodeType was not found.
    */
-  static softGet(name: string) {
-    return definitions[name];
+  static softGet(name: string): Result<NodeType, string> {
+    const res = definitions[name];
+    if (res) return Ok(res);
+    return Err(`Cannot get the nodeType ${name}, is it defined?`);
   }
 
   static get all() {

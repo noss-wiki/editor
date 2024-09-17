@@ -1,5 +1,6 @@
 import { Fragment, Node, Text, NodeType } from "noss-editor";
-import { DefintionNodeView, DOMNodeView } from "../src/nodeView";
+import type { DOMTagParseRule } from "../src/nodeView";
+import { SimpleNodeView, DOMNodeView } from "../src/nodeView";
 export { Node, Text };
 
 class DocumentView extends DOMNodeView {
@@ -35,6 +36,8 @@ class ParagraphView extends DOMNodeView {
     const p = document.createElement("p");
     return p;
   }
+
+  static override rules: DOMTagParseRule[] = [{ tag: "p" }];
 }
 
 export class Paragraph extends Node {
@@ -49,13 +52,25 @@ export class Paragraph extends Node {
   override view = new ParagraphView();
 }
 
+class HeaderView extends DOMNodeView {
+  declare node: Header;
+
+  override render() {
+    return document.createElement("h1");
+  }
+
+  static override rules: DOMTagParseRule[] = [{ tag: "h1" }];
+}
+
 export class Header extends Node {
   static override type = NodeType.extend("paragraph", {
     name: "header",
   });
 
-  override view = new DefintionNodeView(["h1", 0]);
+  override view = new HeaderView();
 }
+
+NodeType.register(Document, Paragraph, Header);
 
 export function doc(...content: (Node | string)[]) {
   return new Document(parseContent(content));

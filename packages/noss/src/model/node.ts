@@ -1,14 +1,14 @@
-import { MethodError, NotImplementedError, stack } from "@noss-editor/utils";
-
+import type { Result } from "@noss-editor/utils";
 import type { FragmentJSON } from "./fragment";
 import type { Slice } from "./slice";
 import type { NodeView } from "./view";
+import { Err, MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 import { TextView } from "./view";
 import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
 import { Position } from "./position";
 
-type NodeAttrs = {
+export type NodeAttrs = {
   readonly [x: string]: unknown;
 };
 
@@ -17,6 +17,10 @@ type NodeAttrs = {
  */
 export abstract class Node {
   static readonly type: NodeType;
+
+  /**
+   * The type of this node, this is inferred automatically from the static type property.
+   */
   readonly type: NodeType;
 
   readonly id: string;

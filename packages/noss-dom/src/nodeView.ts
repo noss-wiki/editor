@@ -1,28 +1,32 @@
 import type { NodeRoot } from "./types";
-import type { Node } from "noss-editor";
+import type { NodeAttrs } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import { NodeView } from "noss-editor";
-import { stack, MethodError, Err } from "@noss-editor/utils";
+import { stack, MethodError, Err, Ok } from "@noss-editor/utils";
 
-export type DOMTagParseRules = {
-  tag: string;
-  style: string;
-  type: "text" | "element";
+export type DOMTagParseRule = {
+  /**
+   * The lowercase tag name of the node.
+   */
+  tag?: string;
+  style?: string;
 };
 
 export abstract class DOMNodeView extends NodeView<HTMLElement> {
-  declare static rules: DOMTagParseRules;
-  static override parse(e: HTMLElement): Result<Node | true, null> {
+  static rules: DOMTagParseRule[] = [];
+
+  static override parse(e: HTMLElement): Result<NodeAttrs | true, null> {
+    // TODO: doesn't work as view extends this one
+    for (const rule of DOMNodeView.rules) {
+      if (rule.tag?.toLowerCase() === e.tagName.toLowerCase()) return Ok(true);
+    }
     return Err();
   }
 }
 
-// TODO: Refactor to allow access to node instance (and attrs, etc.)
-export class DefintionNodeView extends NodeView<NodeRoot> {
-  constructor(
-    readonly definition: RenderDefinition,
-    node?: Node,
-  ) {
+// TODO: Add support for parse (rules)
+export class SimpleNodeView extends NodeView<NodeRoot> {
+  constructor(readonly definition: RenderDefinition) {
     super();
   }
 

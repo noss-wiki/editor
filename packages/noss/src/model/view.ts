@@ -1,10 +1,10 @@
 import type { Selection } from "./selection";
-import type { Node, Text } from "./node";
+import type { Node, Text, NodeAttrs } from "./node";
 import type { EditorState } from "../state";
 import type { Diff } from "../state/diff";
 import type { Result } from "@noss-editor/utils";
 import type { Transaction } from "../state/transaction";
-import { Err, Ok } from "@noss-editor/utils";
+import { Err, MethodError } from "@noss-editor/utils";
 
 /**
  * A generic view where `T` represents what is rendered; what the render hook returns.
@@ -20,9 +20,12 @@ export interface View<T> {
   destroy?(): void;
 }
 
+const viewMap: Record<string, typeof NodeView<unknown>> = {};
+
 /**
  * A `NodeView` is a view that is bound to a node,
- * this is responsible for rendering the node correctly.
+ * this is responsible for rendering the node.
+ * This class should not be used, but instead use the similar `NodeView` class provided by the environment (e.g. noss-dom's DOMNodeView).
  */
 export abstract class NodeView<T> implements View<T> {
   /**
@@ -50,10 +53,7 @@ export abstract class NodeView<T> implements View<T> {
    * @param node The node to bind to this view, this is not required if the node is bound later in e.g. a subclass of `Node`.
    */
   constructor(node?: Node) {
-    if (node) {
-      this.node = node;
-      this.name ??= this.node.type.name;
-    }
+    if (node) this.bind(node);
   }
 
   /**
@@ -63,6 +63,10 @@ export abstract class NodeView<T> implements View<T> {
     // @ts-ignore : Assigned here instead of constructor
     this.node ??= node;
     this.name ??= this.node.type.name;
+
+    if (!viewMap[this.node.type.name]) viewMap[this.node.type.name] = <typeof NodeView<unknown>>this.constructor;
+    else if (viewMap[this.node.type.name] !== <typeof NodeView<unknown>>this.constructor)
+      throw new MethodError("A view for this nodeType already exists.", "NodeView.bind");
   }
 
   /**
@@ -80,22 +84,12 @@ export abstract class NodeView<T> implements View<T> {
 
   abstract render(): T;
 
-  /**
-   * Defines a set of simple parse rules.
-   * This and/or the parse method can be used.
-   * Proper types should be provided by the editorView that is used in the environment, e.g. `noss-dom`.
-   */
-  static rules: Record<string | number | symbol, unknown>[];
-
-  /**
-   * This and/or the rules property can be used.
-   * Proper types should be provided by the editorView that is used in the environment, e.g. `noss-dom`.
-   *
-   * @returns   An `Ok<true>` if it was a match or an `Ok<Node>` if additional values on the node are set,
-   *            or an `Err<null>` indicating it was not a match.
-   */
-  static parse(e: unknown): Result<Node | true, null> {
+  static parse(e: unknown): Result<NodeAttrs | true, null> {
     return Err();
+  }
+
+  static get all() {
+    return viewMap;
   }
 }
 

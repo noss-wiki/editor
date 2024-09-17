@@ -48,21 +48,22 @@ export class DOMObserver {
       if (t.nodeType === DOMNode.TEXT_NODE) {
         const node = this.view.toNode(t);
         const text = record.target as DOMText;
-        if (node.err) return Err("Failed to get bound node from DOM node");
+        if (node.err) return node.trace("DOMObserver.callback", "private");
         if (!node.val.type.schema.text)
-          return Err(`Node type mismatch; DOM node is text node, but bound node type: ${node.val.type.name}, isn't`);
+          return Err(`Node type mismatch; DOM node is text node, but bound node type: ${node.val.type.name}, isn't`) //
+            .trace("DOMObserver.callback", "private");
 
-        return calculateText(this.view.state.tr, node.val as Text, text.data);
+        return calculateText(this.view.state.tr, node.val as Text, text.data).trace("DOMObserver.callback", "private");
       }
     } else if (record.type === "childList") {
       const parent = this.view.toNode(record.target);
-      if (parent.err) return parent;
+      if (parent.err) return parent.trace("DOMObserver.callback", "private");
 
       const tr = this.view.state.tr;
       for (const c of record.addedNodes) {
         if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
         const index = wrap(() => Array.from(record.target.childNodes).indexOf(c as ChildNode)).unwrap(-1);
-        if (index === -1) return Err("Failed to get index of added node");
+        if (index === -1) return Err("Failed to get index of added node").trace("DOMObserver.callback", "private");
 
         if (c.nodeType === DOMNode.TEXT_NODE) {
           if ((c as DOMText).data === "") continue;
@@ -71,14 +72,20 @@ export class DOMObserver {
           wrap(() => tr.insertChild(text, parent.val, index))
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
+        } else {
+          console.log(c);
+          console.log(this.view.parse(c).val);
         }
       }
 
       for (const c of record.removedNodes) {
         if (c.nodeType === DOMNode.TEXT_NODE) {
           const text = <DOMText>c;
-          if (text.data === "") {
-          }
+          if (text.data === "") continue;
+          const node = this.view.toNode(c);
+          if (node.err) return node.trace("DOMObserver.callback", "private");
+          const res = tr.softStep(new RemoveStep(node.val));
+          if (res.err) return res.trace("DOMObserver.callback", "private");
         }
       }
 

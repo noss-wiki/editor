@@ -64,6 +64,10 @@ interface BaseResult<A, B> {
    * If the value of the error type is a string or null, it will be a formatted message with the stack trace.
    */
   warn(callback: (msg: string | B, trace: Trace[]) => void): Result<A, B>;
+  /**
+   * Throws an error if this result is an `Err`.
+   */
+  throw(): void;
 }
 
 interface Ok<A> extends BaseResult<A, never> {
@@ -131,6 +135,7 @@ class Ok_<A> implements Ok<A> {
   replaceErr = () => this;
   trace = () => this;
   warn = () => this;
+  throw = () => this;
 
   unwrap(): A {
     return this.val;
@@ -202,21 +207,29 @@ class Err_<B> implements Err<B> {
   }
 
   warn(callback: (msg: string | B, trace: Trace[]) => void) {
-    if (this.val == null || typeof this.val === "string") {
-      const msg = this.stackTrace
-        .slice()
-        .reverse()
-        .map(({ method, modifier, msg: _msg }, i) => {
-          const msg = i === 0 ? this.val : _msg;
-          let part = "";
-          if (msg) part = `${msg}\n`;
-          return `${part}${formatMethod(method, modifier)}`;
-        })
-        .join("\n");
-
-      callback(msg, this.stackTrace);
-    } else callback(this.val, this.stackTrace);
+    if (this.val == null || typeof this.val === "string") callback(this.createTrace(), this.stackTrace);
+    else callback(this.val, this.stackTrace);
     return this;
+  }
+
+  throw() {
+    this.warn((msg) => {
+      if (typeof msg === "string") throw new Error(msg);
+      else throw new Error(`An error occured \n${this.createTrace()}`);
+    });
+  }
+
+  private createTrace() {
+    return this.stackTrace
+      .slice()
+      .reverse()
+      .map(({ method, modifier, msg: _msg }, i) => {
+        const msg = i === 0 ? this.val : _msg;
+        let part = "";
+        if (msg && typeof msg === "string") part = `${msg}\n`;
+        return `${part}${formatMethod(method, modifier)}`;
+      })
+      .join("\n");
   }
 }
 

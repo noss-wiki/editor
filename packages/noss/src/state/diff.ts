@@ -85,10 +85,16 @@ export class Diff {
 
   private reconstructChange(boundary: Node, change: Change): Result<Node, string> {
     if (change.type === ChangeType.replace) {
+      if (change.old === boundary) return Ok(change.modified);
       return wrap(() => boundary.content.replaceChildRecursive(change.old, change.modified)) //
         .map((c) => boundary.copy(c))
         .trace("Diff.reconstructChange", "private");
     } else if (change.type === ChangeType.insert) {
+      if (change.parent === boundary)
+        return wrap(() => boundary.content.insert(change.modified, change.index)) //
+          .map((c) => boundary.copy(c))
+          .trace("Diff.reconstructChange", "private");
+
       return wrap(() =>
         boundary.content.replaceChildRecursive(
           change.parent,
@@ -99,14 +105,19 @@ export class Diff {
         .trace("Diff.reconstructChange", "private");
     } else {
       return getParentNode(boundary, change.old)
-        .try((parent) =>
-          wrap(() =>
+        .try((parent) => {
+          if (parent === boundary)
+            return wrap(() => boundary.content.remove(change.old)) //
+              .map((c) => boundary.copy(c))
+              .trace("Diff.reconstructChange", "private");
+
+          return wrap(() =>
             boundary.content.replaceChildRecursive(
               parent,
               parent.copy(parent.content.remove(change.old)), //
             ),
-          ).map((c) => boundary.copy(c)),
-        )
+          ).map((c) => boundary.copy(c));
+        })
         .trace("Diff.reconstructChange", "private");
     }
   }
@@ -130,7 +141,9 @@ export class Diff {
    * @returns A Result containing the diff or an error if the child is not found in the boundary.
    */
   static replaceChild(boundary: Node, child: Node, modified: Node): Result<Diff, string> {
-    if (!boundary.content.contains(child)) return Err("Boundary does not contain the specified child");
+    if (boundary === child) return Diff.diff(boundary, boundary, modified).trace("Diff.replaceChild", "static");
+    else if (!boundary.content.contains(child))
+      return Err("Boundary does not contain the specified child", "Diff.replaceChild", "static");
     // parent node has changed
     const mod = boundary.copy(boundary.content.replaceChildRecursive(child, modified));
     return Diff.diff(boundary, boundary, mod).trace("Diff.replaceChild", "static");

@@ -37,7 +37,7 @@ class ParagraphView extends DOMNodeView {
     return p;
   }
 
-  static override rules: DOMTagParseRule[] = [{ tag: "p" }];
+  static override parse = DOMNodeView.rules([{ tag: "p" }]);
 }
 
 export class Paragraph extends Node {
@@ -59,7 +59,7 @@ class HeaderView extends DOMNodeView {
     return document.createElement("h1");
   }
 
-  static override rules: DOMTagParseRule[] = [{ tag: "h1" }];
+  static override parse = DOMNodeView.rules([{ tag: "h1" }]);
 }
 
 export class Header extends Node {

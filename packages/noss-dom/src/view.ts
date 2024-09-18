@@ -1,5 +1,5 @@
 import type { Result } from "@noss-editor/utils";
-import type { Node, Text, Diff, TextView, Transaction, NodeAttrs } from "noss-editor";
+import type { Node, Text, Diff, TextView, Transaction, NodeAttrs, ParseResult } from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
 import type { DOMTagParseRule } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
@@ -30,6 +30,14 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         const parent = domParent.val as DOMElement;
         const domChild = renderNodeRecursive(child);
         if (!domChild) continue;
+
+        // TODO: Remove or replace existing
+        // const existing = parent.childNodes[change.index];
+        // if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
+        //   const node = existing as DOMElement;
+        //   if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id)
+        //     node.replaceWith(domChild);
+        // }
 
         if (change.index === change.parent.content.nodes.length - 1) parent.append(domChild);
         else {
@@ -108,7 +116,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     else return Err("Failed to find dom node").trace("DOMView.toDom");
   }
 
-  override parse(e: DOMNode): Result<Node, string> {
+  override parse(e: DOMNode): Result<Node | null, string> {
     if (e.nodeType === DOMNode.TEXT_NODE) {
       const text = e as DOMText;
       return NodeType.softGet("text").map((type) => {
@@ -118,6 +126,8 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
       });
     } else if (e.nodeType === DOMNode.ELEMENT_NODE) {
       const node = e as DOMElement;
+      if (node.tagName === "BR") return Ok(null);
+
       for (const name in NodeView.all) {
         const view = NodeView.all[name];
         const nodeType = NodeType.softGet(name);
@@ -126,9 +136,21 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         const res = view.parse(node);
         if (res.err) continue;
 
+        let outlet: HTMLElement;
+        // biome-ignore lint/style/noNonNullAssertion : res.outlet is non-null as checked
+        if ((<ParseResult<HTMLElement>>res.val).outlet) outlet = (<ParseResult<HTMLElement>>res.val).outlet!;
+        else outlet = node;
+
+        const nodes: Node[] = [];
+        for (const child of outlet.childNodes) {
+          const res = this.parse(child);
+          if (res.err) return res.trace("DOMView.parse");
+          else if (res.val !== null) nodes.push(res.val);
+        }
+
         const nodeClass = nodeType.val.node;
         // @ts-ignore : nodeClass is not the base class but one that extends it
-        return Ok(new nodeClass(Fragment.empty));
+        return Ok(new nodeClass(Fragment.from(nodes)));
       }
     }
     return Err("Unknown nodeType").trace("DOMView.parse");

@@ -18,7 +18,7 @@ export class Transaction {
   readonly original: Node;
   readonly history: boolean;
 
-  readonly selection?: Selection;
+  public selection?: Selection;
 
   /**
    * The modified boundary with all the steps applied to it.
@@ -78,6 +78,10 @@ export class Transaction {
         }),
       )
       .trace("Transaction.softStep");
+  }
+
+  setSelection(selection?: Selection) {
+    this.selection = selection;
   }
 
   /**

@@ -1,5 +1,5 @@
 import type { NodeRoot } from "./types";
-import type { NodeAttrs } from "noss-editor";
+import type { NodeAttrs, ParseResult } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import { NodeView } from "noss-editor";
 import { stack, MethodError, Err, Ok } from "@noss-editor/utils";
@@ -13,13 +13,31 @@ export type DOMTagParseRule = {
 };
 
 export abstract class DOMNodeView extends NodeView<HTMLElement> {
-  static rules: DOMTagParseRule[] = [];
+  // This method doesn't work for some reason (typeerror in app/nodes.ts)
+  /**
+   * A shorthand for creating parse functions based on a set of rules.
+   * This assumes the view renders a single tag element. (e.g. a paragraph `<p>`)
+   * @usage
+```ts
+class ParagraphView extends DOMNodeView {
+    static override parse = DOMNodeView.rules([{ tag: "p" }]);
+}
+```
+   */
+  static rules(rules: DOMTagParseRule[]) {
+    return (e: HTMLElement): Result<ParseResult<HTMLElement> | true, null> => {
+      for (const rule of rules) {
+        if (rule.tag?.toLowerCase() === e.tagName.toLowerCase()) return Ok(true);
+      }
+      return Err();
+    };
+  }
 
-  static override parse(e: HTMLElement): Result<NodeAttrs | true, null> {
-    // TODO: doesn't work as view extends this one
-    for (const rule of DOMNodeView.rules) {
-      if (rule.tag?.toLowerCase() === e.tagName.toLowerCase()) return Ok(true);
-    }
+  /**
+   * Given an HTMLElement, check if it is a valid node for this view.
+   * For simple usage, use `DOMNodeView.rules`
+   */
+  static override parse<HTMLElement>(e: HTMLElement): Result<ParseResult<HTMLElement> | true, null> {
     return Err();
   }
 }

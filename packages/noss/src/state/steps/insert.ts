@@ -30,7 +30,7 @@ export class InsertStep extends Step {
         const node = pos.parent.copy(pos.parent.content.insert(this.node, index));
         return Diff.replaceChild(boundary, pos.parent, node);
       })
-      .trace("InserStep.apply");
+      .trace("InsertStep.apply");
   }
 }
 

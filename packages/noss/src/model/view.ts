@@ -4,6 +4,7 @@ import type { EditorState } from "../state";
 import type { Diff } from "../state/diff";
 import type { Result } from "@noss-editor/utils";
 import type { Transaction } from "../state/transaction";
+import type { NodeType } from "./nodeType";
 import { Err, MethodError } from "@noss-editor/utils";
 
 /**
@@ -21,6 +22,18 @@ export interface View<T> {
 }
 
 const viewMap: Record<string, typeof NodeView<unknown>> = {};
+
+export interface ParseResult<E> {
+  /**
+   * The outlet of the parsed node,
+   * if left empty the root element will be used, so it's a single tag node (e.g. a paragraph `<p>`).
+   */
+  outlet?: E;
+  /**
+   * Optional attributes for the node.
+   */
+  attrs?: NodeAttrs;
+}
 
 /**
  * A `NodeView` is a view that is bound to a node,
@@ -84,7 +97,7 @@ export abstract class NodeView<T> implements View<T> {
 
   abstract render(): T;
 
-  static parse(e: unknown): Result<NodeAttrs | true, null> {
+  static parse<E = unknown>(e: E): Result<ParseResult<E> | true, null> {
     return Err();
   }
 
@@ -165,5 +178,5 @@ export abstract class EditorView<T, R = T> implements View<T> {
    * based on the view's rules.
    * This method is recursive, so it will also parse the children, etc.
    */
-  abstract parse(e: R): Result<Node, string>;
+  abstract parse(e: R): Result<Node | null, string>;
 }

@@ -2,7 +2,7 @@ import type { DOMView } from "./view";
 import type { Node, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { InsertTextStep, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep } from "noss-editor";
+import { InsertTextStep, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep, Selection } from "noss-editor";
 import { Err, MethodError, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
@@ -18,7 +18,8 @@ export class DOMObserver {
         this.callback(record)
           .trace("DOMObserver.callback", "private")
           .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
-          .warn((e) => console.warn(e));
+          .warn((e) => console.warn(e))
+          .map((e) => console.log(e));
       }
     });
   }
@@ -39,6 +40,12 @@ export class DOMObserver {
 
   stop() {
     this.observer.disconnect();
+  }
+
+  unChecked(callback: () => void) {
+    this.stop();
+    callback();
+    this.start();
   }
 
   private callback(record: MutationRecord): Result<Transaction | null, string> {
@@ -66,15 +73,30 @@ export class DOMObserver {
         if (index === -1) return Err("Failed to get index of added node").trace("DOMObserver.callback", "private");
 
         if (c.nodeType === DOMNode.TEXT_NODE) {
+          console.log(parent.val);
           if ((c as DOMText).data === "") continue;
+
           const text = createTextNode((c as DOMText).data);
-          c.parentNode?.removeChild(c);
+          this.unChecked(() => c.parentNode?.removeChild(c));
           wrap(() => tr.insertChild(text, parent.val, index))
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
-        } else {
-          console.log(c);
-          console.log(this.view.parse(c).val);
+        } else if (c.nodeType === DOMNode.ELEMENT_NODE) {
+          const node = c as HTMLElement;
+
+          const parsed = this.view.parse(node);
+          if (parsed.err) return parsed.trace("DOMObserver.callback", "private");
+          else if (parsed.val === null) continue;
+
+          node.setAttribute("data-pre-node", parsed.val.id);
+          // TODO: Allow to hint that new domnode should not be inserted if it's equal to a provided one
+          tr.softStep(new InsertStep(Position.child(parent.val, index), parsed.val)) //
+            .trace("DOMObserver.callback", "private")
+            .warn((e) => console.warn(e));
+
+          // Position.offset(parsed.val, 0)
+          //   .resolve(tr.modified)
+          //   .map((pos) => tr.setSelection(Selection.collapsed(pos)));
         }
       }
 

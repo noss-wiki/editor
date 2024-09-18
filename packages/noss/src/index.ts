@@ -11,7 +11,7 @@ export { Position } from "./model/position";
 export { Selection } from "./model/selection";
 export { Slice } from "./model/slice";
 export { EditorView, NodeView, TextView } from "./model/view";
-export type { View } from "./model/view";
+export type { View, ParseResult } from "./model/view";
 
 export { EditorState } from "./state";
 export type { Change } from "./state/diff";

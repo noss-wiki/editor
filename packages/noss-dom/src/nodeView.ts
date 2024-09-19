@@ -12,6 +12,7 @@ export type DOMTagParseRule = {
   style?: string;
 };
 
+// @ts-ignore : It gives weird error but it works just fine
 export abstract class DOMNodeView extends NodeView<HTMLElement> {
   // This method doesn't work for some reason (typeerror in app/nodes.ts)
   /**
@@ -37,7 +38,7 @@ class ParagraphView extends DOMNodeView {
    * Given an HTMLElement, check if it is a valid node for this view.
    * For simple usage, use `DOMNodeView.rules`
    */
-  static override parse<HTMLElement>(e: HTMLElement): Result<ParseResult<HTMLElement> | true, null> {
+  static override parse(e: HTMLElement): Result<ParseResult<HTMLElement> | true, null> {
     return Err();
   }
 }

@@ -34,6 +34,7 @@ class ParagraphView extends DOMNodeView {
 
   override render() {
     const p = document.createElement("p");
+    if (this.node.content.empty) p.append(document.createElement("br"));
     return p;
   }
 

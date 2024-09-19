@@ -7,6 +7,10 @@ export class Fragment {
   readonly nodes: Node[];
   readonly size: number;
 
+  get empty() {
+    return this.nodes.length === 0;
+  }
+
   get childCount() {
     return this.nodes.length;
   }

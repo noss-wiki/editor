@@ -32,12 +32,13 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         if (!domChild) continue;
 
         // TODO: Remove or replace existing
-        // const existing = parent.childNodes[change.index];
-        // if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
-        //   const node = existing as DOMElement;
-        //   if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id)
-        //     node.replaceWith(domChild);
-        // }
+        const existing = parent.childNodes[change.index];
+        if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
+          const node = existing as DOMElement;
+          if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id) {
+            node.replaceWith(domChild);
+          }
+        }
 
         if (change.index === change.parent.content.nodes.length - 1) parent.append(domChild);
         else {

@@ -97,7 +97,7 @@ export abstract class NodeView<T> implements View<T> {
 
   abstract render(): T;
 
-  static parse<E = unknown>(e: E): Result<ParseResult<E> | true, null> {
+  static parse<E>(e: E): Result<ParseResult<E> | true, null> {
     return Err();
   }
 

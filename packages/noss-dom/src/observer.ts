@@ -94,9 +94,9 @@ export class DOMObserver {
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
 
-          // Position.offset(parsed.val, 0)
-          //   .resolve(tr.modified)
-          //   .map((pos) => tr.setSelection(Selection.collapsed(pos)));
+          Position.offset(parsed.val, 0)
+            .resolve(tr.modified)
+            .map((pos) => tr.setSelection(Selection.collapsed(pos)));
         }
       }
 

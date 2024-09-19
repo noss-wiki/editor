@@ -63,17 +63,17 @@ export class DOMObserver {
         return calculateText(this.view.state.tr, node.val as Text, text.data).trace("DOMObserver.callback", "private");
       }
     } else if (record.type === "childList") {
-      const parent = this.view.toNode(record.target);
-      if (parent.err) return parent.trace("DOMObserver.callback", "private");
-
       const tr = this.view.state.tr;
       for (const c of record.addedNodes) {
         if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
+        else if (!record.target.contains(c)) continue;
         const index = wrap(() => Array.from(record.target.childNodes).indexOf(c as ChildNode)).unwrap(-1);
         if (index === -1) return Err("Failed to get index of added node").trace("DOMObserver.callback", "private");
 
+        const parent = this.view.toNode(record.target);
+        if (parent.err) return parent.trace("DOMObserver.callback", "private");
+
         if (c.nodeType === DOMNode.TEXT_NODE) {
-          console.log(parent.val);
           if ((c as DOMText).data === "") continue;
 
           const text = createTextNode((c as DOMText).data);
@@ -82,17 +82,20 @@ export class DOMObserver {
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
         } else if (c.nodeType === DOMNode.ELEMENT_NODE) {
-          const node = c as HTMLElement;
+          const element = c as HTMLElement;
 
-          const parsed = this.view.parse(node);
+          const parsed = this.view.parse(element);
           if (parsed.err) return parsed.trace("DOMObserver.callback", "private");
           else if (parsed.val === null) continue;
 
-          node.setAttribute("data-pre-node", parsed.val.id);
-          // TODO: Allow to hint that new domnode should not be inserted if it's equal to a provided one
+          //console.log(parsed.val);
+          element.setAttribute("data-pre-node", parsed.val.id);
+
+          // FIX: In some cases this diff is just completely wrong, for some reason?
           tr.softStep(new InsertStep(Position.child(parent.val, index), parsed.val)) //
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
+          //.map((diff) => console.log(diff));
 
           Position.offset(parsed.val, 0)
             .resolve(tr.modified)
@@ -101,14 +104,15 @@ export class DOMObserver {
       }
 
       for (const c of record.removedNodes) {
-        if (c.nodeType === DOMNode.TEXT_NODE) {
-          const text = <DOMText>c;
-          if (text.data === "") continue;
-          const node = this.view.toNode(c);
-          if (node.err) return node.trace("DOMObserver.callback", "private");
-          const res = tr.softStep(new RemoveStep(node.val));
-          if (res.err) return res.trace("DOMObserver.callback", "private");
-        }
+        if (c.nodeType === DOMNode.TEXT_NODE && (<DOMText>c).data === "") continue;
+        else if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
+        else if (!record.target.contains(c)) continue;
+
+        const node = this.view.toNode(c);
+        if (node.err) return node.trace("DOMObserver.callback", "private");
+
+        const res = tr.softStep(new RemoveStep(node.val));
+        if (res.err) return res.trace("DOMObserver.callback", "private");
       }
 
       return Ok(tr);

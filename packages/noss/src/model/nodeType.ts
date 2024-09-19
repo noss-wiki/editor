@@ -17,6 +17,12 @@ export interface NodeTypeDefinition {
    * The schema that applies for this node type.
    */
   schema: NodeSchema;
+  /**
+   * Set to true to use this node as default node type for the editor.
+   * Only one node type can be the default node type.
+   * @default false
+   */
+  default?: boolean;
 }
 
 /**
@@ -95,6 +101,7 @@ export interface NodeSchema {
 type ExtendNodeTypeDefinition = Partial<Omit<NodeTypeDefinition, "name">> & { name: string };
 
 const definitions: Record<string, NodeType | undefined> = {};
+let defaultType: NodeType | null = null;
 
 export class NodeType {
   /**
@@ -122,12 +129,15 @@ export class NodeType {
 
     if (definitions[this.name] !== undefined)
       throw new MethodError(
-        `NodeType with name ${this.name}, already exists. If overriding this was intentional, use NodeType.override.`,
+        `NodeType with name ${this.name}, already exists. If overriding this was intentional, use NodeType.override`,
         "NodeType.constructor",
       );
+    else if (definition.default && defaultType !== null)
+      throw new MethodError("Multiple nodes are set as default", "NodeType.constructor");
 
     this.visible = this.meta === undefined || this.meta.visible !== true;
     definitions[this.name] = this;
+    if (definition.default) defaultType = this;
   }
 
   static from(type: NodeTypeDefinition) {
@@ -224,5 +234,10 @@ export class NodeType {
 
   static get all() {
     return definitions;
+  }
+
+  static get default(): Result<NodeType, null> {
+    if (defaultType === null) return Err(null);
+    return Ok(defaultType);
   }
 }

@@ -149,12 +149,19 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           else if (res.val !== null) nodes.push(res.val);
         }
 
-        const nodeClass = nodeType.val.node;
-        // @ts-ignore : nodeClass is not the base class but one that extends it
-        return Ok(new nodeClass(Fragment.from(nodes)));
+        const construct = nodeType.val.node;
+        // @ts-ignore : construct is not the base class but one that extends it
+        return Ok(new construct(Fragment.from(nodes)));
+      }
+
+      const defaultType = NodeType.default;
+      if (defaultType.ok) {
+        const construct = defaultType.val.node;
+        // @ts-ignore : construct is not the base class but one that extends it
+        return Ok(new construct(Fragment.empty));
       }
     }
-    return Err("Unknown nodeType").trace("DOMView.parse");
+    return Err("Unknown element nodeType").trace("DOMView.parse");
   }
 
   override getSelection(boundary: Node): Result<Selection, string> {

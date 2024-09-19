@@ -48,6 +48,7 @@ export class Paragraph extends Node {
       content: "inline*",
       group: "block",
     },
+    default: true,
   });
 
   override view = new ParagraphView();

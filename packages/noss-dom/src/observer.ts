@@ -95,7 +95,6 @@ export class DOMObserver {
           tr.softStep(new InsertStep(Position.child(parent.val, index), parsed.val)) //
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
-          //.map((diff) => console.log(diff));
 
           Position.offset(parsed.val, 0)
             .resolve(tr.modified)

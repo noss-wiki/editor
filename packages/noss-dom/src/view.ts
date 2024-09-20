@@ -31,7 +31,6 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         const domChild = renderNodeRecursive(child);
         if (!domChild) continue;
 
-        // TODO: Remove or replace existing
         const existing = parent.childNodes[change.index];
         if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
           const node = existing as DOMElement;
@@ -40,7 +39,14 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           }
         }
 
-        if (change.index === change.parent.content.nodes.length - 1) parent.append(domChild);
+        // Remove br element if in text holding node
+        if (domChild.nodeType === DOMNode.TEXT_NODE) {
+          const first = parent.childNodes[0];
+          if (first.nodeType === DOMNode.ELEMENT_NODE && (<DOMElement>first).tagName === "BR")
+            parent.removeChild(first);
+        }
+
+        if (change.index >= change.parent.content.childCount) parent.append(domChild);
         else {
           const anchor = parent.childNodes[change.index];
           if (!anchor) continue; // err if anchor is not found

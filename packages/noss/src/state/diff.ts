@@ -208,7 +208,7 @@ function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], nul
       // fill the top and left edges with 0
       if (o === 0 || n === 0) matrix[o][n] = 0;
       // if the nodes are equal, increment the diagonal value
-      else if (oldNodes[o - 1].eq(newNodes[n - 1], true)) matrix[o][n] = matrix[o - 1][n - 1] + 1;
+      else if (oldNodes[o - 1].strictEq(newNodes[n - 1], true)) matrix[o][n] = matrix[o - 1][n - 1] + 1;
       // otherwise, take the maximum of the top and left values
       else matrix[o][n] = Math.max(matrix[o - 1][n], matrix[o][n - 1]);
     }

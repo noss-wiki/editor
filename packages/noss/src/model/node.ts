@@ -224,6 +224,10 @@ export abstract class Node {
     else return this.content.eq(other.content);
   }
 
+  strictEq(other: Node, ignoreContent = false): boolean {
+    return this.id === other.id && this.eq(other, ignoreContent);
+  }
+
   /**
    * Creates a deep copy of this node.
    * It does this by calling the copy method on the content fragment,

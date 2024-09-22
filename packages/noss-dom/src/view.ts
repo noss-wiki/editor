@@ -43,7 +43,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         // Remove br element if in text holding node
         if (domChild.val.nodeType === DOMNode.TEXT_NODE) {
           const first = parent.childNodes[0];
-          if (first.nodeType === DOMNode.ELEMENT_NODE && (<DOMElement>first).tagName === "BR")
+          if (first && first.nodeType === DOMNode.ELEMENT_NODE && (<DOMElement>first).tagName === "BR")
             parent.removeChild(first);
         }
 
@@ -97,7 +97,13 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   }
 
   override toNode(element: DOMNode): Result<Node, string> {
-    const id = element._nodeId;
+    let id = element._nodeId;
+
+    if (!id && element.nodeType === DOMNode.ELEMENT_NODE) {
+      const _element = element as DOMElement;
+      if (_element.hasAttribute("data-pre-node")) id = _element.getAttribute("data-pre-node") as string;
+    }
+
     if (id) {
       const bound = getNodeById(this.state.document, id);
       return bound.replaceErr(`Failed to find node with id: ${id}`).trace("DOMView.toNode");

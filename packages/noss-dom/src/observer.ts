@@ -16,10 +16,9 @@ export class DOMObserver {
     this.observer = new MutationObserver((e) => {
       for (const record of e) {
         this.callback(record)
-          .trace("DOMObserver.callback", "private")
           .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
           .warn((e) => console.warn(e))
-          .map((e) => console.log(e));
+          .map((e) => e && console.log(e));
       }
     });
   }
@@ -67,7 +66,8 @@ export class DOMObserver {
       for (const c of record.addedNodes) {
         if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
         else if (!record.target.contains(c)) continue;
-        const index = wrap(() => Array.from(record.target.childNodes).indexOf(c as ChildNode)).unwrap(-1);
+
+        const index = getIndex(record, c).unwrap(-1);
         if (index === -1) return Err("Failed to get index of added node").trace("DOMObserver.callback", "private");
 
         const parent = this.view.toNode(record.target);
@@ -104,16 +104,21 @@ export class DOMObserver {
       for (const c of record.removedNodes) {
         if (c.nodeType === DOMNode.TEXT_NODE && (<DOMText>c).data === "") continue;
         else if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
-        else if (!record.target.contains(c)) continue;
+
+        const parent = this.view.toNode(record.target);
+        if (parent.err) return parent.trace("DOMObserver.callback", "private");
 
         const node = this.view.toNode(c);
         if (node.err) return node.trace("DOMObserver.callback", "private");
+        else if (!parent.val.content.contains(node.val))
+          return Err("Node not found in parent node", "DOMObserver.callback", "private");
 
         const res = tr.softStep(new RemoveStep(node.val));
         if (res.err) return res.trace("DOMObserver.callback", "private");
       }
 
-      return Ok(tr);
+      if (tr.steps.length === 0) return Ok(null);
+      else return Ok(tr);
     }
     return Err("Unhandled case");
   }
@@ -157,4 +162,24 @@ function calculateText(tr: Transaction, node: Text, expected: string): Result<Tr
 function createTextNode(content: string): Text {
   // @ts-ignore : `node` will never be the direct Node instance, but a subclass of it.
   return new (NodeType.get("text").node)(content);
+}
+
+function getIndex(record: MutationRecord, node: globalThis.Node): Result<number, null> {
+  const parent = record.target;
+  const i = Array.from(parent.childNodes).indexOf(node as ChildNode);
+  if (i !== -1) return Ok(i);
+
+  if (record.type !== "childList") return Err();
+  else if (record.addedNodes.length > 1) return Err();
+  else if (record.removedNodes.length > 1) return Err();
+
+  if (record.previousSibling) {
+    const index = Array.from(parent.childNodes).indexOf(record.previousSibling as ChildNode);
+    if (index !== -1) return Ok(index + 1);
+  }
+  if (record.nextSibling) {
+    const index = Array.from(parent.childNodes).indexOf(record.nextSibling as ChildNode);
+    if (index !== -1) return Ok(index);
+  }
+  return Err();
 }

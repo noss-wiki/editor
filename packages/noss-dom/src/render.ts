@@ -1,9 +1,10 @@
 import type { Node, Text, NodeView } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
-import type { DOMElement, DOMText, DOMNode } from "./types";
+import type { DOMText } from "./types";
 import type { DOMNodeView } from "./nodeView";
 import { Ok, Err } from "@noss-editor/utils";
 import { TextView } from "noss-editor";
+import { DOMNode } from "./types";
 
 export function renderNode(node: Node): Result<DOMNode, null> {
   if (node.type.schema.text && node.view instanceof TextView) return renderTextNode(node as Text).trace("renderNode");
@@ -39,6 +40,7 @@ export function renderTextNode(node: Text): Result<DOMText, null> {
 export function renderNodeRecursive(node: Node): Result<DOMNode, null> {
   const res = renderNode(node);
   if (res.err) return res.trace("renderNodeRecursive");
+  if (res.val.nodeType === DOMNode.TEXT_NODE) return res;
 
   // It has a view, otherwise renderNode would return `Err`;
   const view = node.view as NodeView<DOMNode>;

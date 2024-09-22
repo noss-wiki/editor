@@ -1,5 +1,4 @@
 import { Fragment, Node, Text, NodeType } from "noss-editor";
-import type { DOMTagParseRule } from "../src/nodeView";
 import { SimpleNodeView, DOMNodeView } from "../src/nodeView";
 export { Node, Text };
 
@@ -30,11 +29,11 @@ export class Document extends Node {
 }
 
 class ParagraphView extends DOMNodeView {
+  override emptyBreak = true;
   declare node: Paragraph;
 
   override render() {
     const p = document.createElement("p");
-    if (this.node.content.empty) p.append(document.createElement("br"));
     return p;
   }
 
@@ -55,6 +54,7 @@ export class Paragraph extends Node {
 }
 
 class HeaderView extends DOMNodeView {
+  override emptyBreak = true;
   declare node: Header;
 
   override render() {

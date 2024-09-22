@@ -5,7 +5,7 @@ import type { Diff } from "../state/diff";
 import type { Result } from "@noss-editor/utils";
 import type { Transaction } from "../state/transaction";
 import type { NodeType } from "./nodeType";
-import { Err, MethodError } from "@noss-editor/utils";
+import { Err, MethodError, Ok } from "@noss-editor/utils";
 
 /**
  * A generic view where `T` represents what is rendered; what the render hook returns.
@@ -86,13 +86,14 @@ export abstract class NodeView<T> implements View<T> {
    * Wraps the render hook to bind the node and save the root/outlet.
    * @internal
    */
-  _render(node?: Node) {
+  renderBind(node?: Node): Result<T, string> {
     if (!this.node && node) this.bind(node);
+    else if (!this.node) return Err("No Node was bound to this view, and no Node was provided");
 
     this.outlet = undefined;
     this.root = this.render();
     this.outlet ??= this.root;
-    return { root: this.root, outlet: this.outlet };
+    return Ok(this.root);
   }
 
   abstract render(): T;
@@ -113,6 +114,7 @@ export abstract class NodeView<T> implements View<T> {
 export class TextView<T> extends NodeView<string> {
   public textRoot?: T;
   declare node: Text;
+
   override render() {
     return this.node.text;
   }

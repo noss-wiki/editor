@@ -1,4 +1,4 @@
-import type { NodeRoot } from "./types";
+import type { DOMNode, NodeRoot } from "./types";
 import type { NodeAttrs, ParseResult } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import { NodeView } from "noss-editor";
@@ -13,17 +13,24 @@ export type DOMTagParseRule = {
 };
 
 // @ts-ignore : It gives weird error but it works just fine
-export abstract class DOMNodeView extends NodeView<HTMLElement> {
-  // This method doesn't work for some reason (typeerror in app/nodes.ts)
+export abstract class DOMNodeView extends NodeView<DOMNode> {
+  /**
+   * If true, a `<br>` element will be rendered if the node is empty.
+   * This fixes some DOM issues, where e.g. an empty paragraph will have a height of zero, and therefore is invisible to the user.
+   *
+   * Set this to true, on text holding nodes, e.g. paragraphs, headers, etc.
+   */
+  emptyBreak = false;
+
   /**
    * A shorthand for creating parse functions based on a set of rules.
    * This assumes the view renders a single tag element. (e.g. a paragraph `<p>`)
    * @usage
-```ts
-class ParagraphView extends DOMNodeView {
-    static override parse = DOMNodeView.rules([{ tag: "p" }]);
-}
-```
+    ```ts
+    class ParagraphView extends DOMNodeView {
+        static override parse = DOMNodeView.rules([{ tag: "p" }]);
+    }
+    ```
    */
   static rules(rules: DOMTagParseRule[]) {
     return (e: HTMLElement): Result<ParseResult<HTMLElement> | true, null> => {

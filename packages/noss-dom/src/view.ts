@@ -1,5 +1,5 @@
 import type { Result } from "@noss-editor/utils";
-import type { Node, Text, Diff, TextView, Transaction, NodeAttrs, ParseResult } from "noss-editor";
+import type { Node, Text, Diff, TextView, Transaction, NodeAttrs, ParseResult, NodeConstructor } from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
 import type { DOMTagParseRule } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
@@ -7,6 +7,7 @@ import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragme
 import { getNodeById } from "noss-editor/internal";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
+import { renderNodeRecursive } from "./render";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -29,28 +30,28 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
         const parent = domParent.val as DOMElement;
         const domChild = renderNodeRecursive(child);
-        if (!domChild) continue;
+        if (domChild.err) continue;
 
         const existing = parent.childNodes[change.index];
         if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
           const node = existing as DOMElement;
           if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id) {
-            node.replaceWith(domChild);
+            node.replaceWith(domChild.val);
           }
         }
 
         // Remove br element if in text holding node
-        if (domChild.nodeType === DOMNode.TEXT_NODE) {
+        if (domChild.val.nodeType === DOMNode.TEXT_NODE) {
           const first = parent.childNodes[0];
           if (first.nodeType === DOMNode.ELEMENT_NODE && (<DOMElement>first).tagName === "BR")
             parent.removeChild(first);
         }
 
-        if (change.index >= change.parent.content.childCount) parent.append(domChild);
+        if (change.index >= change.parent.content.childCount) parent.append(domChild.val);
         else {
           const anchor = parent.childNodes[change.index];
           if (!anchor) continue; // err if anchor is not found
-          parent.insertBefore(domChild, anchor);
+          parent.insertBefore(domChild.val, anchor);
         }
       } else {
         const domNode = this.toRendered(change.old);
@@ -64,8 +65,8 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
             if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
           } else {
             const newNode = renderNodeRecursive(change.modified);
-            if (!newNode) continue;
-            domNode.val.replaceWith(newNode);
+            if (newNode.err) continue;
+            domNode.val.replaceWith(newNode.val);
           }
         }
       }
@@ -79,20 +80,20 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.observer.stop();
     const document = this.state.document;
     const ele = renderNodeRecursive(document);
-    if (!ele)
+    if (ele.err)
       throw new MethodError(
         "The document node doesn't have a view attached, so it can't be rendered",
         "DOMView.render",
       );
 
     this.root.innerHTML = "";
-    this.root.appendChild(ele);
+    this.root.appendChild(ele.val);
     this.root.contentEditable = "true";
 
     this.observer.bind(this);
     this.observer.start();
 
-    return ele as HTMLElement;
+    return ele.val as HTMLElement;
   }
 
   override toNode(element: DOMNode): Result<Node, string> {
@@ -123,7 +124,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     else return Err("Failed to find dom node").trace("DOMView.toDom");
   }
 
-  override parse(e: DOMNode): Result<Node | null, string> {
+  override parse(e: DOMNode, ignoreContent = false): Result<Node | null, string> {
     if (e.nodeType === DOMNode.TEXT_NODE) {
       const text = e as DOMText;
       return NodeType.softGet("text").map((type) => {
@@ -140,8 +141,11 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         const nodeType = NodeType.softGet(name);
         if (!view || nodeType.err) continue;
 
+        const construct = nodeType.val.node as unknown as NodeConstructor;
         const res = view.parse(node);
         if (res.err) continue;
+
+        if (ignoreContent) return Ok(new construct(Fragment.empty));
 
         let outlet: HTMLElement;
         // biome-ignore lint/style/noNonNullAssertion : res.outlet is non-null as checked
@@ -155,15 +159,12 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           else if (res.val !== null) nodes.push(res.val);
         }
 
-        const construct = nodeType.val.node;
-        // @ts-ignore : construct is not the base class but one that extends it
         return Ok(new construct(Fragment.from(nodes)));
       }
 
       const defaultType = NodeType.default;
       if (defaultType.ok) {
-        const construct = defaultType.val.node;
-        // @ts-ignore : construct is not the base class but one that extends it
+        const construct = defaultType.val.node as unknown as NodeConstructor;
         return Ok(new construct(Fragment.empty));
       }
     }
@@ -191,30 +192,6 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     const selection = window.getSelection();
     selection?.setBaseAndExtent(anchor.val, sel.anchor.offset, focus.val, sel.focus.offset);
   }
-}
-
-function renderNodeRecursive(node: Node): DOMElement | DOMText | null {
-  const view = <NodeView<HTMLElement> | undefined>node.view;
-  if (!view || !(view instanceof NodeView)) return null;
-
-  if (view.name === "text" || view.node?.type.schema.text) {
-    const res = (<TextView<DOMText>>node.view).render();
-    const text = document.createTextNode(res);
-    (<TextView<DOMText>>node.view).textRoot = text;
-    (<DOMText>text)._nodeId = node.id;
-    return text;
-  }
-  const { root, outlet } = view._render(node);
-
-  for (const [child] of node.content.iter()) {
-    const childEle = renderNodeRecursive(child);
-    if (!childEle) continue;
-    outlet.appendChild(childEle);
-  }
-
-  (<DOMNode>root)._nodeId = node.id;
-
-  return root;
 }
 
 function findDOMNodeWithId(node: DOMNode, id: string): NodeRoot | undefined {

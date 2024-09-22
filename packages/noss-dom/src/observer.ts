@@ -84,14 +84,13 @@ export class DOMObserver {
         } else if (c.nodeType === DOMNode.ELEMENT_NODE) {
           const element = c as HTMLElement;
 
-          const parsed = this.view.parse(element);
+          const parsed = this.view.parse(element, true);
           if (parsed.err) return parsed.trace("DOMObserver.callback", "private");
           else if (parsed.val === null) continue;
 
           //console.log(parsed.val);
           element.setAttribute("data-pre-node", parsed.val.id);
 
-          // FIX: In some cases this diff is just completely wrong, for some reason?
           tr.softStep(new InsertStep(Position.child(parent.val, index), parsed.val)) //
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));

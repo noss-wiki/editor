@@ -12,6 +12,8 @@ export type NodeAttrs = {
   readonly [x: string]: unknown;
 };
 
+export type NodeConstructor = new (content?: Fragment | string) => Node;
+
 /**
  * The base Node class
  */
@@ -92,7 +94,7 @@ export abstract class Node {
 
     this.type.node = <typeof Node>this.constructor;
     this.id = Math.random().toString(36).slice(2);
-    this.content = content || new Fragment([]);
+    this.content = content || Fragment.empty;
     if (attrs) this.attrs = attrs;
   }
 

@@ -360,6 +360,11 @@ export class Text extends Node {
     throw new MethodError(`The position ${pos}, cannot be resolved inside a text node`, "Text.resolve");
   }
 
+  /**
+   * Checks if `other` is equal to this node
+   * @param other The node to check
+   * @param ignoreContent If true, only the type, attributes and markup is checked, not the text content
+   */
   override eq(other: Node, ignoreContent = false): boolean {
     if (other.type.schema.text !== true) return false;
     const res = super.eq(other, true);

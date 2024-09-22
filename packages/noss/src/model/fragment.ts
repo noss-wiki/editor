@@ -27,7 +27,7 @@ export class Fragment {
   }
 
   private resolveIndex(index?: number): number {
-    if (!index) return this.nodes.length === 0 ? 0 : this.nodes.length - 1;
+    if (index === undefined) return this.nodes.length === 0 ? 0 : this.nodes.length - 1;
     else if (index < 0) return this.nodes.length + index;
     else return index;
   }
@@ -184,6 +184,7 @@ export class Fragment {
     return replaceOuter($from, $to, slice);
   }
 
+  // TODO: add overload that is consistent with replaceChildRecursive
   /**
    * Much simpler version of replace, only replaces a single child.
    * Always use this method over the more complex replace function, because this method is far more efficient.

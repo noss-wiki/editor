@@ -45,7 +45,7 @@ export class InsertTextStep extends Step {
     offset?: number,
   ) {
     super();
-    this.offset = offset || node.text.length;
+    this.offset = offset ?? node.text.length;
   }
 
   apply(boundary: Node): Result<Diff, string> {

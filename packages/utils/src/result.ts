@@ -250,8 +250,11 @@ export function wrap<T>(fn: () => T): Result<T, string> {
     const res = fn();
     return Ok(res);
   } catch (e) {
-    if (e instanceof MethodError) return Err(e._message, "wrap\n  <throwed error was caught>");
-    else if (e instanceof Error) return Err(e.message, "wrap\n  <throwed error was caught>");
+    if (e instanceof MethodError) {
+      const err = Err(e._message);
+      for (const s of e._stack) err.trace(s);
+      return err.trace("wrap\n  <throwed error was caught>");
+    } else if (e instanceof Error) return Err(e.message, "wrap\n  <throwed error was caught>");
     else if (typeof e === "string") return Err(e, "wrap\n  <throwed error was caught>");
     else return Err("Unknown error", "wrap\n  <throwed error was caught>");
   }

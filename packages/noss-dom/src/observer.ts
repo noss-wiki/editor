@@ -13,14 +13,7 @@ export class DOMObserver {
   readonly pending: MutationRecord[] = [];
 
   constructor() {
-    this.observer = new MutationObserver((e) => {
-      for (const record of e) {
-        this.callback(record)
-          .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
-          .warn((e) => console.warn(e))
-          .map((e) => e && console.log(e));
-      }
-    });
+    this.observer = new MutationObserver((e) => this.pend(e));
   }
 
   bind(view: DOMView) {
@@ -41,10 +34,50 @@ export class DOMObserver {
     this.observer.disconnect();
   }
 
-  unChecked(callback: () => void) {
+  flush() {
+    while (this.pending.length > 0) {
+      const record = this.pending.shift();
+      if (!record) break;
+      this.callback(record)
+        .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
+        .warn((e) => console.warn(e))
+        .map((e) => e && console.log(e));
+    }
+  }
+
+  private unChecked(callback: () => void) {
     this.stop();
     callback();
     this.start();
+  }
+
+  private pend(records: MutationRecord[]) {
+    let skipNext = false;
+    for (let i = 0; i < records.length; i++) {
+      if (skipNext) {
+        skipNext = false;
+        continue;
+      }
+
+      const record = records[i];
+      if (record.type === "childList") {
+        const next = records[i + 1];
+        if (next && next.type === "childList" && record.addedNodes.length === 1 && next.removedNodes.length === 1) {
+          if (record.addedNodes[0] === next.removedNodes[0]) {
+            skipNext = true;
+            continue;
+          }
+        } else if (record.addedNodes.length === 1) {
+          const node = record.addedNodes[0];
+          if (node.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>node).tagName === "BR") continue;
+          else if (node.nodeType === DOMNode.TEXT_NODE && (<globalThis.Text>node).data === "") continue;
+        }
+      }
+
+      this.pending.push(record);
+    }
+
+    this.flush();
   }
 
   private callback(record: MutationRecord): Result<Transaction | null, string> {
@@ -65,7 +98,6 @@ export class DOMObserver {
       const tr = this.view.state.tr;
       for (const c of record.addedNodes) {
         if (c.nodeType === DOMNode.ELEMENT_NODE && (<HTMLElement>c).tagName === "BR") continue;
-        else if (!record.target.contains(c)) continue;
 
         const index = getIndex(record, c).unwrap(-1);
         if (index === -1) return Err("Failed to get index of added node").trace("DOMObserver.callback", "private");
@@ -75,9 +107,13 @@ export class DOMObserver {
 
         if (c.nodeType === DOMNode.TEXT_NODE) {
           if ((c as DOMText).data === "") continue;
-
           const text = createTextNode((c as DOMText).data);
-          this.unChecked(() => c.parentNode?.removeChild(c));
+          this.unChecked(() => {
+            // Still set id on old node, so it can be resolved in other records that are part of the same mutation
+            (<DOMNode>c)._nodeId = text.id;
+            c.parentNode?.removeChild(c);
+          });
+
           wrap(() => tr.insertChild(text, parent.val, index))
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
@@ -129,7 +165,7 @@ export class DOMObserver {
  * This method only expects the changes to have happened on one position in the text node.
  * This method modifies the transaction and returns the result, but that parameter is still modified.
  */
-function calculateText(tr: Transaction, node: Text, expected: string): Result<Transaction, string> {
+function calculateText(tr: Transaction, node: Text, expected: string): Result<Transaction | null, string> {
   if (expected === "")
     return tr //
       .softStep(new RemoveStep(node))
@@ -137,7 +173,7 @@ function calculateText(tr: Transaction, node: Text, expected: string): Result<Tr
       .replace(tr);
 
   const diff = diffText(node.text, expected);
-  if (diff.type === "none") return Err("No changes detected in the text node");
+  if (diff.type === "none") return Ok(null);
   else if (diff.type === "replace")
     return tr
       .softStep(new RemoveTextStep(node, diff.start, diff.end))
@@ -173,6 +209,8 @@ function getIndex(record: MutationRecord, node: globalThis.Node): Result<number,
   else if (record.addedNodes.length > 1) return Err();
   else if (record.removedNodes.length > 1) return Err();
 
+  if (!record.previousSibling) return Ok(0);
+  else if (!record.nextSibling) return Ok(parent.childNodes.length);
   if (record.previousSibling) {
     const index = Array.from(parent.childNodes).indexOf(record.previousSibling as ChildNode);
     if (index !== -1) return Ok(index + 1);

@@ -1,13 +1,12 @@
-import type { Node } from "../model/node";
 import type { EventMap, Result } from "@noss-editor/utils";
+import type { Node } from "../model/node";
 import type { EditorView } from "../model/view";
+import type { Selection } from "../model/selection";
 import type { Diff } from "./diff";
-import { stack, EventFull, Ok, Err } from "@noss-editor/utils";
+import { stack, Ok, Err } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
 
-interface EventData extends EventMap {}
-
-export class EditorState extends EventFull<EventData> {
+export class EditorState {
   /**
    * The initial document node that this editor was instantiated with.
    */
@@ -41,12 +40,7 @@ export class EditorState extends EventFull<EventData> {
     return new Transaction(this);
   }
 
-  boundaryTr(boundary: Node) {
-    return new Transaction(this, boundary);
-  }
-
   constructor(document: Node) {
-    super("EditorState");
     this.original = document;
     this.mod = [this.original];
   }
@@ -71,11 +65,13 @@ export class EditorState extends EventFull<EventData> {
       .trace("EditorState.apply");
   }
 
-  // view wrapper methods
-
-  getSelection(boundary?: Node) {
+  /**
+   * Gets the selection from the lined view.
+   */
+  getSelection(boundary?: Node): Result<Selection, string> {
     const res = this.view?.getSelection(boundary || this.document);
-    return res ?? Err("No view is bound to the state");
+    if (res) return res.trace("EditorState.getSelection");
+    return Err("No view is bound to the state", "EditorState.getSelection");
   }
 }
 

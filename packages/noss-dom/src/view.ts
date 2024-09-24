@@ -1,7 +1,6 @@
 import type { Result } from "@noss-editor/utils";
-import type { Node, Text, Diff, TextView, Transaction, NodeAttrs, ParseResult, NodeConstructor } from "noss-editor";
+import type { Node, Text, Diff, TextView, Transaction, ParseResult, NodeConstructor } from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
-import type { DOMTagParseRule } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
 import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment } from "noss-editor";
 import { getNodeById } from "noss-editor/internal";
@@ -16,7 +15,6 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
    * or a created element that can be appended to the document.
    */
   root: HTMLElement = document.createElement("div");
-
   observer: DOMObserver = new DOMObserver();
 
   override update(tr: Transaction, diff: Diff) {
@@ -93,7 +91,14 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.observer.bind(this);
     this.observer.start();
 
+    this.root.addEventListener("keydown", (e) => this.handleKeyDown(e as KeyboardEvent));
+
     return ele.val as HTMLElement;
+  }
+
+  override destroy(): void {
+    this.observer.stop();
+    this.root.remove();
   }
 
   override toNode(element: DOMNode): Result<Node, string> {
@@ -197,6 +202,27 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     if (anchor.err || focus.err) return;
     const selection = window.getSelection();
     selection?.setBaseAndExtent(anchor.val, sel.anchor.offset, focus.val, sel.focus.offset);
+  }
+
+  // event handlers
+
+  private handleKeyDown(e: KeyboardEvent) {
+    // TODO: don't allow single presses, but allow sequences
+    if (/(shift|control|alt|meta)/i.test(e.key)) return;
+
+    // ignore letters and numbers without modifiers
+    const modifier = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey;
+    if (!modifier && /[a-z0-9]/i.test(e.key)) return;
+
+    // create keybinding string
+    let str = "";
+    if (e.ctrlKey) str += "ctrl-";
+    if (e.metaKey) str += "meta-";
+    if (e.altKey) str += "alt-";
+    if (e.shiftKey) str += "shift-";
+    str += e.key.toLowerCase();
+
+    this.emit("keypress", { binding: str, raw: e });
   }
 }
 

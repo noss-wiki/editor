@@ -3,7 +3,7 @@ import type { Node, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
 import { InsertTextStep, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep, Selection } from "noss-editor";
-import { Err, MethodError, Ok, wrap } from "@noss-editor/utils";
+import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
 
@@ -124,7 +124,6 @@ export class DOMObserver {
           if (parsed.err) return parsed.trace("DOMObserver.callback", "private");
           else if (parsed.val === null) continue;
 
-          //console.log(parsed.val);
           element.setAttribute("data-pre-node", parsed.val.id);
 
           tr.softStep(new InsertStep(Position.child(parent.val, index), parsed.val)) //

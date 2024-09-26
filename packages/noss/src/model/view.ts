@@ -120,13 +120,6 @@ export class TextView<T> extends NodeView<string> {
   }
 }
 
-type EventMap = {
-  keypress: {
-    binding: string;
-    raw?: unknown;
-  };
-};
-
 /**
  * Defines what an EditorView should look like.
  *
@@ -136,7 +129,7 @@ type EventMap = {
  * `R` is by default the same as `T`, this defines the types of `NodeView`, that can occur in the document.
  * E.g. this will be `Node` or `Text | HTMLElement` when rendering to the DOM.
  */
-export abstract class EditorView<T, R = T> extends EventFull<EventMap> implements View<T> {
+export abstract class EditorView<T, R = T> implements View<T> {
   readonly editable: boolean;
   abstract root: T;
 
@@ -144,7 +137,6 @@ export abstract class EditorView<T, R = T> extends EventFull<EventMap> implement
     readonly state: EditorState,
     root?: T,
   ) {
-    super();
     this.editable = state.editable;
     // @ts-ignore : Constructor is not called in the this class
     if (root) this.root = root;

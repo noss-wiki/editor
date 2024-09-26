@@ -5,6 +5,7 @@ import type { Selection } from "../model/selection";
 import type { Diff } from "./diff";
 import { stack, Ok, Err } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
+import { KeybindManager } from "./input";
 
 export class EditorState {
   /**
@@ -26,6 +27,8 @@ export class EditorState {
    */
   readonly editable = true;
 
+  readonly keybinds: KeybindManager;
+
   public view?: EditorView<unknown>;
 
   get document() {
@@ -43,6 +46,8 @@ export class EditorState {
   constructor(document: Node) {
     this.original = document;
     this.mod = [this.original];
+
+    this.keybinds = new KeybindManager(this);
   }
 
   bind(view: EditorView<unknown>) {

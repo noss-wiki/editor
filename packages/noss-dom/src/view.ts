@@ -91,7 +91,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.observer.bind(this);
     this.observer.start();
 
-    this.root.addEventListener("keydown", (e) => this.handleKeyDown(e as KeyboardEvent));
+    this.root.addEventListener("keydown", (e) => this.onKeyDown(e as KeyboardEvent));
 
     return ele.val as HTMLElement;
   }
@@ -206,7 +206,13 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
   // event handlers
 
-  private handleKeyDown(e: KeyboardEvent) {
+  // handle key bindinds
+  public bindingTimeout = 400;
+  private pendingKeys: string[] = [];
+  private timeOut: number | undefined;
+
+  // TODO: Limit number of sequences
+  private onKeyDown(e: KeyboardEvent) {
     // TODO: don't allow single presses, but allow sequences
     if (/(shift|control|alt|meta)/i.test(e.key)) return;
 
@@ -222,7 +228,28 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     if (e.shiftKey) str += "shift-";
     str += e.key.toLowerCase();
 
-    this.emit("keypress", { binding: str, raw: e });
+    this.pendingKeys.push(str);
+    const binding = this.pendingKeys.join(" ");
+    // Checks if the keybinding (or a part of it) exists.
+    if (!this.state.keybinds.worthWaiting(binding)) {
+      this.pendingKeys.length = 0;
+      return;
+    }
+
+    e.preventDefault(); // TODO: Maybe check if keybinding is (or a keybinding includes) this sequence, and if not just return early
+    if (this.timeOut) window.clearTimeout(this.timeOut);
+
+    if (this.state.keybinds.exists(binding)) {
+      this.pendingKeys.length = 0;
+      this.state.keybinds.call(binding);
+      return;
+    }
+
+    this.timeOut = window.setTimeout(() => {
+      this.pendingKeys.length = 0;
+      this.state.keybinds.call(binding);
+      this.timeOut = undefined;
+    }, this.bindingTimeout);
   }
 }
 

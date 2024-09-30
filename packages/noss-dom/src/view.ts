@@ -75,6 +75,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   }
 
   override render() {
+    this.observer.bind(this);
     this.observer.stop();
     const document = this.state.document;
     const ele = renderNodeRecursive(document);
@@ -88,7 +89,6 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.root.appendChild(ele.val);
     this.root.contentEditable = "true";
 
-    this.observer.bind(this);
     this.observer.start();
 
     this.root.addEventListener("keydown", (e) => this.onKeyDown(e as KeyboardEvent));

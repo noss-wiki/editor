@@ -18,7 +18,8 @@ export interface NodeTypeDefinition {
    */
   schema: NodeSchema;
   /**
-   * Set to true to use this node as default node type for the editor.
+   * Set to true to use this node as default node type for the editor,
+   * the default node will be used when inserting a newline, so make sure it can hold text content.
    * Only one node type can be the default node type.
    * @default false
    */

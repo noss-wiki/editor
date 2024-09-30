@@ -1,11 +1,12 @@
 import type { DOMView } from "./view";
-import type { Node, Text, Transaction } from "noss-editor";
+import type { Node, NodeConstructor, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
 import { InsertTextStep, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep, Selection } from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
+import { getParentNode } from "noss-editor/internal";
 
 export class DOMObserver {
   readonly observer: MutationObserver;
@@ -21,6 +22,11 @@ export class DOMObserver {
     this.view = view;
   }
 
+  private listener = (e: Event) =>
+    this.beforeInput(e as InputEvent)
+      .try((tr) => this.view.state.apply(tr))
+      .warn((e) => e && console.warn(e));
+
   start() {
     this.observer.observe(this.view.root, {
       characterData: true,
@@ -28,10 +34,13 @@ export class DOMObserver {
       childList: true,
       subtree: true,
     });
+
+    this.view.root.addEventListener("beforeinput", this.listener);
   }
 
   stop() {
     this.observer.disconnect();
+    this.view.root.removeEventListener("beforeinput", this.listener);
   }
 
   flush() {
@@ -156,6 +165,42 @@ export class DOMObserver {
       else return Ok(tr);
     }
     return Err("Unhandled case");
+  }
+
+  // TODO: log err if returned
+  private beforeInput(e: InputEvent): Result<Transaction, string | null> {
+    if (e.inputType === "insertParagraph") {
+      const sel = this.view.state.getSelection();
+      if (sel.err) return sel.trace("DOMObserver.beforeInput", "private");
+      if (!sel.val.isCollapsed) return Err();
+
+      const text = sel.val.anchor.parent;
+      if (!text.type.schema.text)
+        return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
+
+      const parent = sel.val.anchor.node(-2);
+      const index = sel.val.anchor.index(-1);
+
+      if (sel.val.anchor.offset === text.nodeSize) {
+        e.preventDefault();
+        // simple insert paragraph below
+        const tr = this.view.state.tr;
+        return NodeType.default
+          .map((nodeType) => new (nodeType.node as unknown as NodeConstructor)())
+          .try((node) =>
+            wrap(() => tr.insertChild(node, parent, index + 1)).try(() =>
+              Position.offset(node, 0)
+                .resolve(tr.modified)
+                .map((pos) => Selection.collapsed(pos))
+                .map((sel) => tr.setSelection(sel))
+                .replace(tr),
+            ),
+          );
+      } else {
+        // insert and carry
+      }
+    } else console.log(e.inputType);
+    return Err();
   }
 }
 

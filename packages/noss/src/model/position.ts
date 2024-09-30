@@ -89,7 +89,7 @@ export class Position {
 
   private resolveDepth(depth?: number) {
     if (depth === undefined) return this.depth;
-    else if (depth < 0) return this.depth + depth;
+    else if (depth < 0) return this.depth - 1 + depth;
     else return depth;
   }
 

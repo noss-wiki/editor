@@ -372,9 +372,9 @@ export class Text extends Node {
     else return res && this.text === other.text;
   }
 
-  override copy(content?: string): Node {
+  override copy(content?: string): Text {
     if (content === this.text) return this;
-    return this.new(content, true);
+    return this.new(content, true) as Text;
   }
 
   override toString() {

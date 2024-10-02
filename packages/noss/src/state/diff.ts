@@ -8,23 +8,23 @@ import { getParentNode } from "../model/position";
  */
 export type Change =
   | {
-      old: undefined;
-      modified: Node;
-      type: ChangeType.insert;
-      // info required to insert the node
-      index: number;
-      parent: Node;
-    }
+    old: undefined;
+    modified: Node;
+    type: ChangeType.insert;
+    // info required to insert the node
+    index: number;
+    parent: Node;
+  }
   | {
-      old: Node;
-      modified: undefined;
-      type: ChangeType.remove;
-    }
+    old: Node;
+    modified: undefined;
+    type: ChangeType.remove;
+  }
   | {
-      old: Node;
-      modified: Node;
-      type: ChangeType.replace;
-    };
+    old: Node;
+    modified: Node;
+    type: ChangeType.replace;
+  };
 
 export enum ChangeType {
   insert = "insert",
@@ -65,8 +65,7 @@ export class Diff {
    * @returns A Result containing the merged diff or an error message.
    */
   merge(other: Diff): Result<Diff, string> {
-    if (this.boundary !== other.boundary) return Err("Cannot merge Diffs with different boundaries", "Diff.merge");
-
+    // TODO: Check if changes overlap before merging
     if (this.empty) return Ok(other);
     else if (other.empty) return Ok(this);
     else return Ok(new Diff(this.boundary, [...this.changes, ...other.changes]));
@@ -218,7 +217,7 @@ function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], nul
   const common: LCSItem[] = [];
   let o = matrix.length - 1;
   let n = matrix[0].length - 1;
-  for (;;) {
+  for (; ;) {
     // check if we can go left (left value is same as current value)
     if (n > 0 && matrix[o][n] === matrix[o][n - 1]) n--;
     else if (o > 0 && matrix[o][n] === matrix[o - 1][n]) o--;

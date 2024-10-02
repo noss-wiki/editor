@@ -1,5 +1,5 @@
 import type { DOMView } from "./view";
-import type { Node, NodeConstructor, Text, Transaction } from "noss-editor";
+import { Fragment, Node, NodeConstructor, Text, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
 import { InsertTextStep, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep, Selection } from "noss-editor";
@@ -174,34 +174,51 @@ export class DOMObserver {
       if (sel.err) return sel.trace("DOMObserver.beforeInput", "private");
       if (!sel.val.isCollapsed) return Err();
 
-      const text = sel.val.anchor.parent;
+      const text = sel.val.anchor.parent as Text;
       if (!text.type.schema.text)
         return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
 
       const parent = sel.val.anchor.node(-2);
       const index = sel.val.anchor.index(-1);
 
+      e.preventDefault();
       if (sel.val.anchor.offset === text.nodeSize) {
-        e.preventDefault();
         // simple insert paragraph below
-        const tr = this.view.state.tr;
-        return NodeType.default
-          .map((nodeType) => new (nodeType.node as unknown as NodeConstructor)())
+        return defaultNode()
           .try((node) =>
-            wrap(() => tr.insertChild(node, parent, index + 1)).try(() =>
+            wrap(() => this.view.state.tr.insertChild(node, parent, index + 1)).try((tr) =>
               Position.offset(node, 0)
+                .resolve(tr.modified)
+                .map((pos) => Selection.collapsed(pos))
+                .map((sel) => tr.setSelection(sel))
+                .replace(tr)
+            ),
+          )
+      } else {
+        // TODO: Fix behaviour when offset is 0
+        // insert and carry
+        const textCarry = new Text(text.cut(sel.val.anchor.offset).text);
+        return defaultNode(textCarry).try((node) =>
+          wrap(() => this.view.state.tr.insertChild(node, parent, index + 1))
+            .map((tr) => tr.removeText(text, sel.val.anchor.offset))
+            .try((tr) =>
+              Position.offset(textCarry, 0)
                 .resolve(tr.modified)
                 .map((pos) => Selection.collapsed(pos))
                 .map((sel) => tr.setSelection(sel))
                 .replace(tr),
             ),
-          );
-      } else {
-        // insert and carry
+        );
       }
     } else console.log(e.inputType);
     return Err();
   }
+}
+
+function defaultNode(content?: Fragment | Node | Node[]): Result<Node, null> {
+  return NodeType.default.map(
+    (nodeType) => new (nodeType.node as unknown as NodeConstructor)(Fragment.from(content ?? [])),
+  );
 }
 
 /**

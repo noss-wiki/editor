@@ -1,12 +1,21 @@
 import type { DOMView } from "./view";
-import { Fragment, Node, NodeConstructor, Text, Transaction } from "noss-editor";
+import type { Node, NodeConstructor, Transaction } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { InsertTextStep, NodeType, Position, InsertStep, RemoveStep, RemoveTextStep, Selection } from "noss-editor";
+import {
+  InsertTextStep,
+  NodeType,
+  Position,
+  InsertStep,
+  RemoveStep,
+  RemoveTextStep,
+  Selection,
+  Fragment,
+  Text,
+} from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
-import { getParentNode } from "noss-editor/internal";
 
 export class DOMObserver {
   readonly observer: MutationObserver;
@@ -24,8 +33,9 @@ export class DOMObserver {
 
   private listener = (e: Event) =>
     this.beforeInput(e as InputEvent)
-      .try((tr) => this.view.state.apply(tr))
-      .warn((e) => e && console.warn(e));
+      .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
+      .warn((e) => console.warn(e))
+      .map((e) => e && console.log());
 
   start() {
     this.observer.observe(this.view.root, {
@@ -167,12 +177,11 @@ export class DOMObserver {
     return Err("Unhandled case");
   }
 
-  // TODO: log err if returned
-  private beforeInput(e: InputEvent): Result<Transaction, string | null> {
+  private beforeInput(e: InputEvent): Result<Transaction | null, string> {
     if (e.inputType === "insertParagraph") {
       const sel = this.view.state.getSelection();
       if (sel.err) return sel.trace("DOMObserver.beforeInput", "private");
-      if (!sel.val.isCollapsed) return Err();
+      if (!sel.val.isCollapsed) return Ok(null); // TODO: Also implement this case
 
       const text = sel.val.anchor.parent as Text;
       if (!text.type.schema.text)
@@ -180,38 +189,33 @@ export class DOMObserver {
 
       const parent = sel.val.anchor.node(-2);
       const index = sel.val.anchor.index(-1);
+      const end = sel.val.anchor.offset === text.nodeSize;
+      const newNode = end ? undefined : new Text(text.text.slice(sel.val.anchor.offset));
 
-      e.preventDefault();
-      if (sel.val.anchor.offset === text.nodeSize) {
-        // simple insert paragraph below
-        return defaultNode()
-          .try((node) =>
-            wrap(() => this.view.state.tr.insertChild(node, parent, index + 1)).try((tr) =>
+      return defaultNode(newNode)
+        .replaceErr("Failed to get default Node")
+        .try((node) =>
+          wrap(() => this.view.state.tr.insertChild(node, parent, index + 1))
+            .map((tr) => {
+              if (sel.val.anchor.offset === text.nodeSize) return tr;
+              if (sel.val.anchor.offset === 0) return tr.remove(text);
+              else return tr.removeText(text, sel.val.anchor.offset);
+            })
+            .try((tr) =>
               Position.offset(node, 0)
                 .resolve(tr.modified)
                 .map((pos) => Selection.collapsed(pos))
                 .map((sel) => tr.setSelection(sel))
-                .replace(tr)
-            ),
-          )
-      } else {
-        // TODO: Fix behaviour when offset is 0
-        // insert and carry
-        const textCarry = new Text(text.cut(sel.val.anchor.offset).text);
-        return defaultNode(textCarry).try((node) =>
-          wrap(() => this.view.state.tr.insertChild(node, parent, index + 1))
-            .map((tr) => tr.removeText(text, sel.val.anchor.offset))
-            .try((tr) =>
-              Position.offset(textCarry, 0)
-                .resolve(tr.modified)
-                .map((pos) => Selection.collapsed(pos))
-                .map((sel) => tr.setSelection(sel))
                 .replace(tr),
-            ),
+            )
+            .map((tr) => {
+              // Ensure it's only cancelled if succesfull
+              e.preventDefault();
+              return tr;
+            }),
         );
-      }
     } else console.log(e.inputType);
-    return Err();
+    return Ok(null);
   }
 }
 

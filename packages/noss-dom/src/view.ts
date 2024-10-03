@@ -1,6 +1,7 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node, Text, Diff, TextView, Transaction, ParseResult, NodeConstructor } from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
+import type { DOMNodeView } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
 import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment } from "noss-editor";
 import { getNodeById } from "noss-editor/internal";
@@ -54,8 +55,15 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
       } else {
         const domNode = this.toRendered(change.old);
         if (domNode.err) continue;
-        if (change.type === ChangeType.remove) domNode.val.remove();
-        else {
+        if (change.type === ChangeType.remove) {
+          const domParent = this.toRendered(change.parent);
+          if (domParent.err) continue;
+
+          domNode.val.remove();
+          console.log(change.parent.content, (change.parent.getView() as DOMNodeView | undefined)?.emptyBreak);
+          if (change.parent.content.empty && (change.parent.getView() as DOMNodeView | undefined)?.emptyBreak === true)
+            domParent.val.appendChild(document.createElement("br"));
+        } else {
           if (change.old.type.schema.text) {
             const text = domNode.val as DOMText;
             text.data = (change.modified as Text).text;

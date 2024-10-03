@@ -8,23 +8,25 @@ import { getParentNode } from "../model/position";
  */
 export type Change =
   | {
-    old: undefined;
-    modified: Node;
-    type: ChangeType.insert;
-    // info required to insert the node
-    index: number;
-    parent: Node;
-  }
+      old: undefined;
+      modified: Node;
+      type: ChangeType.insert;
+      // info required to insert the node
+      index: number;
+      parent: Node;
+    }
   | {
-    old: Node;
-    modified: undefined;
-    type: ChangeType.remove;
-  }
+      old: Node;
+      modified: undefined;
+      type: ChangeType.remove;
+      parent: Node;
+    }
   | {
-    old: Node;
-    modified: Node;
-    type: ChangeType.replace;
-  };
+      old: Node;
+      modified: Node;
+      type: ChangeType.replace;
+      parent: Node;
+    };
 
 export enum ChangeType {
   insert = "insert",
@@ -176,7 +178,8 @@ export function compareNodes(old?: Node, modified?: Node): Result<Change[], stri
       const changes: Change[] = [];
 
       for (const [c, i] of old.content.iter())
-        if (!oldIndices.includes(i)) changes.push({ old: c, modified: undefined, type: ChangeType.remove });
+        if (!oldIndices.includes(i))
+          changes.push({ old: c, modified: undefined, type: ChangeType.remove, parent: modified });
 
       for (const [c, i] of modified.content.iter())
         if (!modifiedIndices.includes(i))
@@ -217,7 +220,7 @@ function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], nul
   const common: LCSItem[] = [];
   let o = matrix.length - 1;
   let n = matrix[0].length - 1;
-  for (; ;) {
+  for (;;) {
     // check if we can go left (left value is same as current value)
     if (n > 0 && matrix[o][n] === matrix[o][n - 1]) n--;
     else if (o > 0 && matrix[o][n] === matrix[o - 1][n]) o--;

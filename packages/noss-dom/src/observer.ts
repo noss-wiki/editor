@@ -21,6 +21,7 @@ export class DOMObserver {
   readonly observer: MutationObserver;
   readonly view!: DOMView;
   readonly pending: MutationRecord[] = [];
+  readonly useInputEvent = false;
 
   constructor() {
     this.observer = new MutationObserver((e) => this.pend(e));
@@ -35,7 +36,7 @@ export class DOMObserver {
     this.beforeInput(e as InputEvent)
       .try((tr) => (tr ? this.view.state.apply(tr) : Ok(null)))
       .warn((e) => console.warn(e))
-      .map((e) => e && console.log());
+      .map((e) => e && console.log(e));
 
   start() {
     this.observer.observe(this.view.root, {
@@ -45,12 +46,12 @@ export class DOMObserver {
       subtree: true,
     });
 
-    this.view.root.addEventListener("beforeinput", this.listener);
+    if (this.useInputEvent) this.view.root.addEventListener("beforeinput", this.listener);
   }
 
   stop() {
     this.observer.disconnect();
-    this.view.root.removeEventListener("beforeinput", this.listener);
+    if (this.useInputEvent) this.view.root.removeEventListener("beforeinput", this.listener);
   }
 
   flush() {
@@ -149,9 +150,7 @@ export class DOMObserver {
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
 
-          Position.offset(parsed.val, 0)
-            .resolve(tr.modified)
-            .map((pos) => tr.setSelection(Selection.collapsed(pos)));
+          Selection.atStart(parsed.val, 0, tr.modified).map((sel) => tr.setSelection(sel));
         }
       }
 
@@ -177,6 +176,7 @@ export class DOMObserver {
     return Err("Unhandled case");
   }
 
+  // TODO: Fix behaviour of observer when insertParagraph is different than this one
   private beforeInput(e: InputEvent): Result<Transaction | null, string> {
     if (e.inputType === "insertParagraph") {
       const sel = this.view.state.getSelection();
@@ -202,9 +202,7 @@ export class DOMObserver {
               else return tr.removeText(text, sel.val.anchor.offset);
             })
             .try((tr) =>
-              Position.offset(node, 0)
-                .resolve(tr.modified)
-                .map((pos) => Selection.collapsed(pos))
+              Selection.atStart(node, 0, tr.modified)
                 .map((sel) => tr.setSelection(sel))
                 .replace(tr),
             )

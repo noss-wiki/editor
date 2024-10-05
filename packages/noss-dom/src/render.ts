@@ -6,6 +6,12 @@ import { Ok, Err } from "@noss-editor/utils";
 import { TextView } from "noss-editor";
 import { DOMNode } from "./types";
 
+export function renderBreak() {
+  const node = document.createElement("br");
+  node.setAttribute("data-trailing-break", "true");
+  return node;
+}
+
 export function renderNode(node: Node): Result<DOMNode, null> {
   if (node.type.schema.text && node.view instanceof TextView) return renderTextNode(node as Text).trace("renderNode");
 
@@ -17,7 +23,7 @@ export function renderNode(node: Node): Result<DOMNode, null> {
 
   if (view.emptyBreak && node.content.empty) {
     const outlet = view.outlet as DOMNode;
-    outlet.appendChild(document.createElement("br"));
+    outlet.appendChild(renderBreak());
   }
 
   const root = res.val;

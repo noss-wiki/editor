@@ -18,7 +18,7 @@ export abstract class DOMNodeView extends NodeView<DOMNode> {
    * If true, a `<br>` element will be rendered if the node is empty.
    * This fixes some DOM issues, where e.g. an empty paragraph will have a height of zero, and therefore is invisible to the user.
    *
-   * Set this to true, on text holding nodes, e.g. paragraphs, headers, etc.
+   * Set this to true, on text-holding nodes, e.g. paragraphs, headers, etc.
    */
   emptyBreak = false;
 

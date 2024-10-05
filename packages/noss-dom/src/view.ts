@@ -7,7 +7,7 @@ import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragme
 import { getNodeById } from "noss-editor/internal";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
-import { renderNodeRecursive } from "./render";
+import { renderBreak, renderNodeRecursive } from "./render";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -58,11 +58,13 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         if (change.type === ChangeType.remove) {
           const domParent = this.toRendered(change.parent);
           if (domParent.err) continue;
+          const parentView = change.parent.getView() as DOMNodeView | undefined;
 
           domNode.val.remove();
-          console.log(change.parent.content, (change.parent.getView() as DOMNodeView | undefined)?.emptyBreak);
-          if (change.parent.content.empty && (change.parent.getView() as DOMNodeView | undefined)?.emptyBreak === true)
-            domParent.val.appendChild(document.createElement("br"));
+          if (change.parent.content.empty && parentView?.emptyBreak === true) {
+            if (domParent.val.childNodes.length === 0) domParent.val.appendChild(renderBreak());
+            // TODO: Also add if hardbreak at the end
+          }
         } else {
           if (change.old.type.schema.text) {
             const text = domNode.val as DOMText;
@@ -114,7 +116,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
     if (!id && element.nodeType === DOMNode.ELEMENT_NODE) {
       const _element = element as DOMElement;
-      if (_element.hasAttribute("data-pre-node")) id = _element.getAttribute("data-pre-node") as string;
+      if (_element.hasAttribute("data-pre-node")) id = _element.getAttribute("data-pre-node") || undefined;
     }
 
     if (id) {
@@ -128,7 +130,6 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     return this.toNode(element.parentNode);
   }
 
-  // TODO: maybe implement some more ways to get the node from the DOM (via parents?)
   override toRendered(node: Node): Result<NodeRoot, string> {
     if (node.type.schema.text) {
       const view = <TextView<DOMText> | undefined>node.view;

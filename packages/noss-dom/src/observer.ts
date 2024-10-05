@@ -21,7 +21,7 @@ export class DOMObserver {
   readonly observer: MutationObserver;
   readonly view!: DOMView;
   readonly pending: MutationRecord[] = [];
-  readonly useInputEvent = false;
+  readonly useInputEvent = true;
 
   constructor() {
     this.observer = new MutationObserver((e) => this.pend(e));
@@ -63,6 +63,7 @@ export class DOMObserver {
         .warn((e) => console.warn(e))
         .map((e) => e && console.log(e));
     }
+    // TODO: Merge transactions or ensure that they count towards a single history entry
   }
 
   private unChecked(callback: () => void) {
@@ -178,9 +179,11 @@ export class DOMObserver {
 
   // TODO: Fix behaviour of observer when insertParagraph is different than this one
   private beforeInput(e: InputEvent): Result<Transaction | null, string> {
+    // TODO: Does every type need selection? else move this so it's only called when needed
+    // TODO: Some behaviour should not happen on input, as keybindings can be different
+    const sel = this.view.state.getSelection();
+    if (sel.err) return sel.trace("DOMObserver.beforeInput", "private");
     if (e.inputType === "insertParagraph") {
-      const sel = this.view.state.getSelection();
-      if (sel.err) return sel.trace("DOMObserver.beforeInput", "private");
       if (!sel.val.isCollapsed) return Ok(null); // TODO: Also implement this case
 
       const text = sel.val.anchor.parent as Text;
@@ -207,11 +210,13 @@ export class DOMObserver {
                 .replace(tr),
             )
             .map((tr) => {
-              // Ensure it's only cancelled if succesfull
-              e.preventDefault();
+              e.preventDefault(); // Ensure it's only cancelled if succesfull
               return tr;
             }),
         );
+    } else if (e.inputType === "insertLineBreak") {
+      if (!sel.val.isCollapsed) return Ok(null);
+      // TODO: Try to insert hard break, prob do parseNode with `br`.
     } else console.log(e.inputType);
     return Ok(null);
   }

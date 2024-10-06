@@ -164,7 +164,7 @@ export abstract class EditorView<T, R = T> implements View<T> {
   abstract toNode(element: R): Result<Node, string>;
 
   /**
-   * Gets the `element` in the rendered editor, that is bound to `node`.
+   * Gets the root `element` in the rendered editor, that is bound to `node`.
    */
   abstract toRendered(node: Node): Result<R, string>;
 

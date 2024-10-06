@@ -5,10 +5,7 @@ import { Position } from "./position";
 import { Ok } from "@noss-editor/utils";
 
 export class Selection {
-  get isCollapsed() {
-    // Check if same instance, or if it resolves to same position
-    return this.anchor === this.focus || this.anchor.toAbsolute() === this.focus.toAbsolute();
-  }
+  readonly isCollapsed: boolean;
 
   constructor(
     /**
@@ -19,7 +16,9 @@ export class Selection {
      * The position of the selection's anchor, this is the part that can be moved.
      */
     readonly focus: Position,
-  ) {}
+  ) {
+    this.isCollapsed = this.anchor === this.focus || this.anchor.toAbsolute() === this.focus.toAbsolute();
+  }
 
   /**
    * Create a new collapsed selection based off this one,

@@ -69,7 +69,7 @@ export class Position {
      */
     readonly boundary: Node,
     /**
-     * The depth the position is relative to the boundary, 0 means it is the boundary, 1 means it is a direct chid of the boundary, etc.
+     * The depth the position is relative to the boundary, 0 means it is the boundary, 1 means it is a direct child of the boundary, etc.
      */
     readonly depth: number,
     /**
@@ -81,8 +81,7 @@ export class Position {
      */
     readonly offset: number,
     /**
-     * Optionally the result from the `locateNode` function, if used.
-     * This reduces overhead when trying to get more info about the node tree.
+     * The result from the `locateNode` function.
      */
     readonly steps: LocateData,
   ) {}
@@ -93,13 +92,21 @@ export class Position {
     else return depth;
   }
 
+  private validateDepth(depth: number) {
+    if (depth >= 0 && depth <= this.steps.steps.length) return;
+    throw new RangeError(`Invalid depth value; ${depth}`);
+  }
+
   /**
-   * Returns the parent node at `depth`.
+   * Returns the node at `depth`.
    *
    * @param depth The depth where to search, leave empty for the current depth, or a negative number to count back from the current depth.
    */
   node(depth?: number) {
-    return this.steps.steps[this.resolveDepth(depth)].node;
+    depth = this.resolveDepth(depth);
+    this.validateDepth(depth);
+    // TODO: Doesn't work if depth is currentDepth
+    return this.steps.steps[depth].node;
   }
 
   /**
@@ -108,7 +115,10 @@ export class Position {
    * @param depth The depth where to search, leave empty for the current depth, or a negative number to count back from the current depth.
    */
   index(depth?: number) {
-    return this.steps.steps[this.resolveDepth(depth)].index;
+    depth = this.resolveDepth(depth);
+    this.validateDepth(depth);
+    if (depth === this.steps.steps.length) return this.depth;
+    return this.steps.steps[depth].index;
   }
 
   /**
@@ -118,6 +128,7 @@ export class Position {
    */
   start(depth?: number) {
     depth = this.resolveDepth(depth);
+    this.validateDepth(depth);
 
     const existing = this.steps.steps[depth];
     if (existing.pos !== undefined) return existing.pos;

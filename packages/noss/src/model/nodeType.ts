@@ -55,6 +55,7 @@ export interface NodeMeta {
 export interface NodeSchema {
   /**
    * Whether or not this node is similar to a text node, in that it only has plain text as content, not a fragment with nodes.
+   * Optionally this node may also be a boundary node, as long as it is compatible with the builtin text nodeType.
    * This assumes `Node.text` is of type string, else the program will throw unexpectedly.
    * In order for Node methods to work, you'll need to extend (or override) the builtin text nodeType, or reimplement the methods to support text content yourself.
    * @default false

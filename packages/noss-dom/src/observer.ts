@@ -186,23 +186,29 @@ export class DOMObserver {
     if (e.inputType === "insertParagraph") {
       if (!sel.val.isCollapsed) return Ok(null); // TODO: Also implement this case
 
-      const text = sel.val.anchor.parent as Text;
+      let anchor = sel.val.anchor;
+      let text = anchor.parent as Text;
       if (!text.type.schema.text)
-        return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
+        if (anchor.offset === 0 && text.content.softChild(0)?.type.schema.text) {
+          text = text.content.child(0) as Text;
+          const pos = Position.offset(text, 0).resolve(anchor.boundary);
+          if (pos.err) return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
+          anchor = pos.val;
+        } else return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
 
-      const parent = sel.val.anchor.node(-2);
-      const index = sel.val.anchor.index(-1);
-      const end = sel.val.anchor.offset === text.nodeSize;
-      const newNode = end ? undefined : new Text(text.text.slice(sel.val.anchor.offset));
+      const paragraphParent = anchor.node(-2);
+      const index = anchor.index(-1);
+      const end = anchor.offset === text.nodeSize;
+      const newNode = end ? undefined : new Text(text.text.slice(anchor.offset));
 
       return defaultNode(newNode)
         .replaceErr("Failed to get default Node")
         .try((node) =>
-          wrap(() => this.view.state.tr.insertChild(node, parent, index + 1))
+          wrap(() => this.view.state.tr.insertChild(node, paragraphParent, index + 1))
             .map((tr) => {
-              if (sel.val.anchor.offset === text.nodeSize) return tr;
-              if (sel.val.anchor.offset === 0) return tr.remove(text);
-              else return tr.removeText(text, sel.val.anchor.offset);
+              if (anchor.offset === text.nodeSize) return tr;
+              if (anchor.offset === 0) return tr.remove(text);
+              else return tr.removeText(text, anchor.offset);
             })
             .try((tr) =>
               Selection.atStart(node, 0, tr.modified)

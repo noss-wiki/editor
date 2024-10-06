@@ -23,7 +23,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     for (const change of diff.changes) {
       if (change.type === ChangeType.insert) {
         const child = change.modified;
-        const domParent = this.toRendered(change.parent);
+        const domParent = this.toRendered(change.oldParent);
         if (domParent.err) continue;
         else if (domParent.val.nodeType === DOMNode.TEXT_NODE) continue; // parent can't be text node
 
@@ -46,25 +46,42 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
             parent.removeChild(first);
         }
 
-        if (change.index >= change.parent.content.childCount) parent.append(domChild.val);
+        if (change.index >= change.oldParent.content.childCount) parent.append(domChild.val);
         else {
           const anchor = parent.childNodes[change.index];
           if (!anchor) continue; // err if anchor is not found
+
           parent.insertBefore(domChild.val, anchor);
         }
       } else {
         const domNode = this.toRendered(change.old);
         if (domNode.err) continue;
         if (change.type === ChangeType.remove) {
-          const domParent = this.toRendered(change.parent);
+          const domParent = this.toRendered(change.oldParent);
           if (domParent.err) continue;
-          const parentView = change.parent.getView() as DOMNodeView | undefined;
 
-          domNode.val.remove();
-          if (change.parent.content.empty && parentView?.emptyBreak === true) {
-            if (domParent.val.childNodes.length === 0) domParent.val.appendChild(renderBreak());
-            // TODO: Also add if hardbreak at the end
-          }
+          const parentView = change.oldParent.getView() as DOMNodeView | undefined;
+          const index = change.oldParent.content.nodes.indexOf(change.old);
+          if (index === -1) continue; // Warn
+
+          if (parentView?.emptyBreak === true) {
+            if (change.modifiedParent.content.empty) {
+              domNode.val.remove();
+              if (domParent.val.nodeType === DOMNode.ELEMENT_NODE) {
+                (domParent.val as DOMElement).innerHTML = "";
+                domParent.val.appendChild(renderBreak());
+              }
+            } else {
+              // TODO: If the removed node is a text node, it's prob already removed and maybe br is inserted.
+              // No node before, or node before isn't a text-like node.
+              const breakBefore =
+                index === 0 || !(change.oldParent.content.softChild(index - 1)?.type.schema.text ?? false);
+              const breakAfter =
+                index === change.oldParent.content.childCount - 1 ||
+                !(change.oldParent.content.softChild(index + 1)?.type.schema.text ?? false);
+              if (breakBefore && breakAfter) domNode.val.replaceWith(renderBreak());
+            }
+          } else domNode.val.remove();
         } else {
           if (change.old.type.schema.text) {
             const text = domNode.val as DOMText;

@@ -13,19 +13,20 @@ export type Change =
       type: ChangeType.insert;
       // info required to insert the node
       index: number;
-      parent: Node;
+      oldParent: Node;
+      modifiedParent: Node;
     }
   | {
       old: Node;
       modified: undefined;
       type: ChangeType.remove;
-      parent: Node;
+      oldParent: Node;
+      modifiedParent: Node;
     }
   | {
       old: Node;
       modified: Node;
       type: ChangeType.replace;
-      parent: Node;
     };
 
 export enum ChangeType {
@@ -91,15 +92,15 @@ export class Diff {
         .map((c) => boundary.copy(c))
         .trace("Diff.reconstructChange", "private");
     } else if (change.type === ChangeType.insert) {
-      if (change.parent === boundary)
+      if (change.oldParent === boundary)
         return wrap(() => boundary.content.insert(change.modified, change.index)) //
           .map((c) => boundary.copy(c))
           .trace("Diff.reconstructChange", "private");
 
       return wrap(() =>
         boundary.content.replaceChildRecursive(
-          change.parent,
-          change.parent.copy(change.parent.content.insert(change.modified, change.index)),
+          change.oldParent,
+          change.oldParent.copy(change.oldParent.content.insert(change.modified, change.index)),
         ),
       )
         .map((c) => boundary.copy(c))
@@ -179,11 +180,24 @@ export function compareNodes(old?: Node, modified?: Node): Result<Change[], stri
 
       for (const [c, i] of old.content.iter())
         if (!oldIndices.includes(i))
-          changes.push({ old: c, modified: undefined, type: ChangeType.remove, parent: modified });
+          changes.push({
+            old: c,
+            modified: undefined,
+            type: ChangeType.remove,
+            oldParent: old,
+            modifiedParent: modified,
+          });
 
       for (const [c, i] of modified.content.iter())
         if (!modifiedIndices.includes(i))
-          changes.push({ old: undefined, modified: c, type: ChangeType.insert, index: i, parent: old });
+          changes.push({
+            old: undefined,
+            modified: c,
+            type: ChangeType.insert,
+            index: i,
+            oldParent: old,
+            modifiedParent: modified,
+          });
 
       for (const l of lcs) {
         const res = compareNodes(l.old, l.modified);

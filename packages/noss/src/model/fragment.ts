@@ -137,8 +137,7 @@ export class Fragment {
    */
   cut(from: number, to: number = this.size): Fragment {
     if (from === 0 && to === this.size) return this;
-    else if (from > to) throw new MethodError("The starting position is greater than the end position", "Fragment.cut");
-    else if (from < 0 || to < 0 || to > this.size)
+    else if (from < 0 || from > to || to < 0 || to > this.size)
       throw new MethodError(
         `One or more of the positions ${from} and ${to} are outside of the allowed range`,
         "Fragment.cut",
@@ -151,12 +150,13 @@ export class Fragment {
       if (c.nodeSize < from - pos) pos += c.nodeSize;
       else if (pos > to) break;
       else {
-        if (c.type.schema.text) c.cut(Math.max(0, from - pos), Math.min((<Text>c).text.length, to - pos));
-        else c.cut(Math.max(0, from - pos - 1), Math.min(c.content.size, to - pos - 1));
+        const node = c.type.schema.text
+          ? c.cut(Math.max(0, from - pos), Math.min((<Text>c).text.length, to - pos))
+          : c.cut(Math.max(0, from - pos - 1), Math.min(c.content.size, to - pos - 1));
 
-        res.push(c);
-        size += c.nodeSize;
-        pos += c.nodeSize;
+        res.push(node);
+        size += node.nodeSize;
+        pos += node.nodeSize;
       }
 
     return new Fragment(res, size);

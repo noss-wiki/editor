@@ -64,6 +64,13 @@ export abstract class Node {
     else return this.content.size + 2; // the size of the content + 2 (the start and end tokens)
   }
 
+  get contentSize() {
+    if (this.type.schema.text) return (<Text>this).text.length;
+    else if (this.type.schema.inline === true)
+      return 0; // doesn't have any content
+    else return this.content.size;
+  }
+
   get childCount() {
     return this.content.childCount;
   }

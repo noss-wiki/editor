@@ -1,48 +1,29 @@
-import type { Node } from "../../model/node";
-import type { PositionLike } from "../../model/position";
-import type { Slice } from "../../model/slice";
-import type { Position } from "../../model/position";
-import { Step } from "../step";
 import type { Result } from "@noss-editor/utils";
-import { Err } from "@noss-editor/utils";
+import type { Node } from "../../model/node";
+import { Step } from "../step";
+import { Diff } from "../diff";
+import { getParentNode } from "../../model/position";
 
-export class ReplaceStep extends Step {
-  id = "replace";
-
-  private $from?: Position;
-  private $to?: Position;
+export class ReplaceNodeStep extends Step {
+  id = "replaceNode";
 
   constructor(
     /**
      * The start position in the document where to start replacing.
      */
-    readonly from: PositionLike,
+    readonly old: Node,
     /**
      * The end position in the document where to stop replacing.
      */
-    readonly to: PositionLike,
-    /**
-     * The content to replace the selection with.
-     */
-    readonly slice: Slice,
+    readonly modified: Node,
   ) {
     super();
   }
 
-  apply(boundary: Node): Result<never, string> {
-    return Err("Not implemented", "ReplaceStep.apply");
-    /* this.$from ??= Position.softResolve(boundary, this.from);
-    this.$to ??= Position.softResolve(boundary, this.to);
-    if (!this.$from || !this.$to) return false;
-    else if (
-      this.$from.depth - this.$to.depth !== this.slice.openStart - this.slice.openEnd ||
-      this.$from.depth - this.slice.openStart < 0
-    )
-      return false;
+  apply(boundary: Node): Result<Diff, string> {
+    const parent = getParentNode(boundary, this.old);
+    if (parent.err) return parent.trace("ReplaceNodeStep.apply");
 
-    const parent = this.$from.node(this.$from.depth - this.slice.openStart);
-    // TODO: Verify if content is allowed before replacing
-
-    return false; */
+    return Diff.replaceChild(boundary, this.old, this.modified).trace("ReplaceNodeStep.apply");
   }
 }

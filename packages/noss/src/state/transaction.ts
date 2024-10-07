@@ -11,6 +11,7 @@ import { Diff } from "./diff";
 // Steps
 import { InsertStep, InsertTextStep } from "./steps/insert";
 import { RemoveStep, RemoveTextStep } from "./steps/remove";
+import { ReplaceNodeStep } from "./steps/replace";
 
 export class Transaction {
   readonly steps: Step[] = [];
@@ -136,6 +137,11 @@ export class Transaction {
 
       return this;
     });
+  }
+
+  replaceNode(old: Node, modified: Node) {
+    stack("Transaction.insert")(this.step(new ReplaceNodeStep(old, modified)));
+    return this;
   }
 }
 

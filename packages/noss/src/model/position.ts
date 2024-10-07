@@ -48,12 +48,17 @@ export class RelativePosition {
 
           if (this.location === "after") offset += this.anchor.nodeSize;
 
-          return Ok(new Position(boundary, found.depth, parent.node, offset, popSteps(locate)));
+          return Ok(new Position(boundary, found.depth - 1, parent.node, offset, popSteps(locate)));
         } else if (this.location === "childIndex" || this.location === "childOffset") {
           if (this.location === "childIndex") offset = Position.indexToOffset(this.anchor, this.offset);
           else offset = this.offset;
 
-          return Ok(new Position(boundary, found.depth + 1, this.anchor, offset, locate));
+          if (offset > this.anchor.contentSize)
+            return Err("Offset is greater than the size of the anchor node's content");
+          else if (offset < 0) return Err("Negative offsets aren't allowed");
+
+          // TODO: Actually calculate the deepest possible node instead of just giving the offset
+          return Ok(new Position(boundary, found.depth, this.anchor, offset, locate));
         }
 
         return Err("Failed to resolve position in the provided boundary");
@@ -70,6 +75,7 @@ export class Position {
     readonly boundary: Node,
     /**
      * The depth the position is relative to the boundary, 0 means it is the boundary, 1 means it is a direct child of the boundary, etc.
+     * This is the depth of the deepest node to this position, so it this pos resolves inside a text node, it will be the depth of the text node itself.
      */
     readonly depth: number,
     /**
@@ -83,17 +89,17 @@ export class Position {
     /**
      * The result from the `locateNode` function.
      */
-    readonly steps: LocateData,
+    readonly locate: LocateData,
   ) {}
 
   private resolveDepth(depth?: number) {
     if (depth === undefined) return this.depth;
-    else if (depth < 0) return this.depth - 1 + depth;
+    else if (depth < 0) return this.depth + depth;
     else return depth;
   }
 
   private validateDepth(depth: number) {
-    if (depth >= 0 && depth <= this.steps.steps.length) return;
+    if (depth >= 0 && depth <= this.locate.steps.length) return;
     throw new RangeError(`Invalid depth value; ${depth}`);
   }
 
@@ -106,7 +112,7 @@ export class Position {
     depth = this.resolveDepth(depth);
     this.validateDepth(depth);
     // TODO: Doesn't work if depth is currentDepth
-    return this.steps.steps[depth].node;
+    return this.locate.steps[depth].node;
   }
 
   /**
@@ -117,8 +123,8 @@ export class Position {
   index(depth?: number) {
     depth = this.resolveDepth(depth);
     this.validateDepth(depth);
-    if (depth === this.steps.steps.length) return this.depth;
-    return this.steps.steps[depth].index;
+    // TODO: Doesn't work if depth is currentDepth
+    return this.locate.steps[depth].index;
   }
 
   /**
@@ -130,7 +136,7 @@ export class Position {
     depth = this.resolveDepth(depth);
     this.validateDepth(depth);
 
-    const existing = this.steps.steps[depth];
+    const existing = this.locate.steps[depth];
     if (existing.pos !== undefined) return existing.pos;
 
     const res = this.boundary.content.offset(this.node(depth));
@@ -191,14 +197,14 @@ export class Position {
    * @returns The absolute position
    */
   toAbsolute(): number {
-    const existing = this.steps.steps[this.steps.steps.length - 1];
+    const existing = this.locate.steps[this.locate.steps.length - 1];
     if (existing?.pos) return existing.pos + this.offset + 1;
 
     let pos = 0;
 
-    for (let i = 1; i < this.steps.steps.length; i++) {
-      const parent = this.steps.steps[i - 1];
-      const step = this.steps.steps[i];
+    for (let i = 1; i < this.locate.steps.length; i++) {
+      const parent = this.locate.steps[i - 1];
+      const step = this.locate.steps[i];
       if (i > 1) pos += 1; // start tag
       pos += Position.indexToOffset(parent.node, step.index);
     }
@@ -542,11 +548,11 @@ function findCommonParent(from: Position, to: Position) {
 }
 
 function findDeepestCommonParent(from: Position, to: Position, depth: number): LocateStep | undefined {
-  if (!from.steps.steps[depth] || !to.steps.steps[depth]) return undefined;
-  else if (from.steps.steps[depth].node === to.steps.steps[depth].node) {
+  if (!from.locate.steps[depth] || !to.locate.steps[depth]) return undefined;
+  else if (from.locate.steps[depth].node === to.locate.steps[depth].node) {
     const res = findDeepestCommonParent(from, to, depth + 1);
     if (res) return res;
-    else return from.steps.steps[depth];
+    else return from.locate.steps[depth];
   }
 
   return undefined;

@@ -59,6 +59,7 @@ interface BaseResult<A, B> {
    * This is useful for debugging.
    */
   trace(method: string, modifier?: TraceModifier): Result<A, B>;
+  traceMessage(message: string, method: string, modifier?: TraceModifier): Result<A, B>;
   /**
    * Calls `callback` with a value and the stack trace if this result is an `Err`.
    * If the value of the error type is a string or null, it will be a formatted message with the stack trace.
@@ -134,6 +135,7 @@ class Ok_<A> implements Ok<A> {
   tryRecover = () => this;
   replaceErr = () => this;
   trace = () => this;
+  traceMessage = () => this;
   warn = () => this;
   throw = () => this;
 
@@ -203,6 +205,11 @@ class Err_<B> implements Err<B> {
 
   trace(method: string, modifier: TraceModifier = "public") {
     this.stackTrace.push({ method, modifier });
+    return this;
+  }
+
+  traceMessage(msg: string, method: string, modifier: TraceModifier = "public") {
+    this.stackTrace.push({ msg, method, modifier });
     return this;
   }
 

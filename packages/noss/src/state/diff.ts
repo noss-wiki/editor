@@ -57,9 +57,10 @@ export class Diff {
   constructor(
     readonly boundary: Node,
     readonly changes: Change[],
+    modifiedBoundary?: Node,
   ) {
     this.empty = this.changes.length === 0;
-    this.modified = this.reconstruct();
+    this.modified = modifiedBoundary ? Ok(modifiedBoundary) : this.reconstruct();
   }
 
   /**
@@ -110,8 +111,7 @@ export class Diff {
         .try((parent) => {
           if (parent === boundary)
             return wrap(() => boundary.content.remove(change.old)) //
-              .map((c) => boundary.copy(c))
-              .trace("Diff.reconstructChange", "private");
+              .map((c) => boundary.copy(c));
 
           return wrap(() =>
             boundary.content.replaceChildRecursive(
@@ -130,9 +130,9 @@ export class Diff {
     return new Diff(boundary, []);
   }
 
-  static diff(boundary: Node, old?: Node, modified?: Node): Result<Diff, string> {
+  static diff(boundary: Node, old?: Node, modified?: Node, modifiedBoundary?: Node): Result<Diff, string> {
     return compareNodes(old, modified)
-      .map((c) => new Diff(boundary, c))
+      .map((c) => new Diff(boundary, c, modifiedBoundary))
       .trace("Diff.diff", "static");
   }
 
@@ -146,9 +146,9 @@ export class Diff {
     if (boundary === child) return Diff.diff(boundary, boundary, modified).trace("Diff.replaceChild", "static");
     else if (!boundary.content.contains(child))
       return Err("Boundary does not contain the specified child", "Diff.replaceChild", "static");
-    // parent node has changed
+
     const mod = boundary.copy(boundary.content.replaceChildRecursive(child, modified));
-    return Diff.diff(boundary, boundary, mod).trace("Diff.replaceChild", "static");
+    return Diff.diff(boundary, boundary, mod, mod).trace("Diff.replaceChild", "static");
   }
 }
 

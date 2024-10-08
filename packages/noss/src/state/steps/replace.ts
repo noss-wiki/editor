@@ -21,9 +21,6 @@ export class ReplaceNodeStep extends Step {
   }
 
   apply(boundary: Node): Result<Diff, string> {
-    const parent = getParentNode(boundary, this.old);
-    if (parent.err) return parent.trace("ReplaceNodeStep.apply");
-
     return Diff.replaceChild(boundary, this.old, this.modified).trace("ReplaceNodeStep.apply");
   }
 }

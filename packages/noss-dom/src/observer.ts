@@ -1,5 +1,5 @@
 import type { DOMView } from "./view";
-import type { Node, NodeConstructor, Transaction } from "noss-editor";
+import type { Node, NodeConstructor, Transaction, Text } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
 import {
@@ -11,7 +11,6 @@ import {
   RemoveTextStep,
   Selection,
   Fragment,
-  Text,
 } from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
@@ -196,32 +195,40 @@ export class DOMObserver {
           anchor = pos.val;
         } else return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
 
-      const paragraphParent = anchor.node(-2);
-      const index = anchor.index(-1);
-      const end = anchor.offset === text.nodeSize;
-      const newNode = end ? undefined : new Text(text.text.slice(anchor.offset));
+      const parent = anchor.node(-1);
+      const offset = Position.indexToOffset(parent, anchor.index()) + anchor.offset;
+      // TODO: Doesn't quite yet work with multiple nodes
+      const curr = parent.cut(0, offset);
+      const newlineNode = resetIds(parent.cut(offset));
 
-      return defaultNode(newNode)
+      return defaultNode(newlineNode.content)
         .replaceErr("Failed to get default Node")
         .try((node) =>
-          wrap(() => this.view.state.tr.insertChild(node, paragraphParent, index + 1))
-            .map((tr) => {
-              if (anchor.offset === text.nodeSize) return tr;
-              if (anchor.offset === 0) return tr.remove(text);
-              else return tr.removeText(text, anchor.offset);
-            })
+          wrap(() => this.view.state.tr.insertChild(node, anchor.node(-2), anchor.index(-1) + 1))
+            .try((tr) => wrap(() => tr.replaceNode(parent, curr)))
             .try((tr) =>
               Selection.atStart(node, 0, tr.modified)
                 .map((sel) => tr.setSelection(sel))
-                .replace(tr),
-            )
-            .map((tr) => {
-              e.preventDefault(); // Ensure it's only cancelled if succesfull
-              return tr;
-            }),
+                .map(() => {
+                  e.preventDefault(); // Ensure it's only cancelled if succesfull
+                  return tr;
+                }),
+            ),
         );
     } else if (e.inputType === "insertLineBreak") {
       if (!sel.val.isCollapsed) return Ok(null);
+      // TODO: Maybe implement a different way of handling this (maybe a hook on EditorView, or prop on DOMNodeView?)
+      const node = this.view.parse(document.createElement("br"), undefined, false);
+      if (node.err) return node.trace("DOMObserver.beforeInput", "private");
+      else if (!node.val) {
+        e.preventDefault();
+        return Err(
+          "Failed to insert hard break, no nodeView parses from a br element. Which is default behaviour",
+          "DOMObserver.beforeInput",
+          "private",
+        );
+      }
+
       // TODO: Try to insert hard break, prob do parseNode with `br`.
     } else console.log(e.inputType);
     return Ok(null);
@@ -294,4 +301,15 @@ function getIndex(record: MutationRecord, node: globalThis.Node): Result<number,
     if (index !== -1) return Ok(index);
   }
   return Err();
+}
+
+// Temporary fix
+function resetIds(node: Node): Node {
+  // biome-ignore lint/style/noNonNullAssertion : Node is text node
+  if (node.type.schema.text) return node.new(node.text!);
+
+  const nodes: Node[] = [];
+  for (const [c] of node.content.iter()) nodes.push(resetIds(c));
+
+  return node.new(Fragment.from(nodes));
 }

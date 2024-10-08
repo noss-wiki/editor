@@ -1,14 +1,16 @@
 import type { Node, Text, NodeView } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
-import type { DOMText } from "./types";
+import type { DOMElement, DOMText } from "./types";
 import type { DOMNodeView } from "./nodeView";
 import { Ok, Err } from "@noss-editor/utils";
 import { TextView } from "noss-editor";
 import { DOMNode } from "./types";
 
+export const trailingBreakAttr = "data-trailing-break";
+
 export function renderBreak() {
   const node = document.createElement("br");
-  node.setAttribute("data-trailing-break", "true");
+  node.setAttribute(trailingBreakAttr, "true");
   return node;
 }
 
@@ -54,9 +56,40 @@ export function renderNodeRecursive(node: Node): Result<DOMNode, null> {
 
   for (const [child] of node.content.iter()) {
     const childEle = renderNodeRecursive(child);
-    if (childEle.err) continue; // TODO: maybe warn?
+    if (childEle.err) return childEle.trace("renderNodeRecursive");
     outlet.appendChild(childEle.val);
   }
 
   return Ok(res.val);
+}
+
+// DOM helper methods
+
+export function insertAtIndex(parent: DOMNode, child: DOMNode, index?: number): Result<null, string> {
+  if (!index) {
+    parent.appendChild(child);
+    return Ok(null);
+  }
+
+  let i = 0;
+  for (const c of parent.childNodes) {
+    if (c.nodeType === DOMNode.ELEMENT_NODE) {
+      const e = c as DOMElement;
+      if (e.tagName === "BR" && e.hasAttribute(trailingBreakAttr)) continue;
+    }
+
+    if (i === index) {
+      parent.insertBefore(child, c);
+      return Ok(null);
+    }
+
+    i++;
+  }
+
+  if (i === index) {
+    parent.appendChild(child);
+    return Ok(null);
+  }
+
+  return Err("Index is out of range", "insertAtIndex");
 }

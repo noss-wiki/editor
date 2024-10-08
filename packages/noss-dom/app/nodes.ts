@@ -72,7 +72,30 @@ export class Header extends Node {
   override view = new HeaderView();
 }
 
-NodeType.register(Document, Paragraph, Header);
+class HardBreakView extends DOMNodeView {
+  declare node: HardBreak;
+
+  override render() {
+    return document.createElement("br");
+  }
+
+  static override parse = DOMNodeView.rules([{ tag: "br" }]);
+}
+
+export class HardBreak extends Node {
+  static override type = NodeType.from({
+    name: "hardBreak",
+    schema: {
+      group: "inline",
+      leaf: true,
+      inline: true,
+    },
+  });
+
+  override view = new HardBreakView();
+}
+
+NodeType.register(Document, Paragraph, Header, HardBreak);
 
 export function doc(...content: (Node | string)[]) {
   return new Document(parseContent(content));

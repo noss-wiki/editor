@@ -7,7 +7,7 @@ import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragme
 import { getNodeById } from "noss-editor/internal";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
-import { renderBreak, renderNodeRecursive } from "./render";
+import { renderBreak, renderNodeRecursive, trailingBreakAttr, insertAtIndex } from "./render";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -21,80 +21,87 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   override update(tr: Transaction, diff: Diff) {
     this.observer.stop();
     for (const change of diff.changes) {
-      if (change.type === ChangeType.insert) {
-        const child = change.modified;
-        const domParent = this.toRendered(change.oldParent);
-        if (domParent.err) continue;
-        else if (domParent.val.nodeType === DOMNode.TEXT_NODE) continue; // parent can't be text node
-
-        const parent = domParent.val as DOMElement;
-        const domChild = renderNodeRecursive(child);
-        if (domChild.err) continue;
-
-        const existing = parent.childNodes[change.index];
-        if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
-          const node = existing as DOMElement;
-          if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id) {
-            node.replaceWith(domChild.val);
-          }
-        }
-
-        // Remove br element if in text holding node
-        if (domChild.val.nodeType === DOMNode.TEXT_NODE) {
-          const first = parent.childNodes[0];
-          if (first && first.nodeType === DOMNode.ELEMENT_NODE && (<DOMElement>first).tagName === "BR")
-            parent.removeChild(first);
-        }
-
-        if (change.index >= change.oldParent.content.childCount) parent.append(domChild.val);
-        else {
-          const anchor = parent.childNodes[change.index];
-          if (!anchor) continue; // err if anchor is not found
-
-          parent.insertBefore(domChild.val, anchor);
-        }
-      } else {
-        const domNode = this.toRendered(change.old);
-        if (domNode.err) continue;
-        if (change.type === ChangeType.remove) {
+      const fn = () => {
+        if (change.type === ChangeType.insert) {
+          const child = change.modified;
           const domParent = this.toRendered(change.oldParent);
-          if (domParent.err) continue;
+          if (domParent.err) return domParent;
+          else if (domParent.val.nodeType !== DOMNode.ELEMENT_NODE) return Err("The parent domNode must be an element");
 
-          const parentView = change.oldParent.getView() as DOMNodeView | undefined;
-          const index = change.oldParent.content.nodes.indexOf(change.old);
-          if (index === -1) continue; // Warn
+          const parent = domParent.val as DOMElement;
+          const domChild = renderNodeRecursive(child);
+          if (domChild.err) return domChild.replaceErr("Failed to render inserted node");
 
-          if (parentView?.emptyBreak === true) {
-            if (change.modifiedParent.content.empty) {
-              domNode.val.remove();
-              if (domParent.val.nodeType === DOMNode.ELEMENT_NODE) {
-                (domParent.val as DOMElement).innerHTML = "";
-                domParent.val.appendChild(renderBreak());
-              }
-            } else {
-              // TODO: If the removed node is a text node, it's prob already removed and maybe br is inserted.
-              // No node before, or node before isn't a text-like node.
-              const breakBefore =
-                index === 0 || !(change.oldParent.content.softChild(index - 1)?.type.schema.text ?? false);
-              const breakAfter =
-                index === change.oldParent.content.childCount - 1 ||
-                !(change.oldParent.content.softChild(index + 1)?.type.schema.text ?? false);
-              if (breakBefore && breakAfter) domNode.val.replaceWith(renderBreak());
+          const existing = parent.childNodes[change.index];
+          if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
+            const node = existing as DOMElement;
+            if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id) {
+              node.replaceWith(domChild.val);
             }
-          } else domNode.val.remove();
+          }
+
+          // Remove br element if in text holding node
+          if (domChild.val.nodeType === DOMNode.TEXT_NODE) {
+            const first = parent.childNodes[0];
+            if (first && first.nodeType === DOMNode.ELEMENT_NODE && (<DOMElement>first).tagName === "BR")
+              parent.removeChild(first);
+          }
+
+          if (change.index >= change.oldParent.content.childCount) parent.append(domChild.val);
+          else {
+            const anchor = parent.childNodes[change.index];
+            if (!anchor) return Err("Failed to get an anchor domnode to insert node");
+
+            parent.insertBefore(domChild.val, anchor);
+          }
         } else {
-          if (change.old.type.schema.text) {
-            const text = domNode.val as DOMText;
-            text.data = (change.modified as Text).text;
-            text._nodeId = change.modified.id;
-            if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
+          const domNode = this.toRendered(change.old);
+          if (domNode.err) return domNode;
+
+          if (change.type === ChangeType.remove) {
+            const domParent = this.toRendered(change.oldParent) as Result<DOMElement, string>;
+            if (domParent.err) return domParent;
+
+            const parentView = change.oldParent.getView() as DOMNodeView | undefined;
+            const index = change.oldParent.content.nodes.indexOf(change.old);
+            if (index === -1) return Err("Failed to get the index of the removed node");
+
+            domNode.val.remove();
+            if (parentView?.emptyBreak === true) {
+              if (change.modifiedParent.content.empty) domParent.val.innerHTML = renderBreak().outerHTML;
+              else {
+                // Node is the first node, or previous node isn't a text-like node
+                // and node is the last node, or next node isn't a text-like node,
+                // then insert temporary break.
+                if (
+                  (index === 0 || !(change.oldParent.content.softChild(index - 1)?.type.schema.text ?? false)) &&
+                  (index === change.oldParent.content.childCount - 1 ||
+                    !(change.oldParent.content.softChild(index + 1)?.type.schema.text ?? false))
+                )
+                  // TODO: If the removed node is a text node, it's prob already removed and maybe br is inserted.
+                  insertAtIndex(domParent.val, renderBreak(), index);
+              }
+            }
           } else {
-            const newNode = renderNodeRecursive(change.modified);
-            if (newNode.err) continue;
-            domNode.val.replaceWith(newNode.val);
+            if (change.old.type.schema.text) {
+              const text = domNode.val as DOMText;
+              text.data = (change.modified as Text).text;
+              text._nodeId = change.modified.id;
+              if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
+            } else {
+              const newNode = renderNodeRecursive(change.modified);
+              if (newNode.err) return newNode.replaceErr("Failed to render inserted node");
+
+              domNode.val.replaceWith(newNode.val);
+            }
           }
         }
-      }
+        return Ok(null);
+      };
+
+      fn()
+        .traceMessage("Failed to update rendered view", "DOMView.update")
+        .warn((msg) => console.warn(msg));
     }
 
     if (tr.selection) this.setSelection(tr.selection);
@@ -161,7 +168,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     else return Err("Failed to find dom node").trace("DOMView.toDom");
   }
 
-  override parse(e: DOMNode, ignoreContent = false): Result<Node | null, string> {
+  override parse(e: DOMNode, ignoreContent = false, defaultFallback = true): Result<Node | null, string> {
     if (e.nodeType === DOMNode.TEXT_NODE) {
       const text = e as DOMText;
       return NodeType.softGet("text").map((type) => {
@@ -171,7 +178,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
       });
     } else if (e.nodeType === DOMNode.ELEMENT_NODE) {
       const node = e as DOMElement;
-      if (node.tagName === "BR") return Ok(null);
+      if (node.tagName === "BR" && node.hasAttribute(trailingBreakAttr)) return Ok(null);
 
       for (const name in NodeView.all) {
         const view = NodeView.all[name];
@@ -199,6 +206,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         return Ok(new construct(Fragment.from(nodes)));
       }
 
+      if (!defaultFallback) return Ok(null);
       const defaultType = NodeType.default;
       if (defaultType.ok) {
         const construct = defaultType.val.node as unknown as NodeConstructor;
@@ -217,7 +225,11 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     const focus = this.toNode(sel.focusNode) //
       .try((node) => Position.offset(node, sel.focusOffset).resolve(boundary));
 
-    if (anchor.err || focus.err) return Err("Failed to resolve selection node positions").trace("DOMView.getSelection");
+    if (anchor.err)
+      return anchor.traceMessage("Failed to resolve anchor head of selection positions", "DOMView.getSelection");
+    else if (focus.err)
+      return focus.traceMessage("Failed to resolve focus head of selection positions", "DOMView.getSelection");
+
     return Ok(new Selection(anchor.val, focus.val));
   }
 

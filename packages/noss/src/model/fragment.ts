@@ -143,23 +143,29 @@ export class Fragment {
         "Fragment.cut",
       );
 
-    const res: Node[] = [];
     let pos = 0;
-    let size = 0;
-    for (const [c] of this.iter())
-      if (c.nodeSize < from - pos) pos += c.nodeSize;
-      else if (pos > to) break;
-      else {
-        const node = c.type.schema.text
-          ? c.cut(Math.max(0, from - pos), Math.min((<Text>c).text.length, to - pos))
-          : c.cut(Math.max(0, from - pos - 1), Math.min(c.content.size, to - pos - 1));
+    const nodes: Node[] = [];
+    for (const [c, i] of this.iter()) {
+      if (pos + c.nodeSize <= from) {
+        pos += c.nodeSize;
+        continue;
+      } else if (pos >= to) break;
 
-        res.push(node);
-        size += node.nodeSize;
+      if (pos < from) {
+        const node = c.cut(from - pos);
+        nodes.push(node);
+        pos += node.nodeSize;
+      } else if (pos + c.nodeSize <= to) {
+        nodes.push(c);
+        pos += c.nodeSize;
+      } else {
+        const node = c.cut(0, to - pos);
+        nodes.push(node);
         pos += node.nodeSize;
       }
+    }
 
-    return new Fragment(res, size);
+    return new Fragment(nodes, pos);
   }
 
   // TODO: Figure out what to return
@@ -187,16 +193,30 @@ export class Fragment {
   // TODO: add overload that is consistent with replaceChildRecursive
   /**
    * Much simpler version of replace, only replaces a single child.
-   * Always use this method over the more complex replace function, because this method is far more efficient.
+   * Always use this method over the more complex replace function, if possible, because this method is far more efficient.
    *
    * @param node The node to replace the child with.
    * @param index The index where to replace the child. Leave empty or undefined to insert at the end, or use a negative number to insert with offset from the end.
    * @throws {MethodError} If the index is out of bounds.
    */
-  replaceChild(node: Node, index?: number /* , parent?: Node */) {
-    const i = this.resolveIndex(index);
-    if (!this.isValidIndex(i))
-      throw new MethodError(`Index ${index} is not in the allowed range`, "Fragment.replaceChild");
+  replaceChild(node: Node, index?: number /* , parent?: Node */): Fragment;
+  /**
+   * @param child The old node to replace
+   * @param modified The node to replace `child` with.
+   * @throws {MethodError} If the node is not part of this fragment
+   */
+  replaceChild(child: Node, modified: Node /* , parent?: Node */): Fragment;
+  replaceChild(node: Node, index?: number | Node /* , parent?: Node */) {
+    let i: number;
+    if (typeof index === "number" || index === undefined) {
+      i = this.resolveIndex(index);
+      if (!this.isValidIndex(i))
+        throw new MethodError(`Index ${index} is not in the allowed range`, "Fragment.replaceChild");
+    } else {
+      i = this.nodes.indexOf(index);
+      if (i === -1)
+        throw new MethodError("The provided node to be replaced is not part of this fragment", "Fragment.replaceChild");
+    }
 
     const content = this.nodes.slice();
     content[i] = node;

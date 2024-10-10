@@ -4,10 +4,16 @@ import type { NodeRoot, DOMElement, DOMText } from "./types";
 import type { DOMNodeView } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
 import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment } from "noss-editor";
-import { getNodeById } from "noss-editor/internal";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
-import { renderBreak, renderNodeRecursive, trailingBreakAttr, insertAtIndex } from "./render";
+import {
+  renderBreak,
+  renderNodeRecursive,
+  trailingBreakAttr,
+  insertAtIndex,
+  getDOMFromNode,
+  getNodeFromDOM,
+} from "./render";
 
 // TODO: Allow to derive state from the content of the root node
 export class DOMView extends EditorView<HTMLElement, NodeRoot> {
@@ -54,6 +60,9 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
             parent.insertBefore(domChild.val, anchor);
           }
+
+          // TODO: Travel upward updating the node refs
+          domParent.val._node = change.modifiedParent;
         } else {
           const domNode = this.toRendered(change.old);
           if (domNode.err) return domNode;
@@ -87,6 +96,8 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
               const text = domNode.val as DOMText;
               text.data = (change.modified as Text).text;
               text._nodeId = change.modified.id;
+              text._node = change.modified;
+
               if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
             } else {
               const newNode = renderNodeRecursive(change.modified);
@@ -136,36 +147,11 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   }
 
   override toNode(element: DOMNode): Result<Node, string> {
-    let id = element._nodeId;
-
-    if (!id && element.nodeType === DOMNode.ELEMENT_NODE) {
-      const _element = element as DOMElement;
-      if (_element.hasAttribute("data-pre-node")) id = _element.getAttribute("data-pre-node") || undefined;
-    }
-
-    if (id) {
-      const bound = getNodeById(this.state.document, id);
-      return bound.replaceErr(`Failed to find node with id: ${id}`).trace("DOMView.toNode");
-    } else if ((element as HTMLElement).tagName === "BODY")
-      return Err("Failed to get bound node, searched up to the body tag").trace("DOMView.toNode");
-    else if (!element.parentNode)
-      return Err("Failed to get bound node, node doesn't have a parentNode").trace("DOMView.toNode");
-
-    return this.toNode(element.parentNode);
+    return getNodeFromDOM(element, this.state.document).trace("DOMView.toNode");
   }
 
   override toRendered(node: Node): Result<NodeRoot, string> {
-    if (node.type.schema.text) {
-      const view = <TextView<DOMText> | undefined>node.view;
-      if (view?.textRoot) return Ok(view.textRoot);
-    } else {
-      const view = <NodeView<HTMLElement> | undefined>node.view;
-      if (view?.root) return Ok(view.root);
-    }
-
-    const domNode = findDOMNodeWithId(this.root, node.id);
-    if (domNode) return Ok(domNode);
-    else return Err("Failed to find dom node").trace("DOMView.toDom");
+    return getDOMFromNode(node, this.state.document, this.root).trace("DOMView.toRendered");
   }
 
   override parse(e: DOMNode, ignoreContent = false, defaultFallback = true): Result<Node | null, string> {
@@ -288,14 +274,5 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
       this.state.keybinds.call(binding);
       this.timeOut = undefined;
     }, this.bindingTimeout);
-  }
-}
-
-function findDOMNodeWithId(node: DOMNode, id: string): NodeRoot | undefined {
-  if (node._nodeId === id) return node as NodeRoot;
-  if (node.nodeType !== DOMNode.ELEMENT_NODE) return undefined;
-  for (const child of node.childNodes) {
-    const found = findDOMNodeWithId(child, id);
-    if (found) return found;
   }
 }

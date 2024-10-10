@@ -131,6 +131,7 @@ export class DOMObserver {
           this.unChecked(() => {
             // Still set id on old node, so it can be resolved in other records that are part of the same mutation
             (<DOMNode>c)._nodeId = text.id;
+            (<DOMNode>c)._node = text;
             c.parentNode?.removeChild(c);
           });
 

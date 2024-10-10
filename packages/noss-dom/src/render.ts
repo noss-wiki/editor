@@ -1,6 +1,6 @@
 import type { Node, Text, NodeView } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
-import type { DOMElement, DOMText } from "./types";
+import type { DOMElement, DOMText, NodeRoot } from "./types";
 import type { DOMNodeView } from "./nodeView";
 import { Ok, Err } from "@noss-editor/utils";
 import { TextView } from "noss-editor";
@@ -30,6 +30,7 @@ export function renderNode(node: Node): Result<DOMNode, null> {
 
   const root = res.val;
   root._nodeId = node.id;
+  root._node = node;
   return Ok(root);
 }
 
@@ -42,6 +43,7 @@ export function renderTextNode(node: Text): Result<DOMText, null> {
   const text = document.createTextNode(data) as DOMText;
   view.textRoot = text;
   text._nodeId = node.id;
+  text._node = node;
   return Ok(text);
 }
 
@@ -61,6 +63,44 @@ export function renderNodeRecursive(node: Node): Result<DOMNode, null> {
   }
 
   return Ok(res.val);
+}
+
+export function getDOMFromNode(node: Node, boundary: Node, root: DOMElement): Result<NodeRoot, string> {
+  if (node.type.schema.text) {
+    const view = <TextView<DOMText> | undefined>node.view;
+    if (view?.textRoot) return Ok(view.textRoot);
+  } else {
+    const view = <NodeView<HTMLElement> | undefined>node.view;
+    if (view?.root) return Ok(view.root);
+  }
+
+  return traverseDOMRoot(root, node)
+    .replaceErr("Failed to get attached DOMNode, is the node rendered?")
+    .trace("getDOMNode");
+}
+
+function traverseDOMRoot(domNode: DOMNode, search: Node): Result<NodeRoot, null> {
+  console.log(search, domNode, domNode._node?.strictEq(search));
+  if (domNode._node?.strictEq(search)) return Ok(<NodeRoot>domNode);
+  for (const child of domNode.childNodes) {
+    const res = traverseDOMRoot(child as DOMNode, search);
+    if (res.ok) return res;
+  }
+  return Err().trace("traverseDOMRoot");
+}
+
+export function getNodeFromDOM(node: DOMNode, boundary: Node): Result<Node, string> {
+  if (node._node) {
+    // TODO: Check if node is part of current boundary, if not map throug transformations?
+    // or maybe keep a map of special domnode ids to nodes?
+    return Ok(node._node);
+  }
+
+  if ((<DOMElement>node).tagName === "BODY")
+    return Err("Failed to get bound node, searched up to the body tag", "getNodeFromDOM");
+  else if (!node.parentNode) return Err("Failed to get bound node, node doesn't have a parentNode", "getNodeFromDOM");
+
+  return getNodeFromDOM(node.parentNode, boundary);
 }
 
 // DOM helper methods

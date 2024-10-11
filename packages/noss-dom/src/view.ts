@@ -63,6 +63,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
           // TODO: Travel upward updating the node refs
           domParent.val._node = change.modifiedParent;
+          //updateRefUpwards
         } else {
           const domNode = this.toRendered(change.old);
           if (domNode.err) return domNode;
@@ -146,12 +147,12 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.root.remove();
   }
 
-  override toNode(element: DOMNode): Result<Node, string> {
-    return getNodeFromDOM(element, this.state.document).trace("DOMView.toNode");
+  override toNode(element: DOMNode, boundary?: Node): Result<Node, string> {
+    return getNodeFromDOM(element, boundary || this.state.document).trace("DOMView.toNode");
   }
 
-  override toRendered(node: Node): Result<NodeRoot, string> {
-    return getDOMFromNode(node, this.state.document, this.root).trace("DOMView.toRendered");
+  override toRendered(node: Node, boundary?: Node): Result<NodeRoot, string> {
+    return getDOMFromNode(node, boundary || this.state.document, this.root).trace("DOMView.toRendered");
   }
 
   override parse(e: DOMNode, ignoreContent = false, defaultFallback = true): Result<Node | null, string> {

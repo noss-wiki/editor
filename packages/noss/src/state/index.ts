@@ -1,4 +1,4 @@
-import type { EventMap, Result } from "@noss-editor/utils";
+import type { Result } from "@noss-editor/utils";
 import type { Node } from "../model/node";
 import type { EditorView } from "../model/view";
 import type { Selection } from "../model/selection";

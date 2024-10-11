@@ -1,54 +1,12 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "../model/node";
+import type { LocateData, LocateStep } from "../model/position";
+import type { Change } from "./change";
 import { Ok, Err, wrap } from "@noss-editor/utils";
-import { getParentNode } from "../model/position";
-
-/**
- * Represents a single change to a node.
- */
-export type Change =
-  | {
-      old: undefined;
-      modified: Node;
-      type: ChangeType.insert;
-      // info required to insert the node
-      index: number;
-      oldParent: Node;
-      modifiedParent: Node;
-    }
-  | {
-      old: Node;
-      modified: undefined;
-      type: ChangeType.remove;
-      oldParent: Node;
-      modifiedParent: Node;
-    }
-  | {
-      old: Node;
-      modified: Node;
-      type: ChangeType.replace;
-    };
-
-export enum ChangeType {
-  insert = "insert",
-  remove = "remove",
-  replace = "replace",
-}
-
-enum ChangeKind {
-  /**
-   * Changes to a Node's attributes
-   */
-  attrs = "attrs",
-  /**
-   * Changes to a Node's content and/or attributes, this also includes changes to the text of a Text node.
-   */
-  content = "content",
-  /**
-   * Changes to a Node related to views, this is currently unused, but is usefull for when ignoring updates to views itself.
-   */
-  view = "view",
-}
+import { getParentNode, locateNode } from "../model/position";
+import { ChangeType } from "./change";
+import { InsertChange, RemoveChange, ReplaceChange } from "./change";
+import { isWatchMode } from "vitest";
 
 export class Diff {
   readonly empty: boolean;
@@ -130,10 +88,17 @@ export class Diff {
     return new Diff(boundary, []);
   }
 
-  static diff(boundary: Node, old?: Node, modified?: Node, modifiedBoundary?: Node): Result<Diff, string> {
-    return compareNodes(old, modified)
+  // TODO: Add diff method where old or modified can be undefined
+  static diff(boundary: Node, old: Node, modified: Node, modifiedBoundary?: Node): Result<Diff, string> {
+    if (!old.eq(modified, true)) return Ok(new Diff(boundary, [new ReplaceChange(old, modified)], modifiedBoundary));
+
+    return compareContents(old, modified)
       .map((c) => new Diff(boundary, c, modifiedBoundary))
       .trace("Diff.diff", "static");
+  }
+
+  static diffBoundary(oldBoundary: Node, modifiedBoundary: Node): Result<Diff, string> {
+    return Diff.diff(oldBoundary, oldBoundary, modifiedBoundary).trace("Diff.diffBoundary");
   }
 
   /**
@@ -143,34 +108,52 @@ export class Diff {
    * @returns A Result containing the diff or an error if the child is not found in the boundary.
    */
   static replaceChild(boundary: Node, child: Node, modified: Node): Result<Diff, string> {
-    if (boundary === child) return Diff.diff(boundary, boundary, modified).trace("Diff.replaceChild", "static");
+    if (boundary === child)
+      return Diff.diff(boundary, boundary, modified, modified).trace("Diff.replaceChild", "static");
     else if (!boundary.content.contains(child))
       return Err("Boundary does not contain the specified child", "Diff.replaceChild", "static");
 
     const mod = boundary.copy(boundary.content.replaceChildRecursive(child, modified));
-    return Diff.diff(boundary, boundary, mod, mod).trace("Diff.replaceChild", "static");
+    return Diff.diff(boundary, boundary, mod).trace("Diff.replaceChild", "static");
   }
 }
 
 /**
  * Comapres two nodes and returns a list of changes between them.
  */
-export function compareNodes(old?: Node, modified?: Node): Result<Change[], string> {
+export function compareNodes(
+  old: Node | undefined,
+  modified: Node | undefined,
+  oldParent: Node,
+  modifiedParent: Node,
+): Result<Change[], string> {
   if (!old && !modified) return Ok([]);
   // simple cases
-  if (!old && modified) return Ok([<Change>{ old, modified, type: ChangeType.insert }]);
-  else if (old && !modified) return Ok([<Change>{ old, modified, type: ChangeType.remove }]);
+  if (!old && modified) {
+    const index = modifiedParent.content.nodes.indexOf(modified);
+    if (index === -1) return Err("Failed to get index of modified node", "compareNodes");
+    return Ok([new InsertChange(modified, oldParent, modifiedParent, index)]);
+  } else if (old && !modified) return Ok([new RemoveChange(old, oldParent, modifiedParent)]);
   else if (!old || !modified || old.eq(modified)) return Ok([]);
 
   const nodeEq = old.eq(modified, true);
   // text nodes
   if (old.type.schema.text)
     if (old.text === modified.text && nodeEq) return Ok([]);
-    else return Ok([<Change>{ old, modified, type: ChangeType.replace }]);
+    else return Ok([new ReplaceChange(old, modified)]);
 
-  if (!nodeEq) return Ok([<Change>{ old, modified, type: ChangeType.replace }]);
+  if (!nodeEq) return Ok([new ReplaceChange(old, modified)]);
 
   // non-text nodes
+  return compareContents(old, modified).trace("compareNodes");
+}
+
+interface LCSItem {
+  old: Node;
+  modified: Node;
+}
+
+function compareContents(old: Node, modified: Node): Result<Change[], string> {
   return constructLcs(old.content.nodes, modified.content.nodes)
     .replaceErr("Failed to calculate the longest common subsequence.")
     .try((lcs) => {
@@ -179,40 +162,20 @@ export function compareNodes(old?: Node, modified?: Node): Result<Change[], stri
       const changes: Change[] = [];
 
       for (const [c, i] of old.content.iter())
-        if (!oldIndices.includes(i))
-          changes.push({
-            old: c,
-            modified: undefined,
-            type: ChangeType.remove,
-            oldParent: old,
-            modifiedParent: modified,
-          });
+        if (!oldIndices.includes(i)) changes.push(new RemoveChange(c, old, modified));
 
       for (const [c, i] of modified.content.iter())
-        if (!modifiedIndices.includes(i))
-          changes.push({
-            old: undefined,
-            modified: c,
-            type: ChangeType.insert,
-            index: i,
-            oldParent: old,
-            modifiedParent: modified,
-          });
+        if (!modifiedIndices.includes(i)) changes.push(new InsertChange(c, old, modified, i));
 
       for (const l of lcs) {
-        const res = compareNodes(l.old, l.modified);
+        const res = compareNodes(l.old, l.modified, old, modified);
         if (res.err) return res;
         changes.push(...res.val);
       }
 
       return Ok(changes);
     })
-    .trace("compareNodes");
-}
-
-interface LCSItem {
-  old: Node;
-  modified: Node;
+    .trace("compareContents");
 }
 
 function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], null> {
@@ -247,4 +210,14 @@ function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], nul
   }
 
   return Ok(common);
+}
+
+function mapLocate(boundary: Node, steps: LocateStep[]): Result<Node, null> {
+  let node = boundary;
+  for (const step of steps) {
+    const child = node.content.softChild(step.index);
+    if (!child) return Err();
+    node = child;
+  }
+  return Ok(node);
 }

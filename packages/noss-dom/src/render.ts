@@ -103,6 +103,11 @@ export function getNodeFromDOM(node: DOMNode, boundary: Node): Result<Node, stri
   return getNodeFromDOM(node.parentNode, boundary);
 }
 
+export function updateRefUpwards(domNode: DOMNode, oldBoundary: Node, modifiedBoundary: Node): Result<null, string> {
+  const node = getNodeFromDOM(domNode, oldBoundary);
+  if (node.err) return node.trace("updateRefUpwards");
+}
+
 // DOM helper methods
 
 export function insertAtIndex(parent: DOMNode, child: DOMNode, index?: number): Result<null, string> {

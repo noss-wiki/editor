@@ -156,7 +156,7 @@ class Ok_<A> implements Ok<A> {
   }
 }
 
-type TraceModifier = "public" | "static" | "private";
+type TraceModifier = "public" | "static" | "private" | "internal";
 
 interface Trace {
   msg?: string;
@@ -270,5 +270,6 @@ export function wrap<T>(fn: () => T): Result<T, string> {
 function formatMethod(method: string, modifier: TraceModifier) {
   if (modifier === "public") return `  at         ${method}`;
   else if (modifier === "static") return `  at static  ${method}`;
-  else return `  at private ${method}`;
+  else if (modifier === "private") return `  at private ${method}`;
+  else return `  at         ${method} (internal)`;
 }

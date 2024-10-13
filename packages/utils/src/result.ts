@@ -228,12 +228,13 @@ class Err_<B> implements Err<B> {
 
   private createTrace() {
     return this.stackTrace
-      .slice()
-      .reverse()
       .map(({ method, modifier, msg: _msg }, i) => {
         const msg = i === 0 ? this.val : _msg;
         let part = "";
-        if (msg && typeof msg === "string") part = `${msg}\n`;
+        if (msg && typeof msg === "string") {
+          if (i > 0) part += "Caused: ";
+          part += `${msg}\n`;
+        }
         return `${part}${formatMethod(method, modifier)}`;
       })
       .join("\n");

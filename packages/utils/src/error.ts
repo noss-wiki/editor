@@ -1,16 +1,19 @@
+import type { Trace } from "./result";
+
 const activeStack: string[] = [];
 
 export class MethodError extends Error {
   _stack: string[];
   _message: string;
 
+  // TODO: Add support for the Trace type
   constructor(msg: string, method: string | string[]) {
     let log = `${msg}\n  at ${method}\n`;
 
     for (const i of activeStack.slice().reverse()) log += `  at ${i}\n`;
 
     super(`${log}\n`);
-    this._stack = [...activeStack, ...(Array.isArray(method) ? method : [method])].reverse();
+    this._stack = [...(Array.isArray(method) ? method : [method]), ...activeStack];
     this._message = msg;
   }
 
@@ -49,16 +52,16 @@ export function stack<T>(method: string, target: () => T): T;
 export function stack<T>(method: string, callback?: () => T) {
   let same = false;
   if (activeStack[activeStack.length - 1] === method) same = true;
-  else activeStack.push(method);
+  else activeStack.unshift(method);
 
   if (callback !== undefined) {
     const res = callback();
-    if (!same) activeStack.pop();
+    if (!same) activeStack.shift();
     return res;
   }
 
   return <T>(target: T) => {
-    if (!same) activeStack.pop();
+    if (!same) activeStack.shift();
     return target;
   };
 }

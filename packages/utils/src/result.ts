@@ -108,6 +108,8 @@ interface Err<B> extends BaseResult<never, B> {
   isOk(): false;
   isErr(): true;
 
+  toThrowable(): MethodError;
+
   map(): this;
   try(): this;
   replace(): this;
@@ -156,9 +158,9 @@ class Ok_<A> implements Ok<A> {
   }
 }
 
-type TraceModifier = "public" | "static" | "private" | "internal";
+export type TraceModifier = "public" | "static" | "private" | "internal";
 
-interface Trace {
+export interface Trace {
   msg?: string;
   method: string;
   modifier: TraceModifier;
@@ -178,6 +180,14 @@ class Err_<B> implements Err<B> {
 
   isOk = () => false as const;
   isErr = () => true as const;
+
+  toThrowable() {
+    const msg = typeof this.val === "string" ? this.val : "An error occurred with a non-string error msg";
+    return new MethodError(
+      msg,
+      this.stackTrace.map((e) => e.method),
+    );
+  }
 
   map = () => this;
   try = () => this;

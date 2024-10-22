@@ -100,7 +100,7 @@ export class Transaction {
 
   insertChild(node: Node, parent: Node, index?: number) {
     const pos = Position.child(parent, index);
-    return this.insert(node, pos);
+    return stack("Transaction.insertChild")(this.insert(node, pos));
   }
 
   // TODO: Allow `PositionLike`?
@@ -109,7 +109,7 @@ export class Transaction {
       const resolvedPos = Position.resolve(this.modified, pos);
       const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
 
-      if (index !== undefined) this.insert(createTextNode(text), pos);
+      if (index !== undefined) stack("Transaction.insertChild")(this.insert(createTextNode(text), pos));
       else this.step(new InsertTextStep(resolvedPos.parent as Text, text, resolvedPos.offset));
 
       return this;
@@ -140,7 +140,7 @@ export class Transaction {
   }
 
   replaceNode(old: Node, modified: Node) {
-    stack("Transaction.insert")(this.step(new ReplaceNodeStep(old, modified)));
+    stack("Transaction.replaceNode")(this.step(new ReplaceNodeStep(old, modified)));
     return this;
   }
 }

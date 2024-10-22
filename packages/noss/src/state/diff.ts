@@ -37,49 +37,11 @@ export class Diff {
     if (this.empty) return Ok(this.boundary);
     let last = this.boundary;
     for (const change of this.changes) {
-      const res = this.reconstructChange(last, change);
+      const res = change.reconstruct(last);
       if (res.ok) last = res.val;
       else return res.trace("Diff.reconstruct", "private");
     }
     return Ok(last);
-  }
-
-  private reconstructChange(boundary: Node, change: Change): Result<Node, string> {
-    if (change.type === ChangeType.replace) {
-      if (change.old === boundary) return Ok(change.modified);
-      return wrap(() => boundary.content.replaceChildRecursive(change.old, change.modified)) //
-        .map((c) => boundary.copy(c))
-        .trace("Diff.reconstructChange", "private");
-    } else if (change.type === ChangeType.insert) {
-      if (change.oldParent === boundary)
-        return wrap(() => boundary.content.insert(change.modified, change.index)) //
-          .map((c) => boundary.copy(c))
-          .trace("Diff.reconstructChange", "private");
-
-      return wrap(() =>
-        boundary.content.replaceChildRecursive(
-          change.oldParent,
-          change.oldParent.copy(change.oldParent.content.insert(change.modified, change.index)),
-        ),
-      )
-        .map((c) => boundary.copy(c))
-        .trace("Diff.reconstructChange", "private");
-    } else {
-      return getParentNode(boundary, change.old)
-        .try((parent) => {
-          if (parent === boundary)
-            return wrap(() => boundary.content.remove(change.old)) //
-              .map((c) => boundary.copy(c));
-
-          return wrap(() =>
-            boundary.content.replaceChildRecursive(
-              parent,
-              parent.copy(parent.content.remove(change.old)), //
-            ),
-          ).map((c) => boundary.copy(c));
-        })
-        .trace("Diff.reconstructChange", "private");
-    }
   }
 
   // static initializers

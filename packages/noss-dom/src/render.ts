@@ -80,7 +80,7 @@ export function getDOMFromNode(node: Node, boundary: Node, root: DOMElement): Re
 }
 
 function traverseDOMRoot(domNode: DOMNode, search: Node): Result<NodeRoot, null> {
-  console.log(search, domNode, domNode._node?.strictEq(search));
+  //console.log(search, domNode, domNode._node?.strictEq(search));
   if (domNode._node?.strictEq(search)) return Ok(<NodeRoot>domNode);
   for (const child of domNode.childNodes) {
     const res = traverseDOMRoot(child as DOMNode, search);
@@ -106,6 +106,7 @@ export function getNodeFromDOM(node: DOMNode, boundary: Node): Result<Node, stri
 export function updateRefUpwards(domNode: DOMNode, oldBoundary: Node, modifiedBoundary: Node): Result<null, string> {
   const node = getNodeFromDOM(domNode, oldBoundary);
   if (node.err) return node.trace("updateRefUpwards");
+  return Err("Not implemented", "updateRefUpwards");
 }
 
 // DOM helper methods

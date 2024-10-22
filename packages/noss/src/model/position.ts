@@ -107,11 +107,14 @@ export class Position {
    * Returns the node at `depth`.
    *
    * @param depth The depth where to search, leave empty for the current depth, or a negative number to count back from the current depth.
+   * @throws {RangeError} If the depth is invalid or the depth is the same as the current depth.
    */
   node(depth?: number) {
     depth = this.resolveDepth(depth);
     this.validateDepth(depth);
-    // TODO: Doesn't work if depth is currentDepth
+    if (depth === this.depth)
+      throw new RangeError("Invalid depth value; can't get the node at the same depth as the position itself.");
+
     return this.locate.steps[depth].node;
   }
 
@@ -123,7 +126,14 @@ export class Position {
   index(depth?: number) {
     depth = this.resolveDepth(depth);
     this.validateDepth(depth);
-    // TODO: Doesn't work if depth is currentDepth
+    if (depth === this.depth) {
+      const i = Position.offsetToIndex(this.parent, this.offset);
+      if (i) return i;
+      throw new RangeError(
+        "Failed to get the index of the position in the parent node; the position doesn't resolve to an index of parent",
+      );
+    }
+
     return this.locate.steps[depth].index;
   }
 
@@ -192,25 +202,33 @@ export class Position {
     return d === undefined ? d : this.node(d);
   }
 
+  private _cachedAbsolute?: number;
+
   /**
    * Converts this position to an absolute position in the Position's boundary.
    * @returns The absolute position
    */
   toAbsolute(): number {
-    const existing = this.locate.steps[this.locate.steps.length - 1];
-    if (existing?.pos) return existing.pos + this.offset + 1;
+    if (this._cachedAbsolute) return this._cachedAbsolute;
 
-    let pos = 0;
+    const fn = () => {
+      const existing = this.locate.steps[this.locate.steps.length - 1];
+      if (existing?.pos) return existing.pos + this.offset + 1;
 
-    for (let i = 1; i < this.locate.steps.length; i++) {
-      const parent = this.locate.steps[i - 1];
-      const step = this.locate.steps[i];
-      if (i > 1) pos += 1; // start tag
-      pos += Position.indexToOffset(parent.node, step.index);
-    }
+      let pos = 0;
 
-    if (pos === 0) return pos + this.offset;
-    else return pos + 1 + this.offset;
+      for (let i = 1; i < this.locate.steps.length; i++) {
+        const parent = this.locate.steps[i - 1];
+        const step = this.locate.steps[i];
+        if (i > 1) pos += 1; // start tag
+        pos += Position.indexToOffset(parent.node, step.index);
+      }
+
+      if (pos === 0) return pos + this.offset;
+      else return pos + 1 + this.offset;
+    };
+
+    return (this._cachedAbsolute = fn());
   }
 
   /**

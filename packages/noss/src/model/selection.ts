@@ -69,10 +69,3 @@ export class UnresolvedSelection {
       .trace("UnresolvedSelection.resolve", "static");
   }
 }
-
-export class Range {
-  constructor(
-    readonly start: Position,
-    readonly end: Position,
-  ) {}
-}

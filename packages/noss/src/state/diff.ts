@@ -6,7 +6,6 @@ import { Ok, Err, wrap } from "@noss-editor/utils";
 import { getParentNode, locateNode } from "../model/position";
 import { ChangeType } from "./change";
 import { InsertChange, RemoveChange, ReplaceChange } from "./change";
-import { isWatchMode } from "vitest";
 
 export class Diff {
   readonly empty: boolean;
@@ -15,10 +14,10 @@ export class Diff {
   constructor(
     readonly boundary: Node,
     readonly changes: Change[],
-    modifiedBoundary?: Node,
   ) {
     this.empty = this.changes.length === 0;
-    this.modified = modifiedBoundary ? Ok(modifiedBoundary) : this.reconstruct();
+
+    this.modified = this.reconstruct();
   }
 
   /**
@@ -35,51 +34,18 @@ export class Diff {
 
   private reconstruct(): Result<Node, string> {
     if (this.empty) return Ok(this.boundary);
+
     let last = this.boundary;
     for (const change of this.changes) {
-      const res = this.reconstructChange(last, change);
-      if (res.ok) last = res.val;
-      else return res.trace("Diff.reconstruct", "private");
+      const res = change.reconstruct(last);
+      if (res.err) return res.traceMessage("Failed to reconstruct diff", "Diff.reconstruct", "private");
+
+      const map = change.constructNodeMap(last, res.val);
+      if (map.err) return map.traceMessage("Failed to reconstruct diff", "Diff.reconstruct", "private");
+
+      last = res.val;
     }
     return Ok(last);
-  }
-
-  private reconstructChange(boundary: Node, change: Change): Result<Node, string> {
-    if (change.type === ChangeType.replace) {
-      if (change.old === boundary) return Ok(change.modified);
-      return wrap(() => boundary.content.replaceChildRecursive(change.old, change.modified)) //
-        .map((c) => boundary.copy(c))
-        .trace("Diff.reconstructChange", "private");
-    } else if (change.type === ChangeType.insert) {
-      if (change.oldParent === boundary)
-        return wrap(() => boundary.content.insert(change.modified, change.index)) //
-          .map((c) => boundary.copy(c))
-          .trace("Diff.reconstructChange", "private");
-
-      return wrap(() =>
-        boundary.content.replaceChildRecursive(
-          change.oldParent,
-          change.oldParent.copy(change.oldParent.content.insert(change.modified, change.index)),
-        ),
-      )
-        .map((c) => boundary.copy(c))
-        .trace("Diff.reconstructChange", "private");
-    } else {
-      return getParentNode(boundary, change.old)
-        .try((parent) => {
-          if (parent === boundary)
-            return wrap(() => boundary.content.remove(change.old)) //
-              .map((c) => boundary.copy(c));
-
-          return wrap(() =>
-            boundary.content.replaceChildRecursive(
-              parent,
-              parent.copy(parent.content.remove(change.old)), //
-            ),
-          ).map((c) => boundary.copy(c));
-        })
-        .trace("Diff.reconstructChange", "private");
-    }
   }
 
   // static initializers
@@ -90,10 +56,10 @@ export class Diff {
 
   // TODO: Add diff method where old or modified can be undefined
   static diff(boundary: Node, old: Node, modified: Node, modifiedBoundary?: Node): Result<Diff, string> {
-    if (!old.eq(modified, true)) return Ok(new Diff(boundary, [new ReplaceChange(old, modified)], modifiedBoundary));
+    if (!old.eq(modified, true)) return Ok(new Diff(boundary, [new ReplaceChange(old, modified)]));
 
     return compareContents(old, modified)
-      .map((c) => new Diff(boundary, c, modifiedBoundary))
+      .map((c) => new Diff(boundary, c))
       .trace("Diff.diff", "static");
   }
 
@@ -187,6 +153,7 @@ function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], nul
       // fill the top and left edges with 0
       if (o === 0 || n === 0) matrix[o][n] = 0;
       // if the nodes are equal, increment the diagonal value
+      // TODO: Remove the dependency on node ids
       else if (oldNodes[o - 1].strictEq(newNodes[n - 1], true)) matrix[o][n] = matrix[o - 1][n - 1] + 1;
       // otherwise, take the maximum of the top and left values
       else matrix[o][n] = Math.max(matrix[o - 1][n], matrix[o][n - 1]);

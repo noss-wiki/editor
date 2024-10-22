@@ -32,7 +32,6 @@ export class RelativePosition {
 
   resolve(boundary: Node): Result<Position, string> {
     return locateNode(boundary, this.anchor)
-      .replaceErr("Failed to locate node in the provided boundary")
       .try((locate) => {
         const parent = locate.steps[locate.steps.length - 2];
         const found = locate.steps[locate.steps.length - 1];
@@ -461,7 +460,6 @@ function popSteps(data: LocateData) {
 
 export function getParentNode(boundary: Node, child: Node): Result<Node, string> {
   return locateNode(boundary, child)
-    .replaceErr("Failed to locate the child node in the boundary")
     .try((locate) => {
       if (locate.steps.length <= 1) return Err("Child doesn't have a parent node");
       return Ok(locate.steps[locate.steps.length - 2].node);
@@ -486,7 +484,7 @@ export function getNodeById(boundary: Node, id: string): Result<Node, null> {
  * @param node The node to search for
  * @returns Info about the node if found, else it returns undefined
  */
-export function locateNode(boundary: Node, node: Node): Result<LocateData, null> {
+export function locateNode(boundary: Node, node: Node): Result<LocateData, string> {
   if (boundary === node) {
     const step = {
       depth: 0,
@@ -500,6 +498,7 @@ export function locateNode(boundary: Node, node: Node): Result<LocateData, null>
   }
   return bfsSteps(boundary, 0, 0, node)
     .map((steps) => ({ boundary, steps }))
+    .replaceErr("Failed to locate node in the boundary")
     .trace("locateNode");
 }
 

@@ -59,7 +59,7 @@ export class Transaction {
    */
   step(step: Step) {
     const res = this.softStep(step);
-    if (res.err) throw res.val;
+    if (res.err) throw res.toThrowable();
     return res.val;
   }
 
@@ -100,7 +100,7 @@ export class Transaction {
 
   insertChild(node: Node, parent: Node, index?: number) {
     const pos = Position.child(parent, index);
-    return this.insert(node, pos);
+    return stack("Transaction.insertChild")(this.insert(node, pos));
   }
 
   // TODO: Allow `PositionLike`?
@@ -140,7 +140,7 @@ export class Transaction {
   }
 
   replaceNode(old: Node, modified: Node) {
-    stack("Transaction.insert")(this.step(new ReplaceNodeStep(old, modified)));
+    stack("Transaction.replaceNode")(this.step(new ReplaceNodeStep(old, modified)));
     return this;
   }
 }

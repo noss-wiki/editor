@@ -13,6 +13,7 @@ import {
   insertAtIndex,
   getDOMFromNode,
   getNodeFromDOM,
+  updateRefUpwards,
 } from "./render";
 
 // TODO: Allow to derive state from the content of the root node
@@ -26,7 +27,11 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
   override update(tr: Transaction, diff: Diff) {
     this.observer.stop();
-    for (const change of diff.changes) {
+    for (let i = 0; i < diff.changes.length; i++) {
+      const change = diff.changes[i];
+      // TODO: Get old and modified boundaries before and after th change, diff update is required
+      //let oldBoundary = diff.modified
+
       const fn = () => {
         if (change.type === ChangeType.insert) {
           const child = change.modified;
@@ -61,9 +66,8 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
             parent.insertBefore(domChild.val, anchor);
           }
 
-          // TODO: Travel upward updating the node refs
-          domParent.val._node = change.modifiedParent;
-          //updateRefUpwards
+          const res = updateRefUpwards(change, domParent.val, tr.original, tr.modified, this.root);
+          if (res.err) return res;
         } else {
           const domNode = this.toRendered(change.old);
           if (domNode.err) return domNode;
@@ -92,6 +96,9 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
                   insertAtIndex(domParent.val, renderBreak(), index);
               }
             }
+
+            const res = updateRefUpwards(change, domParent.val, tr.original, tr.modified, this.root);
+            if (res.err) return res;
           } else {
             if (change.old.type.schema.text) {
               const text = domNode.val as DOMText;
@@ -100,11 +107,15 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
               text._node = change.modified;
 
               if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
+              const res = updateRefUpwards(change, domNode.val, tr.original, tr.modified, this.root);
+              if (res.err) return res;
             } else {
               const newNode = renderNodeRecursive(change.modified);
               if (newNode.err) return newNode.replaceErr("Failed to render inserted node");
 
               domNode.val.replaceWith(newNode.val);
+              const res = updateRefUpwards(change, newNode.val, tr.original, tr.modified, this.root);
+              if (res.err) return res;
             }
           }
         }

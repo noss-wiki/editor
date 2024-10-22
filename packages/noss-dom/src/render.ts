@@ -1,10 +1,11 @@
-import type { Node, Text, NodeView } from "noss-editor";
+import type { Node, Text, NodeView, Change } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMElement, DOMText, NodeRoot } from "./types";
 import type { DOMNodeView } from "./nodeView";
 import { Ok, Err } from "@noss-editor/utils";
 import { TextView } from "noss-editor";
 import { DOMNode } from "./types";
+import { getParentNode } from "noss-editor/internal";
 
 export const trailingBreakAttr = "data-trailing-break";
 
@@ -17,7 +18,7 @@ export function renderBreak() {
 export function renderNode(node: Node): Result<DOMNode, null> {
   if (node.type.schema.text && node.view instanceof TextView) return renderTextNode(node as Text).trace("renderNode");
 
-  const view = node.view as DOMNodeView | undefined;
+  const view = node.getView() as DOMNodeView | undefined;
   if (!view) return Err().trace("renderNode");
 
   const res = view.renderBind(node);
@@ -67,26 +68,25 @@ export function renderNodeRecursive(node: Node): Result<DOMNode, null> {
 
 export function getDOMFromNode(node: Node, boundary: Node, root: DOMElement): Result<NodeRoot, string> {
   if (node.type.schema.text) {
-    const view = <TextView<DOMText> | undefined>node.view;
+    const view = <TextView<DOMText> | undefined>node.getView();
     if (view?.textRoot) return Ok(view.textRoot);
   } else {
-    const view = <NodeView<HTMLElement> | undefined>node.view;
+    const view = <NodeView<HTMLElement> | undefined>node.getView();
     if (view?.root) return Ok(view.root);
   }
 
   return traverseDOMRoot(root, node)
     .replaceErr("Failed to get attached DOMNode, is the node rendered?")
-    .trace("getDOMNode");
+    .trace("getDOMFromNode");
 }
 
 function traverseDOMRoot(domNode: DOMNode, search: Node): Result<NodeRoot, null> {
-  console.log(search, domNode, domNode._node?.strictEq(search));
   if (domNode._node?.strictEq(search)) return Ok(<NodeRoot>domNode);
   for (const child of domNode.childNodes) {
     const res = traverseDOMRoot(child as DOMNode, search);
     if (res.ok) return res;
   }
-  return Err().trace("traverseDOMRoot");
+  return Err().trace("traverseDOMRoot", "internal");
 }
 
 export function getNodeFromDOM(node: DOMNode, boundary: Node): Result<Node, string> {
@@ -103,9 +103,44 @@ export function getNodeFromDOM(node: DOMNode, boundary: Node): Result<Node, stri
   return getNodeFromDOM(node.parentNode, boundary);
 }
 
-export function updateRefUpwards(domNode: DOMNode, oldBoundary: Node, modifiedBoundary: Node): Result<null, string> {
-  const node = getNodeFromDOM(domNode, oldBoundary);
-  if (node.err) return node.trace("updateRefUpwards");
+// TODO: Make this more efficient, by locating node to get locate data instead of calling getParent every time
+export function updateRefUpwards(
+  change: Change,
+  domNode: DOMNode,
+  oldBoundary: Node,
+  modifiedBoundary: Node,
+  editorRoot: DOMElement,
+): Result<null, string> {
+  const fn = () => {
+    const node = getNodeFromDOM(domNode, oldBoundary);
+    if (node.err) return node;
+
+    const res = change.map(node.val);
+    if (res.err) return res;
+    else if (res.val) {
+      domNode._node = res.val;
+      const view = res.val.getView();
+      const oldView = node.val.getView();
+      if (view && oldView) {
+        view.root = oldView.root;
+        view.outlet = oldView.outlet;
+      }
+    }
+
+    if (oldBoundary !== node.val) {
+      const parent = getParentNode(oldBoundary, node.val);
+      if (parent.err) return parent;
+
+      const domParent = getDOMFromNode(parent.val, oldBoundary, editorRoot);
+      if (domParent.err) return domParent;
+
+      return updateRefUpwards(change, domParent.val, oldBoundary, modifiedBoundary, editorRoot);
+    }
+
+    return Ok(null);
+  };
+
+  return fn().traceMessage("Failed to update node refs", "updateRefUpwards");
 }
 
 // DOM helper methods

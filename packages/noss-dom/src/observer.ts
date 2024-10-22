@@ -215,7 +215,8 @@ export class DOMObserver {
                   return tr;
                 }),
             ),
-        );
+        )
+        .trace("DOMObserver.beforeInput", "private");
     } else if (e.inputType === "insertLineBreak") {
       if (!sel.val.isCollapsed) return Ok(null);
       // TODO: Maybe implement a different way of handling this (maybe a hook on EditorView, or prop on DOMNodeView?)

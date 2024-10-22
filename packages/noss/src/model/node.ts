@@ -238,9 +238,7 @@ export abstract class Node {
   }
 
   /**
-   * Creates a deep copy of this node.
-   * It does this by calling the copy method on the content fragment,
-   * if this node has different behaviour it should override this function.
+   * Creates a copy of this node.
    */
   copy(content?: Fragment | string) {
     if (content === this.content) return this;

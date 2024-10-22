@@ -17,7 +17,6 @@ export class RemoveStep extends Step {
 
   apply(boundary: Node): Result<Diff, string> {
     return locateNode(boundary, this.node)
-      .replaceErr("The given node couldn't be located in the boundary")
       .try((locate) => {
         this.locate = locate;
 

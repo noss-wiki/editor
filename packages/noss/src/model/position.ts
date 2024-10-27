@@ -1,577 +1,223 @@
-import type { Fragment } from "./fragment";
-import { Node } from "./node";
-import { MethodError } from "@noss-editor/utils";
 import type { Result } from "@noss-editor/utils";
-import { Err, Ok } from "@noss-editor/utils";
+import type { Fragment } from "./fragment";
+import { Ok, Err } from "@noss-editor/utils";
+import { Node, Text } from "./node";
 
-/**
- * A position or a resolvable position in a boundary.
- */
-export type PositionLike = number | RelativePosition | Position;
-/**
- * An absolute position or a position that can be resolved to an absolute position.
- */
-export type AbsoluteLike = number | Position;
+type PositionLike = Position | number;
 
-export type IsPosition<T> = T extends Position ? true : false;
-
-type RelativePositionLocation = "before" | "after" | "childIndex" | "childOffset";
-
-export class RelativePosition {
-  private offset = 0;
-
-  constructor(
-    readonly anchor: Node,
-    private readonly location: RelativePositionLocation,
-    offset?: number,
-  ) {
-    if (typeof offset === "number") this.offset = offset;
-    else if (location === "childIndex") this.offset = anchor.content.nodes.length;
-    else if (location === "childOffset") this.offset = anchor.content.size;
-  }
-
-  resolve(boundary: Node): Result<Position, string> {
-    return locateNode(boundary, this.anchor)
-      .replaceErr("Failed to locate node in the provided boundary")
-      .try((locate) => {
-        const parent = locate.steps[locate.steps.length - 2];
-        const found = locate.steps[locate.steps.length - 1];
-        let offset = 0;
-
-        if (this.location === "after" || this.location === "before") {
-          if (found.node === locate.boundary) return Err("Can't resolve a position before or after the boundary node");
-
-          if (found.index > 0)
-            for (const [child, i] of parent.node.content.iter())
-              if (i === found.index) break;
-              else offset += child.nodeSize;
-
-          if (this.location === "after") offset += this.anchor.nodeSize;
-
-          return Ok(new Position(boundary, found.depth - 1, parent.node, offset, popSteps(locate)));
-        } else if (this.location === "childIndex" || this.location === "childOffset") {
-          if (this.location === "childIndex") offset = Position.indexToOffset(this.anchor, this.offset);
-          else offset = this.offset;
-
-          if (offset > this.anchor.contentSize)
-            return Err("Offset is greater than the size of the anchor node's content");
-          else if (offset < 0) return Err("Negative offsets aren't allowed");
-
-          // TODO: Actually calculate the deepest possible node instead of just giving the offset
-          return Ok(new Position(boundary, found.depth, this.anchor, offset, locate));
-        }
-
-        return Err("Failed to resolve position in the provided boundary");
-      })
-      .trace("RelativePosition.resolve");
-  }
-}
-
+// TODO: Re-implement relative positions
+// TODO: Add some unit tests
 export class Position {
-  constructor(
-    /**
-     * The boundary this position was resolved in
-     */
-    readonly boundary: Node,
-    /**
-     * The depth the position is relative to the boundary, 0 means it is the boundary, 1 means it is a direct child of the boundary, etc.
-     * This is the depth of the deepest node to this position, so it this pos resolves inside a text node, it will be the depth of the text node itself.
-     */
-    readonly depth: number,
-    /**
-     * The parent node of this position
-     */
-    readonly parent: Node,
-    /**
-     * The offset this position has into its parent node
-     */
-    readonly offset: number,
-    /**
-     * The result from the `locateNode` function.
-     */
-    readonly locate: LocateData,
-  ) {}
+  readonly boundary: Node;
+  readonly parent: Node;
+  readonly absolute: number;
 
-  private resolveDepth(depth?: number) {
-    if (depth === undefined) return this.depth;
-    else if (depth < 0) return this.depth + depth;
-    else return depth;
+  constructor(
+    private steps: LocateStep[],
+    absolute?: number,
+  ) {
+    this.boundary = this.steps[0].parent;
+    this.parent = this.steps[this.steps.length - 1].parent;
+    this.absolute = absolute ?? this.getAbsolute();
   }
 
-  private validateDepth(depth: number) {
-    if (depth >= 0 && depth <= this.locate.steps.length) return;
-    throw new RangeError(`Invalid depth value; ${depth}`);
+  private getAbsolute(): number {
+    let abs = 0;
+    for (const { offset } of this.steps) abs += offset;
+    return abs;
   }
 
   /**
-   * Returns the node at `depth`.
-   *
-   * @param depth The depth where to search, leave empty for the current depth, or a negative number to count back from the current depth.
-   * @throws {RangeError} If the depth is invalid or the depth is the same as the current depth.
+   * Returns the parent node at `depth`, this method follows the following constraints:
+   *```ts
+    pos.node(pos.depth) === pos.parent && pos.node(0) === pos.boundary;
+    ```
+   * @param depth The depth of the node, undefined results in the max depth, and negative values are relative to the max depth.
+   * @throws {RangeError} If the depth is invalid.
    */
   node(depth?: number) {
-    depth = this.resolveDepth(depth);
-    this.validateDepth(depth);
-    if (depth === this.depth)
-      throw new RangeError("Invalid depth value; can't get the node at the same depth as the position itself.");
-
-    return this.locate.steps[depth].node;
+    return this.steps[resolveDepth(depth, this.steps.length - 1)].parent;
   }
-
   /**
-   * The index in the parent node at `depth`.
-   *
-   * @param depth The depth where to search, leave empty for the current depth, or a negative number to count back from the current depth.
+   * Returns the index of the position at `depth`, into that depth's parent node.
+   * @param depth The depth of the node, undefined results in the max depth, and negative values are relative to the max depth.
+   * @throws {RangeError} If the depth is invalid.
    */
   index(depth?: number) {
-    depth = this.resolveDepth(depth);
-    this.validateDepth(depth);
-    if (depth === this.depth) {
-      const i = Position.offsetToIndex(this.parent, this.offset);
-      if (i) return i;
-      throw new RangeError(
-        "Failed to get the index of the position in the parent node; the position doesn't resolve to an index of parent",
-      );
-    }
-
-    return this.locate.steps[depth].index;
+    return this.steps[resolveDepth(depth, this.steps.length - 1)].index;
   }
 
   /**
-   * Returns the absolute position, where the parent node at `depth` starts.
-   *
-   * @param depth The depth where to search, leave empty for the current depth, or a negative number to count back from the current depth.
+   * Gets the absolute position of the start of the node at `depth`.
+   * @param depth The depth of the node, undefined results in the max depth, and negative values are relative to the max depth.
+   * @throws {RangeError} If the depth is invalid.
    */
   start(depth?: number) {
-    depth = this.resolveDepth(depth);
-    this.validateDepth(depth);
+    const d = resolveDepth(depth, this.steps.length - 1);
+    if (d === 0) return 0;
 
-    const existing = this.locate.steps[depth];
-    if (existing.pos !== undefined) return existing.pos;
-
-    const res = this.boundary.content.offset(this.node(depth));
-    if (!res) throw new MethodError(`Failed to get the absolute position of node at depth ${depth}`, "Position.start");
-
-    return res;
+    let abs = 0;
+    for (const { offset } of this.steps.slice(0, d - 1)) abs += offset;
+    return abs;
   }
 
   /**
-   * Returns the absolute position, where the parent node at `depth` ends.
-   *
-   * @param depth The depth where to search, leave empty for the current depth, or a negative number to count back from the current depth.
+   * Gets the absolute position of the end of the node at `depth`.
+   * @param depth The depth of the node, undefined results in the max depth, and negative values are relative to the max depth.
+   * @throws {RangeError} If the depth is invalid.
    */
   end(depth?: number) {
-    return this.start(depth) + this.node(depth).content.size;
+    return this.start(depth) + this.node(depth).nodeSize;
   }
 
-  /**
-   * Returns the relative offset to `node`.
-   * @param node The depth of a parent node of this position, or a node in this boundary.
-   * @returns The relative position to node, will be undefined if this position is before `node`. Or undefined if node cannot be resolved in the same document as this position.
-   */
-  relative(node: Node | number) {
-    let pos: number | undefined;
-    if (typeof node === "number") pos = this.start(node);
-    else pos = this.boundary.content.offset(node);
-    if (!pos)
-      throw new MethodError("Failed to get the absolute position of node in the current boundary", "Position.relative");
+  // Static methods
 
-    return this.toAbsolute() - pos;
-  }
-
-  /**
-   * Gets the depth of the deepest common parent between two positions.
-   * @returns The depth of the deepest common parent.
-   * @throws If the two positions are in different boundaries.
-   */
-  commonDepth(pos: Position) {
-    const common = findCommonParent(this, pos);
-    if (!common)
-      throw new MethodError("Failed to find a common parent between the two positions", "Position.commonDepth");
-
-    return common.depth;
-  }
-
-  /**
-   * Gets the deepest common parent between two positions.
-   * @returns The common parent node, or undefind if it failed.
-   * @throws If the two positions are in different boundaries.
-   */
-  commonParent(pos: Position) {
-    const d = this.commonDepth(pos);
-    return d === undefined ? d : this.node(d);
-  }
-
-  private _cachedAbsolute?: number;
-
-  /**
-   * Converts this position to an absolute position in the Position's boundary.
-   * @returns The absolute position
-   */
-  toAbsolute(): number {
-    if (this._cachedAbsolute) return this._cachedAbsolute;
-
-    const fn = () => {
-      const existing = this.locate.steps[this.locate.steps.length - 1];
-      if (existing?.pos) return existing.pos + this.offset + 1;
-
-      let pos = 0;
-
-      for (let i = 1; i < this.locate.steps.length; i++) {
-        const parent = this.locate.steps[i - 1];
-        const step = this.locate.steps[i];
-        if (i > 1) pos += 1; // start tag
-        pos += Position.indexToOffset(parent.node, step.index);
-      }
-
-      if (pos === 0) return pos + this.offset;
-      else return pos + 1 + this.offset;
-    };
-
-    return (this._cachedAbsolute = fn());
-  }
-
-  /**
-   * Resolves the position in the given boundary,
-   * will throw if resolving the position failed.
-   *
-   * @param boundary The boundary to resolve the position in
-   * @param pos The PositionLike to resolve, can be a absolute position (number), relative position or an already resolved position
-   * @throws {MethodError} If resolving the position failed
-   */
-  static resolve(boundary: Node, pos: PositionLike) {
-    const res = Position.softResolve(boundary, pos);
-    if (res.err) throw new MethodError("Failed to resolve the position in the given boundary", "Position.resolve");
-    return res.val;
-  }
-
-  /**
-   * Tries to resolve the position in the given boundary,
-   * will return undefined if it failed.
-   *
-   * @param boundary The boundary to resolve the position in
-   * @param pos The PositionLike to resolve, can be a absolute position (number), relative position or an already resolved position.
-   */
-  static softResolve(boundary: Node, pos: PositionLike): Result<Position, string> {
+  static resolve(boundary: Node, pos: PositionLike): Result<Position, string> {
+    // TODO: Cached results and use it
     if (pos instanceof Position) return Ok(pos);
-    else if (pos instanceof RelativePosition) return pos.resolve(boundary);
-    else return Position.absoluteToPosition(boundary, pos);
+    else return Position.resolveAbsolute(boundary, pos).trace("Position.resolve", "static");
   }
 
-  /**
-   * Converts an absolute position to a resolved `Position`
-   * @param boundary The boundary where to resolve the absolute position
-   * @param pos The absolute position to resolve
-   * @returns The resolved position, or undefined if it failed.
-   */
-  static absoluteToPosition(boundary: Node, pos: number): Result<Position, string> {
-    if (pos < 0 || pos > boundary.nodeSize)
-      return Err(`The position ${pos}, is outside of the allowed range`).trace("Position.absoluteToPosition", "static");
-    else if (pos === 0)
-      return Ok(
-        new Position(boundary, 0, boundary, 0, {
-          boundary,
-          steps: [{ node: boundary, depth: 0, index: 0 }],
-        }),
+  static resolveAbsolute(boundary: Node, pos: number): Result<Position, string> {
+    if (pos < 0 || pos > boundary.contentSize)
+      return Err(
+        `The position ${pos}, is outside of the allowed range: ${0} - ${boundary.contentSize}`,
+        "Position.absoluteToPosition",
+        "static",
       );
+    else if (pos === 0) return Ok(new Position([{ parent: boundary, index: 0, offset: 0 }], 0));
 
     const steps: LocateStep[] = [];
 
-    interface DeepestFound {
-      depth: number;
-      parent: Node;
-      offset: number;
-    }
+    const deepestOffset = (parent: Node, offset: number): Result<LocateStep, null> => {
+      if (offset === 0) return Ok({ parent, index: 0, offset: 0 });
+      else if (offset > parent.contentSize) return Err();
 
-    const deepestOffset = (node: Node, depth: number, offset: number): DeepestFound | undefined => {
-      if (offset === 0) return { depth, parent: node, offset: 0 };
-      else if (node.content.nodes.length === 0 && offset === 1) return { depth, parent: node, offset: 1 };
+      if (parent.type.schema.text || parent instanceof Text) return Ok({ parent, index: 0, offset });
+      else if (parent.type.schema.inline) return Err();
 
       let nodeOffset = 0;
-      // TODO: Check if node can hold content before trying to loop over children
-      // aka, when a text node is found just subtract the content length, instead of looping over the (non-existent) content
-      for (const [c, i] of node.content.iter()) {
-        if (offset > c.nodeSize) {
+      for (const [c, index] of parent.content.iter()) {
+        if (offset === 0) return Ok({ parent, index, offset: nodeOffset });
+        else if (offset === c.nodeSize) return Ok({ parent, index: index + 1, offset: 0 });
+        else if (offset > c.nodeSize) {
           offset -= c.nodeSize;
-          nodeOffset += offset;
-          continue;
-        } else if (offset === 0) return { depth, parent: node, offset: nodeOffset };
-        else if (offset === c.nodeSize) return { depth, parent: node, offset: nodeOffset + c.nodeSize };
-
-        // this node is a parent of the position, so push it to the stack
-        steps.push({ node: c, index: i, depth, pos: pos - offset });
-        return deepestOffset(c, depth + 1, offset - 1);
+          nodeOffset += c.nodeSize;
+        } else {
+          steps.push({ parent, index, offset: nodeOffset });
+          return deepestOffset(c, offset - 1);
+        }
       }
 
-      return;
+      return Err();
     };
 
-    steps.push({ node: boundary, index: 0, depth: 0, pos: 0 });
-    const res = deepestOffset(boundary, 1, pos);
-    if (!res)
-      return Err("Failed to resolve the position in the given boundary").trace("Position.absoluteToPosition", "static");
-
-    const locate: LocateData = { boundary, steps };
-    return Ok(new Position(boundary, res.depth, res.parent, res.offset, locate));
+    const result = deepestOffset(boundary, pos);
+    if (result.err) return Err("Failed to resolve absolute position", "Position.resolveAbsolute", "static");
+    else return Ok(new Position([...steps, result.val], pos));
   }
 
   /**
-   * Converts a position to an absolute position in the Position's boundary.
-   * @returns The absolute position, or undefined if it failed.
+   * @param node The node (or fragment) in which to convert `index`
+   * @param index The index to convert, undefined results in `index = node.content.childCount - 1`, and negative values are relative to the max depth. The index may also be `node.content.childCount`, this means the node after the last child.
+   * @throws {RangeError} If the index is invalid.
    */
-  static positionToAbsolute(pos: Position | number) {
-    return typeof pos === "number" ? pos : pos.toAbsolute();
-  }
+  static indexToOffset(node: Node | Fragment, index?: number): number {
+    const content = node instanceof Node ? node.content : node;
+    if (index === undefined) index = content.childCount - 1;
+    else if (index < 0) index = content.childCount - 1 + index;
 
-  /**
-   * Converts an index to an offset in a node
-   * @param parent The node to use as parent
-   * @param index The index to convert to an offset
-   */
-  static indexToOffset(parent: Node | Fragment, index?: number) {
-    const content = parent instanceof Node ? parent.content : parent;
-
-    if (index === undefined) index = content.nodes.length;
-    else if (index < 0) index = content.nodes.length + index;
+    if (index < 0 || index > content.childCount)
+      throw new RangeError(`The index ${index}, is outside of the allowed range: ${0} - ${content.childCount}`);
 
     if (index === 0) return 0;
+    else if (index === content.childCount) return content.size;
 
     let offset = 0;
-    for (const [child, i] of content.iter())
+    for (const [c, i] of content.iter())
       if (i === index) break;
-      else offset += child.nodeSize;
-
+      else offset += c.nodeSize;
     return offset;
   }
 
   /**
-   * Tries to convert an offset to an index.
-   *
-   * @param parent The node to use as parent
-   * @param offset The offset to convert to an index
-   * @returns
-   *    The index or undefined if it doesn't resolve as a direct child.
-   *    The index may also be the length of the content, this means the offset directly after the last child.
+   * @param node The node (or fragment) in which to convert `offset`
+   * @returns An object containing the index and the extra offset after the index, so this isn't the index into the node at index (this is `offset - 1`, accounting for the opening tag), but the offset from the index position.
    */
-  // prettier-ignore
-  static offsetToIndex(parent: Node | Fragment, offset: number, advanced?: false): number | undefined;
-  /**
-   * Tries to convert an offset to an index.
-   *
-   * @param parent The node to use as parent
-   * @param offset The offset to convert to an index
-   * @returns
-   *    An object with the index and the offset into the node.
-   *    The index may also be the length of the content, this means the offset directly after the last child.
-   */
-  // prettier-ignore
-  static offsetToIndex(parent: Node | Fragment, offset: number, advanced: true): { index: number; offset: number };
-  static offsetToIndex(parent: Node | Fragment, offset: number, advanced?: boolean) {
-    const decide = (a: number | undefined, b: { index: number; offset: number }) => (advanced === true ? b : a);
+  static offsetToIndex(node: Node | Fragment, offset: number): { index: number; offset: number } {
+    const content = node instanceof Node ? node.content : node;
+    if (offset === 0) return { index: 0, offset: 0 };
 
-    if (offset === 0) return decide(0, { index: 0, offset: 0 });
-
-    const content = parent instanceof Node ? parent.content : parent;
-    if (offset < 0 || offset > content.size)
-      throw new MethodError(`The offset ${offset}, is outside of the allowed range`, "Position.offsetToIndex");
-
-    let pos = 0;
-    for (const [child, i] of content.iter()) {
-      if (offset === pos) return decide(i, { index: i, offset: 0 });
-      pos += child.nodeSize;
-
-      if (pos > offset) return decide(undefined, { index: i, offset: pos - offset });
+    let o = 0;
+    for (const [c, i] of content.iter()) {
+      if (o === 0) return { index: i, offset: 0 };
+      else if (c.nodeSize < o) o -= c.nodeSize;
+      else return { index: i, offset: o };
     }
 
-    if (offset === pos)
-      return decide(content.nodes.length, {
-        index: content.nodes.length,
-        offset: 0,
-      });
+    return { index: content.childCount, offset: o };
   }
-
-  /**
-   * Returns a boolean indicating wheter or not `pos` is a resolved Position
-   */
-  static is(pos: PositionLike): boolean {
-    if (pos instanceof Position) return true;
-    else return false;
-  }
-
-  // static init methods
-  /**
-   * Creates a position that resolves before `anchor`
-   */
-  static before(anchor: Node) {
-    return new RelativePosition(anchor, "before");
-  }
-
-  /**
-   * Creates a position that resolves after `anchor`
-   */
-  static after(anchor: Node) {
-    return new RelativePosition(anchor, "after");
-  }
-
-  /**
-   * Creates a position that resolves as a child of `anchor` at index `index`, this is guaranteed to resolve as a direct child of the `anchor` (it cannot cut an existing node in half)
-   * @param index The index where to resolve, leave empty for last item, and negative index to start from the last child
-   */
-  static child(anchor: Node, index?: number) {
-    return new RelativePosition(anchor, "childIndex", index);
-  }
-
-  /**
-   * Creates a position that resolves as a child of `anchor` at offset `offset`
-   * @param offset The offset into the parent
-   */
-  static offset(anchor: Node, offset: number) {
-    return new RelativePosition(anchor, "childOffset", offset);
-  }
-
-  // TODO: Figure out how to implement to and from json, as we need a reference to the boundary node (probably via the id, and create a function that creates or finds a node with same id in document)
 }
 
-export interface IndexPosData {
-  boundary: Node;
-  /**
-   * The parent node of this position
-   */
-  node: Node;
-  /**
-   * The depth the parent is relative to the boundary root
-   */
-  depth: number;
-  /**
-   * The index of the node in the parent's content
-   */
-  index: number;
+function resolveDepth(depth: number | undefined, max: number, min = 0) {
+  if (depth === undefined) return max;
+
+  let i: number;
+  if (depth < 0) i = max + depth;
+  else i = depth;
+
+  if (i >= min && i <= max) return i;
+  else throw new RangeError(`The depth ${i}, is outside of the allowed range: ${min} - ${max}`);
 }
 
-export interface LocateData {
-  boundary: Node;
-  steps: LocateStep[];
-}
-
-export interface LocateStep {
-  node: Node;
+interface LocateStep {
   /**
-   * The depth this node is at, 0 means it is the boundary, 1 means it is a direct child of the document, etc.
+   * The parent node of the position.
    */
-  depth: number;
+  parent: Node;
   /**
-   * The index this node has in its parents content.
+   * The index of the position into `this.parent`.
+   * If the parent node is a text node, this will be `0`.
    */
   index: number;
   /**
-   * The absolute position of the node of this step.
+   * The offset of the position into `this.parent`.
+   * This is not the absolute position, but rather the offset to the index position.
+   * So it's the same as `Position.indexToOffset(this.parent, this.index)`.
    */
-  pos?: number;
+  offset: number;
 }
 
 /**
- * Removes the last step from the result of the `locateNode` function.
+ * Locates the given node in a boundary, returning the steps to reach it.
+ * @param boundary The boundary in which to locate `search`
+ * @param search The node to locate
+ * @param search If set to true, this will include a step for the node itself, with index and offset `0`, defaults to `false`.
  */
-function popSteps(data: LocateData) {
-  data.steps = data.steps.slice(0, -1);
-  return data;
-}
+export function locateNode(boundary: Node, search: Node, inside = false): Result<LocateStep[], string> {
+  if (search === boundary) return Err("The node is the boundary node", "locateNode");
 
-export function getParentNode(boundary: Node, child: Node): Result<Node, string> {
-  return locateNode(boundary, child)
-    .replaceErr("Failed to locate the child node in the boundary")
-    .try((locate) => {
-      if (locate.steps.length <= 1) return Err("Child doesn't have a parent node");
-      return Ok(locate.steps[locate.steps.length - 2].node);
-    })
-    .trace("getParentNode");
-}
-
-export function getNodeById(boundary: Node, id: string): Result<Node, null> {
-  if (boundary.id === id) return Ok(boundary);
-  else if (boundary.type.schema.text) return Err().trace("getNodeById");
-
-  for (const [c] of boundary.content.iter()) {
-    const res = getNodeById(c, id);
-    if (res.ok) return res;
-  }
-  return Err().trace("getNodeById");
-}
-
-/**
- * Performs a breath-first search on the boundary to try to find the provided node
- * @param boundary The boundary node to search in
- * @param node The node to search for
- * @returns Info about the node if found, else it returns undefined
- */
-export function locateNode(boundary: Node, node: Node): Result<LocateData, null> {
-  if (boundary === node) {
-    const step = {
-      depth: 0,
-      index: 0,
-      node: boundary,
-    };
-    return Ok({
-      boundary,
-      steps: [step],
-    });
-  }
-  return bfsSteps(boundary, 0, 0, node)
-    .map((steps) => ({ boundary, steps }))
-    .trace("locateNode");
-}
-
-function bfsSteps(node: Node, nodeIndex: number, depth: number, search: Node): Result<LocateStep[], null> {
-  const a: [Node, number][] = [];
-
-  for (const [child, i] of node.content.iter()) {
-    if (search === child)
-      return Ok([
-        { depth, node, index: nodeIndex },
-        { depth: depth + 1, node: child, index: i },
-      ]);
-    else a.push([child, i]);
-  }
-
-  for (const [c, i] of a) {
-    const res = bfsSteps(c, i, depth + 1, search);
-    if (res.ok) {
-      res.val.unshift({
-        depth: depth,
-        node,
-        index: nodeIndex,
-      });
-      return res;
+  const locate = (parent: Node): Result<LocateStep[], null> => {
+    let offset = 0;
+    for (const [c, i] of parent.content.iter()) {
+      if (c === search) {
+        const p = { parent, index: i, offset } as LocateStep;
+        if (inside) return Ok([p, { parent: c, index: 0, offset: 0 }]);
+        else return Ok([p]);
+      } else {
+        const result = locate(c);
+        if (result.ok) return Ok([{ parent, index: i, offset }, ...result.val]);
+        else offset += c.nodeSize;
+      }
     }
-  }
+    return Err();
+  };
 
-  return Err(null);
+  return locate(boundary).replaceErr("Failed to locate node").trace("locateNode", "static");
 }
 
-/**
- * Tries to find the deepest possible common parent between two positions.
- * @returns The common parent between the two positions, or undefined it failed
- */
-function findCommonParent(from: Position, to: Position) {
-  if (from.boundary !== to.boundary) return;
-
-  // can probably skip depth 0, as it is always the document node
-  const depth = findDeepestCommonParent(from, to, 0);
-  if (!depth) return;
-
-  return {
-    ...depth,
-    boundary: from.boundary,
-  } as IndexPosData;
-}
-
-function findDeepestCommonParent(from: Position, to: Position, depth: number): LocateStep | undefined {
-  if (!from.locate.steps[depth] || !to.locate.steps[depth]) return undefined;
-  else if (from.locate.steps[depth].node === to.locate.steps[depth].node) {
-    const res = findDeepestCommonParent(from, to, depth + 1);
-    if (res) return res;
-    else return from.locate.steps[depth];
-  }
-
-  return undefined;
+export function getParentNode(boundary: Node, node: Node): Result<Node, string> {
+  return locateNode(boundary, node, false)
+    .map((steps) => steps[steps.length - 1].parent)
+    .traceMessage("Failed to get parent node", "getParentNode");
 }

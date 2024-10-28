@@ -1,11 +1,10 @@
 import type { Result } from "@noss-editor/utils";
 import type { Fragment } from "./fragment";
-import { Ok, Err } from "@noss-editor/utils";
+import { Ok, Err, wrap } from "@noss-editor/utils";
 import { Node, Text } from "./node";
 
 type PositionLike = Position | number;
 
-// TODO: Re-implement relative positions
 // TODO: Add some unit tests
 export class Position {
   readonly boundary: Node;
@@ -38,6 +37,7 @@ export class Position {
   node(depth?: number) {
     return this.steps[resolveDepth(depth, this.steps.length - 1)].parent;
   }
+
   /**
    * Returns the index of the position at `depth`, into that depth's parent node.
    * @param depth The depth of the node, undefined results in the max depth, and negative values are relative to the max depth.
@@ -45,6 +45,15 @@ export class Position {
    */
   index(depth?: number) {
     return this.steps[resolveDepth(depth, this.steps.length - 1)].index;
+  }
+
+  /**
+   * Returns the offset of the position at `depth`, into that depth's parent node.
+   * @param depth The depth of the node, undefined results in the max depth, and negative values are relative to the max depth.
+   * @throws {RangeError} If the depth is invalid.
+   */
+  offset(depth?: number) {
+    return this.steps[resolveDepth(depth, this.steps.length - 1)].offset;
   }
 
   /**
@@ -120,24 +129,30 @@ export class Position {
   /**
    * @param node The node (or fragment) in which to convert `index`
    * @param index The index to convert, undefined results in `index = node.content.childCount - 1`, and negative values are relative to the max depth. The index may also be `node.content.childCount`, this means the node after the last child.
-   * @throws {RangeError} If the index is invalid.
    */
-  static indexToOffset(node: Node | Fragment, index?: number): number {
+  static indexToOffset(node: Node | Fragment, index?: number): Result<number, string> {
+    if (node instanceof Node && node.type.schema.text)
+      return Err("Can't convert index to offset for text nodes", "Position.indexToOffset", "static");
+
     const content = node instanceof Node ? node.content : node;
     if (index === undefined) index = content.childCount - 1;
     else if (index < 0) index = content.childCount - 1 + index;
 
     if (index < 0 || index > content.childCount)
-      throw new RangeError(`The index ${index}, is outside of the allowed range: ${0} - ${content.childCount}`);
+      return Err(
+        `The index ${index}, is outside of the allowed range: ${0} - ${content.childCount}`,
+        "Position.indexToOffset",
+        "static",
+      );
 
-    if (index === 0) return 0;
-    else if (index === content.childCount) return content.size;
+    if (index === 0) return Ok(0);
+    else if (index === content.childCount) return Ok(content.size);
 
     let offset = 0;
     for (const [c, i] of content.iter())
       if (i === index) break;
       else offset += c.nodeSize;
-    return offset;
+    return Ok(offset);
   }
 
   /**
@@ -145,6 +160,8 @@ export class Position {
    * @returns An object containing the index and the extra offset after the index, so this isn't the index into the node at index (this is `offset - 1`, accounting for the opening tag), but the offset from the index position.
    */
   static offsetToIndex(node: Node | Fragment, offset: number): { index: number; offset: number } {
+    if (node instanceof Node && node.type.schema.text) return { index: 0, offset };
+
     const content = node instanceof Node ? node.content : node;
     if (offset === 0) return { index: 0, offset: 0 };
 
@@ -156,6 +173,64 @@ export class Position {
     }
 
     return { index: content.childCount, offset: o };
+  }
+}
+
+export class AnchorPosition {
+  constructor(
+    readonly anchor: Node,
+    private relative: "before" | "after" | "child" | "offset",
+    private offset = 0,
+  ) {}
+
+  resolve(boundary: Node): Result<Position, string> {
+    if (this.relative === "after" || this.relative === "before")
+      return locateNode(boundary, this.anchor, false)
+        .map((steps) => {
+          if (this.relative === "before") return new Position(steps);
+
+          steps[steps.length - 1].index++;
+          steps[steps.length - 1].offset += this.anchor.nodeSize;
+          return new Position(steps);
+        })
+        .trace("AnchorPosition.resolve");
+    else
+      return locateNode(boundary, this.anchor, true)
+        .try((steps) => {
+          if (this.offset === 0) return Ok(new Position(steps));
+
+          if (this.relative === "child")
+            return Position.indexToOffset(this.anchor, this.offset).map((offset) => {
+              steps[steps.length - 1].index = this.offset;
+              steps[steps.length - 1].offset = offset;
+              return new Position(steps);
+            });
+
+          // offset
+          const { index } = Position.offsetToIndex(this.anchor, this.offset);
+          steps[steps.length - 1].index = index;
+          steps[steps.length - 1].offset = this.offset;
+          return Ok(new Position(steps));
+        })
+        .trace("AnchorPosition.resolve");
+  }
+
+  // static init methods
+
+  static before(anchor: Node) {
+    return new AnchorPosition(anchor, "before");
+  }
+
+  static after(anchor: Node) {
+    return new AnchorPosition(anchor, "after");
+  }
+
+  static child(anchor: Node, index: number) {
+    return new AnchorPosition(anchor, "child", index);
+  }
+
+  static offset(anchor: Node, offset: number) {
+    return new AnchorPosition(anchor, "offset", offset);
   }
 }
 

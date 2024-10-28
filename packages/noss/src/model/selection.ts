@@ -1,7 +1,7 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "./node";
 import type { PositionLike } from "./position";
-import { Position } from "./position";
+import { AnchorPosition, Position } from "./position";
 import { Ok } from "@noss-editor/utils";
 
 export class Selection {
@@ -17,7 +17,7 @@ export class Selection {
      */
     readonly focus: Position,
   ) {
-    this.isCollapsed = this.anchor === this.focus || this.anchor.toAbsolute() === this.focus.toAbsolute();
+    this.isCollapsed = this.anchor === this.focus || this.anchor.absolute === this.focus.absolute;
   }
 
   /**
@@ -38,7 +38,7 @@ export class Selection {
   static atStart(node: Node, offset?: number): Result<UnresolvedSelection, string>;
   static atStart(node: Node, offset: number | undefined, boundary: Node): Result<Selection, string>;
   static atStart(node: Node, offset?: number, boundary?: Node): Result<Selection | UnresolvedSelection, string> {
-    const pos = Position.offset(node, offset ?? 0);
+    const pos = AnchorPosition.offset(node, offset ?? 0);
     if (boundary) return pos.resolve(boundary).map((p) => new Selection(p, p));
     return Ok(new UnresolvedSelection(pos, pos));
   }
@@ -46,7 +46,7 @@ export class Selection {
   static atEnd(node: Node, offset?: number): Result<UnresolvedSelection, string>;
   static atEnd(node: Node, offset: number | undefined, boundary: Node): Result<Selection, string>;
   static atEnd(node: Node, offset?: number, boundary?: Node): Result<Selection | UnresolvedSelection, string> {
-    const pos = Position.offset(node, node.content.size - (offset ?? 0));
+    const pos = AnchorPosition.offset(node, node.content.size - (offset ?? 0));
     if (boundary) return pos.resolve(boundary).map((p) => new Selection(p, p));
     return Ok(new UnresolvedSelection(pos, pos));
   }
@@ -59,10 +59,10 @@ export class UnresolvedSelection {
   ) {}
 
   resolve(boundary: Node): Result<Selection, string> {
-    return Position.softResolve(boundary, this.anchor)
+    return Position.resolve(boundary, this.anchor)
       .mapErr((e) => `Failed to resolve anchor position; ${e}`)
       .try((anchor) =>
-        Position.softResolve(boundary, this.focus)
+        Position.resolve(boundary, this.focus)
           .mapErr((e) => `Failed to resolve focus position; ${e}`)
           .map((focus) => new Selection(anchor, focus)),
       )

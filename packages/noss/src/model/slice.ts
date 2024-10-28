@@ -39,13 +39,14 @@ export class Slice {
 
   // static methods
   static between(from: Position, to: Position) {
+    return;
     // TODO: Improve performance here (get depth of common parent and use .start and .end methods on position to get offsets)
-    const cDepth = from.commonDepth(to);
+    // const cDepth = from.commonDepth(to);
 
-    const cut = from.node(cDepth).copy();
-    if (!cut.content.cut(from.relative(cDepth) + 1, to.relative(cDepth) - 1)) return;
+    // const cut = from.node(cDepth).copy();
+    // if (!cut.content.cut(from.relative(cDepth) + 1, to.relative(cDepth) - 1)) return;
 
-    return new Slice(cut.content, from.depth, to.depth, from.boundary);
+    // return new Slice(cut.content, from.depth, to.depth, from.boundary);
   }
 
   static get empty() {
@@ -61,7 +62,7 @@ function insertFragment(
 ) {
   // TODO: Verify if content is allowed before inserting
   // TODO: Re-implement this method
-  const { index, offset } = Position.offsetToIndex(parent, pos, true);
+  const { index, offset } = Position.offsetToIndex(parent, pos);
   const node = parent.child(index);
   //if (empty) return parent;
   if (offset === 0) return parent.insert(insert, index);

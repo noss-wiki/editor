@@ -10,10 +10,10 @@ export class UnresolvedRange {
   ) {}
 
   resolve(boundary: Node): Result<Range, string> {
-    return Position.softResolve(boundary, this.anchor)
+    return Position.resolve(boundary, this.anchor)
       .mapErr((e) => `Failed to resolve start position of range; ${e}`)
       .try((anchor) =>
-        Position.softResolve(boundary, this.focus)
+        Position.resolve(boundary, this.focus)
           .mapErr((e) => `Failed to resolve end position of range; ${e}`)
           .map((focus) => new Range(anchor, focus)),
       )
@@ -29,7 +29,7 @@ export class Range extends UnresolvedRange {
 
   constructor(anchor: Position, focus: Position) {
     super(anchor, focus);
-    this.isCollapsed = anchor === focus || anchor.toAbsolute() === focus.toAbsolute();
+    this.isCollapsed = anchor === focus || anchor.absolute === focus.absolute;
   }
 
   override resolve(): Result<Range, string> {

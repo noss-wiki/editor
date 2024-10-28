@@ -3,7 +3,8 @@ import type { Fragment } from "./fragment";
 import { Ok, Err, wrap } from "@noss-editor/utils";
 import { Node, Text } from "./node";
 
-type PositionLike = Position | number;
+export type AbsoluteLike = Position | number;
+export type PositionLike = Position | AnchorPosition | number;
 
 // TODO: Add some unit tests
 export class Position {
@@ -85,6 +86,7 @@ export class Position {
   static resolve(boundary: Node, pos: PositionLike): Result<Position, string> {
     // TODO: Cached results and use it
     if (pos instanceof Position) return Ok(pos);
+    else if (pos instanceof AnchorPosition) return pos.resolve(boundary).trace("Position.resolve", "static");
     else return Position.resolveAbsolute(boundary, pos).trace("Position.resolve", "static");
   }
 

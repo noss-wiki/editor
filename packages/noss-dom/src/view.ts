@@ -3,7 +3,7 @@ import type { Node, Text, Diff, TextView, Transaction, ParseResult, NodeConstruc
 import type { NodeRoot, DOMElement, DOMText } from "./types";
 import type { DOMNodeView } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
-import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment } from "noss-editor";
+import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment, AnchorPosition } from "noss-editor";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
 import {
@@ -208,9 +208,9 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     if (!sel || !sel.anchorNode || !sel.focusNode) return Err("No selection found").trace("DOMView.getSelection");
 
     const anchor = this.toNode(sel.anchorNode) //
-      .try((node) => Position.offset(node, sel.anchorOffset).resolve(boundary));
+      .try((node) => AnchorPosition.offset(node, sel.anchorOffset).resolve(boundary));
     const focus = this.toNode(sel.focusNode) //
-      .try((node) => Position.offset(node, sel.focusOffset).resolve(boundary));
+      .try((node) => AnchorPosition.offset(node, sel.focusOffset).resolve(boundary));
 
     if (anchor.err)
       return anchor.traceMessage("Failed to resolve anchor head of selection positions", "DOMView.getSelection");
@@ -226,7 +226,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
     if (anchor.err || focus.err) return;
     const selection = window.getSelection();
-    selection?.setBaseAndExtent(anchor.val, sel.anchor.offset, focus.val, sel.focus.offset);
+    selection?.setBaseAndExtent(anchor.val, sel.anchor.offset(), focus.val, sel.focus.offset());
   }
 
   // event handlers

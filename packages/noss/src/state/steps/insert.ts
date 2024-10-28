@@ -17,11 +17,11 @@ export class InsertStep extends Step {
   }
 
   apply(boundary: Node): Result<Diff, string> {
-    return Position.softResolve(boundary, this.pos) //
+    return Position.resolve(boundary, this.pos) //
       .try((pos) => {
         this.pos = pos;
 
-        const { index, offset } = Position.offsetToIndex(pos.parent, pos.offset, true);
+        const { index, offset } = Position.offsetToIndex(pos.parent, pos.offset());
         if (offset !== 0)
           if (!this.node.type.schema.text && !pos.parent.type.schema.text)
             return Err("Position doesn't resolve to an index");

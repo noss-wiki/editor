@@ -172,22 +172,8 @@ export class Fragment {
   /**
    * @param parent The parent node of this fragment, this is used to check if the slice's content conforms to the parent's schema.
    */
-  replace(from: number, to: number, slice: Slice, parent: Node) {
-    // TODO: Verify if content of slice conforms to this parent node's content
-    const $from = parent.resolve(from);
-    const $to = parent.resolve(to);
-
-    if (!$from || !$to) throw new MethodError(`Positions couldn't be resolved`, "Fragment.replace");
-    else if (slice.openStart > $from.depth || slice.openEnd > $to.depth)
-      throw new MethodError(
-        "The insert slice's depth is greater than the depth of the position it is inserted at",
-        "Fragment.replace",
-      );
-    else if ($from.depth - $to.depth !== slice.openStart - slice.openEnd)
-      throw new MethodError("The slice and insertion position have inconsistent depths", "Fragment.replace");
-
-    // TODO: Test if the result of this method is allowed by the parent node's schema
-    return replaceOuter($from, $to, slice);
+  replace(from: number, to: number, slice: Slice, parent: Node): Fragment {
+    throw new Error("Not implemented");
   }
 
   // TODO: add overload that is consistent with replaceChildRecursive
@@ -357,79 +343,3 @@ export class Fragment {
 export type FragmentJSON = {
   nodes: NodeJSON[];
 };
-
-// TODO: Test the replace method thoroughly
-function replaceOuter(from: Position, to: Position, slice: Slice, depth = 0): Fragment {
-  const node = from.node(depth);
-  const index = from.index(depth);
-
-  if (index === to.index(depth) && depth < from.depth - slice.openStart) {
-    const inner = replaceOuter(from, to, slice, depth + 1);
-    const child = node.content.child(index).copy(inner);
-    return node.content.replaceChild(child, index);
-  } else if (slice.size === 0) {
-    return node.content.remove(from.relative(depth), to.relative(depth));
-  } else if (slice.openStart === 0 && slice.openEnd === 0 && from.depth === depth && to.depth === depth) {
-    // TODO: check for success
-    return node.content.cut(0, from.relative(depth)).append(slice.content, node.content.cut(to.relative(depth)));
-  } else {
-    // complex case
-  }
-
-  throw new NotImplementedError("Fragment.replace", true);
-}
-
-function addNode(node: Node, target: Node[]) {
-  const l = target.length - 1;
-  if (!node.type.schema.text) target.push(node);
-  // TODO: check for same marks
-  else if (target.length > 0 && target[l].type.schema.text)
-    target[l] = target[l].copy((<Text>target[l]).text + node.text);
-}
-
-function addBetween(from: Position | null, to: Position | null, depth: number, target: Node[]) {
-  // biome-ignore lint: either to or from must be non-null
-  const node = (to || from)!.node(depth);
-  let start = 0;
-  const end = to ? to.index(depth) : node.childCount;
-
-  if (from) {
-    start = from.index(depth);
-
-    if (from.depth > depth) start++;
-    // cut the text if this is a text node
-    else if (from.offset && from.parent.type.schema.text) {
-      // don't add if the text is empty
-      if (from.offset < (<Text>from.parent).text.length) addNode(from.parent.cut(from.offset), target);
-      start++;
-    }
-  }
-
-  for (let i = start; i < end; i++) addNode(node.child(i), target);
-  if (to?.offset && to.parent.type.schema.text) addNode(to.parent.cut(0, to.offset), target);
-}
-
-function getSliceOuter(slice: Slice, from: Position) {
-  const depthOffset = from.depth - slice.openStart;
-  let node = from.node(depthOffset).copy(slice.content);
-
-  // replicate node structure until parent node
-  for (let i = depthOffset - 1; i >= 0; i--) node = from.node(i).copy(Fragment.from(node));
-
-  return {
-    start: node.resolve(slice.openStart),
-    end: node.resolve(node.content.size - slice.openEnd),
-  };
-}
-
-// find different algorithm
-function replaceComplex(from: Position, sliceStart: Position, sliceEnd: Position, to: Position, depth = 0) {
-  const content: Node[] = [];
-
-  addBetween(null, from, depth, content);
-}
-
-/*
-Deepest common parent of the slice.
-Go layer by layer, adding the content from the existing structure, the content of the slice and the content after.
-*/

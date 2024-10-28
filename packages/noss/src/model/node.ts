@@ -132,7 +132,7 @@ export abstract class Node {
         "Node.insert",
       );
 
-    const { index, offset: o } = Position.offsetToIndex(this, offset, true);
+    const { index, offset: o } = Position.offsetToIndex(this, offset);
     if (o === 0) return this.copy(this.content.insert(content, index));
     throw new NotImplementedError("Node.insert", true);
   }
@@ -200,8 +200,9 @@ export abstract class Node {
 
     if (this.resolveCache[pos] !== undefined) return this.resolveCache[pos];
 
-    const res = stack("Node.resolve")(Position.resolve(this, pos));
-    return (this.resolveCache[pos] = res);
+    const res = Position.resolve(this, pos);
+    if (res.err) throw new MethodError("Failed to resolve position", "Node.resolve");
+    return (this.resolveCache[pos] = res.val);
   }
 
   /**

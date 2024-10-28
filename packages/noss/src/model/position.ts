@@ -22,8 +22,9 @@ export class Position {
 
   private getAbsolute(): number {
     let abs = 0;
-    for (const { offset } of this.steps) abs += offset;
-    return abs;
+    for (const { offset } of this.steps) abs += offset + 1; // Add the tag
+    // Final tag doesn't count
+    return abs - 1;
   }
 
   /**
@@ -206,6 +207,7 @@ export class AnchorPosition {
               return new Position(steps);
             });
 
+          // TODO: Search deeper if possible
           // offset
           const { index } = Position.offsetToIndex(this.anchor, this.offset);
           steps[steps.length - 1].index = index;
@@ -225,8 +227,8 @@ export class AnchorPosition {
     return new AnchorPosition(anchor, "after");
   }
 
-  static child(anchor: Node, index: number) {
-    return new AnchorPosition(anchor, "child", index);
+  static child(anchor: Node, index?: number) {
+    return new AnchorPosition(anchor, "child", index ?? anchor.childCount);
   }
 
   static offset(anchor: Node, offset: number) {

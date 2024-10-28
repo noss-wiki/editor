@@ -7,7 +7,7 @@ export type {
   NodeTypeDefinition,
 } from "./model/nodeType";
 export { NodeType } from "./model/nodeType";
-export { Position } from "./model/position";
+export { Position, AnchorPosition } from "./model/position";
 export { Selection } from "./model/selection";
 export { Slice } from "./model/slice";
 export { EditorView, NodeView, TextView } from "./model/view";

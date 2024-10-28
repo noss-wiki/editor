@@ -10,7 +10,7 @@ export class InsertStep extends Step {
   readonly id = "insert";
 
   constructor(
-    public pos: PositionLike, //
+    readonly pos: PositionLike, //
     readonly node: Node,
   ) {
     super();
@@ -19,8 +19,6 @@ export class InsertStep extends Step {
   apply(boundary: Node): Result<Diff, string> {
     return Position.resolve(boundary, this.pos) //
       .try((pos) => {
-        this.pos = pos;
-
         const { index, offset } = Position.offsetToIndex(pos.parent, pos.offset());
         if (offset !== 0)
           if (!this.node.type.schema.text && !pos.parent.type.schema.text)

@@ -168,10 +168,10 @@ export class Position {
     const content = node instanceof Node ? node.content : node;
     if (offset === 0) return { index: 0, offset: 0 };
 
-    let o = 0;
+    let o = offset;
     for (const [c, i] of content.iter()) {
       if (o === 0) return { index: i, offset: 0 };
-      else if (c.nodeSize < o) o -= c.nodeSize;
+      else if (c.nodeSize <= o) o -= c.nodeSize;
       else return { index: i, offset: o };
     }
 
@@ -274,7 +274,9 @@ interface LocateStep {
  * @param search If set to true, this will include a step for the node itself, with index and offset `0`, defaults to `false`.
  */
 export function locateNode(boundary: Node, search: Node, inside = false): Result<LocateStep[], string> {
-  if (search === boundary) return Err("The node is the boundary node", "locateNode");
+  if (search === boundary)
+    if (inside === false) return Err("The node is the boundary node", "locateNode");
+    else return Ok([{ parent: boundary, index: 0, offset: 0 }]);
 
   const locate = (parent: Node): Result<LocateStep[], null> => {
     let offset = 0;

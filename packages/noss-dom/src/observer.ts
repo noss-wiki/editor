@@ -207,7 +207,7 @@ export class DOMObserver {
       return defaultNode(newlineNode.content)
         .replaceErr("Failed to get default Node")
         .try((node) =>
-          wrap(() => this.view.state.tr.insertChild(node, anchor.node(-2), anchor.index(-1) + 1))
+          wrap(() => this.view.state.tr.insertChild(node, anchor.node(-2), anchor.index(-2) + 1))
             .try((tr) => wrap(() => tr.replaceNode(parent, curr)))
             .try((tr) =>
               Selection.atStart(node, 0, tr.modified)

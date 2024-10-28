@@ -1,6 +1,5 @@
 import type { Node, Text } from "../../model/node";
-import type { LocateData } from "../../model/position";
-import { locateNode } from "../../model/position";
+import { getParentNode } from "../../model/position";
 import type { Result } from "@noss-editor/utils";
 import { Ok, Err, wrap } from "@noss-editor/utils";
 import { Step } from "../step";
@@ -9,21 +8,15 @@ import { Diff } from "../diff";
 export class RemoveStep extends Step {
   readonly id = "remove";
 
-  private locate?: LocateData;
-
   constructor(readonly node: Node) {
     super();
   }
 
   apply(boundary: Node): Result<Diff, string> {
-    return locateNode(boundary, this.node)
+    return getParentNode(boundary, this.node)
       .replaceErr("The given node couldn't be located in the boundary")
-      .try((locate) => {
-        this.locate = locate;
-
-        const parent = this.locate.steps[this.locate.steps.length - 2].node;
+      .try((parent) => {
         const node = parent.removeChild(this.node);
-
         return Diff.replaceChild(boundary, parent, node);
       })
       .trace("RemoveStep.apply");

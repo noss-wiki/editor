@@ -2,7 +2,6 @@ import type { Result } from "@noss-editor/utils";
 import type { Node } from "../../model/node";
 import { Step } from "../step";
 import { Diff } from "../diff";
-import { getParentNode } from "../../model/position";
 
 export class ReplaceNodeStep extends Step {
   id = "replaceNode";

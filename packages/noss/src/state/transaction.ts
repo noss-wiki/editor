@@ -6,7 +6,7 @@ import type { AbsoluteLike, PositionLike } from "../model/position";
 import type { Selection } from "../model/selection";
 import { stack, Ok, Err } from "@noss-editor/utils";
 import { NodeType } from "../model/nodeType";
-import { Position } from "../model/position";
+import { AnchorPosition, Position } from "../model/position";
 import { Diff } from "./diff";
 // Steps
 import { InsertStep, InsertTextStep } from "./steps/insert";
@@ -99,22 +99,11 @@ export class Transaction {
   }
 
   insertChild(node: Node, parent: Node, index?: number) {
-    const pos = Position.child(parent, index);
+    const pos = AnchorPosition.child(parent, index);
     return stack("Transaction.insertChild")(this.insert(node, pos));
   }
 
-  // TODO: Allow `PositionLike`?
-  insertText(node: Text, text: string, pos: AbsoluteLike) {
-    return stack("Transaction.insertText", () => {
-      const resolvedPos = Position.resolve(this.modified, pos);
-      const index = Position.offsetToIndex(resolvedPos.parent, resolvedPos.offset);
-
-      if (index !== undefined) stack("Transaction.insertChild")(this.insert(createTextNode(text), pos));
-      else this.step(new InsertTextStep(resolvedPos.parent as Text, text, resolvedPos.offset));
-
-      return this;
-    });
-  }
+  // TODO: insertText(pos: PositionLike, text: string)
 
   /**
    * Adds an {@link RemoveStep} to this transaction, which removes a node from the document.

@@ -1,6 +1,5 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "../model/node";
-import type { LocateData, LocateStep } from "../model/position";
 import type { Change } from "./change";
 import { Ok, Err, wrap } from "@noss-editor/utils";
 import { getParentNode, locateNode } from "../model/position";
@@ -172,14 +171,4 @@ function constructLcs(oldNodes: Node[], newNodes: Node[]): Result<LCSItem[], nul
   }
 
   return Ok(common);
-}
-
-function mapLocate(boundary: Node, steps: LocateStep[]): Result<Node, null> {
-  let node = boundary;
-  for (const step of steps) {
-    const child = node.content.softChild(step.index);
-    if (!child) return Err();
-    node = child;
-  }
-  return Ok(node);
 }

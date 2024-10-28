@@ -11,6 +11,7 @@ import {
   RemoveTextStep,
   Selection,
   Fragment,
+  AnchorPosition,
 } from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
@@ -147,7 +148,7 @@ export class DOMObserver {
 
           element.setAttribute("data-pre-node", parsed.val.id);
 
-          tr.softStep(new InsertStep(Position.child(parent.val, index), parsed.val)) //
+          tr.softStep(new InsertStep(AnchorPosition.child(parent.val, index), parsed.val)) //
             .trace("DOMObserver.callback", "private")
             .warn((e) => console.warn(e));
 
@@ -189,23 +190,24 @@ export class DOMObserver {
       let anchor = sel.val.anchor;
       let text = anchor.parent as Text;
       if (!text.type.schema.text)
-        if (anchor.offset === 0 && text.content.softChild(0)?.type.schema.text) {
+        if (anchor.offset() === 0 && text.content.softChild(0)?.type.schema.text) {
           text = text.content.child(0) as Text;
-          const pos = Position.offset(text, 0).resolve(anchor.boundary);
+          const pos = AnchorPosition.offset(text, 0).resolve(anchor.boundary);
           if (pos.err) return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
           anchor = pos.val;
         } else return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
 
       const parent = anchor.node(-1);
-      const offset = Position.indexToOffset(parent, anchor.index()) + anchor.offset;
+      const offset = Position.indexToOffset(parent, anchor.index()).map((o) => o + anchor.offset());
+      if (offset.err) return offset.trace("DOMObserver.beforeInput", "private");
       // TODO: Doesn't quite yet work with multiple nodes
-      const curr = parent.cut(0, offset);
-      const newlineNode = resetIds(parent.cut(offset));
+      const curr = parent.cut(0, offset.val);
+      const newlineNode = resetIds(parent.cut(offset.val));
 
       return defaultNode(newlineNode.content)
         .replaceErr("Failed to get default Node")
         .try((node) =>
-          wrap(() => this.view.state.tr.insertChild(node, anchor.node(-2), anchor.index(-1) + 1))
+          wrap(() => this.view.state.tr.insertChild(node, anchor.node(-2), anchor.index(-2) + 1))
             .try((tr) => wrap(() => tr.replaceNode(parent, curr)))
             .try((tr) =>
               Selection.atStart(node, 0, tr.modified)

@@ -96,13 +96,14 @@ export class Fragment {
   }
 
   /**
-   * Removes a single node from this content.
+   * Removes nodes from this node's content.
    *
-   * @param node The node to remove
+   * @param child The child node(s) to remove
    * @returns The modified fragment.
-   * @throws {MethodError} If given the node is not part of this fragment.
+   * @throws {MethodError} If a given child node is not part of this fragment.
    */
-  remove(node: Node): Fragment;
+  remove(child: Node | Node[]): Fragment;
+  // TODO: Add NodeRange option?
   /**
    * Removes the content between the given positions.
    *
@@ -110,18 +111,24 @@ export class Fragment {
    * @param to The end, to where to remove
    * @returns The modified fragment.
    */
-  remove(from: number, to: number): Fragment;
-  remove(node: Node | number, to?: number): Fragment {
+  remove(from: number, to: number): Fragment; // TODO: Use ranges instead?
+  remove(node: Node | Node[] | number, to?: number): Fragment {
     // TODO: Verify if content is allowed before removing
     const content = this.nodes.slice();
 
     if (typeof node !== "number") {
-      const index = content.indexOf(node);
-      if (index === -1)
-        throw new MethodError("The provided node to be removed is not part of this fragment", "Fragment.remove");
+      const nodes = Array.isArray(node) ? node : [node];
+      let sizeOffset = 0;
+      for (const n of nodes) {
+        const index = content.indexOf(n);
+        if (index !== -1)
+          throw new MethodError("One or more of the given nodes are not part of this fragment", "Fragment.remove");
 
-      content.splice(index, 1);
-      return new Fragment(content, this.size - this.child(index).nodeSize);
+        content.splice(index, 1);
+        sizeOffset += n.nodeSize;
+      }
+
+      return new Fragment(content, this.size - sizeOffset);
     } else {
       throw new NotImplementedError("Fragment.remove", true);
     }

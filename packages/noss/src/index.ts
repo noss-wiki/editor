@@ -9,6 +9,7 @@ export type {
 export { NodeType } from "./model/nodeType";
 export { Position, AnchorPosition } from "./model/position";
 export { Selection } from "./model/selection";
+export { Range, NodeRange } from "./model/range";
 export { Slice } from "./model/slice";
 export { EditorView, NodeView, TextView } from "./model/view";
 export type { View, ParseResult } from "./model/view";

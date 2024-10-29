@@ -30,7 +30,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
       const fn = () => {
         if (change.type === ChangeType.insert) {
           const child = change.modified;
-          const domParent = this.toRendered(change.oldParent);
+          const domParent = this.toRendered(change.range.parent);
           if (domParent.err) return domParent;
           else if (domParent.val.nodeType !== DOMNode.ELEMENT_NODE) return Err("The parent domNode must be an element");
 
@@ -38,7 +38,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           const domChild = renderNodeRecursive(child);
           if (domChild.err) return domChild.replaceErr("Failed to render inserted node");
 
-          const existing = parent.childNodes[change.index];
+          const existing = parent.childNodes[change.range.anchor.index()];
           if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
             const node = existing as DOMElement;
             if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id) {
@@ -53,16 +53,16 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
               parent.removeChild(first);
           }
 
-          if (change.index >= change.oldParent.content.childCount) parent.append(domChild.val);
+          if (change.range.anchor.index() >= change.range.parent.content.childCount) parent.append(domChild.val);
           else {
-            const anchor = parent.childNodes[change.index];
+            const anchor = parent.childNodes[change.range.anchor.index()];
             if (!anchor) return Err("Failed to get an anchor domnode to insert node");
 
             parent.insertBefore(domChild.val, anchor);
           }
 
           // TODO: Travel upward updating the node refs
-          domParent.val._node = change.modifiedParent;
+          //domParent.val._node = change.modifiedParent;
           //updateRefUpwards
         } else {
           const domNode = this.toRendered(change.old);

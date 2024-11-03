@@ -1,9 +1,15 @@
-import type { Node, Text, NodeJSON } from "./node";
+import type { Node, Text, SerializedNode } from "./node";
 import type { Position } from "./position";
 import type { Slice } from "./slice";
+import type { Serializable } from "../types";
 import { MethodError, NotImplementedError } from "@noss-editor/utils";
 
-export class Fragment {
+export interface SerializedFragment {
+  size: number;
+  nodes: SerializedNode[];
+}
+
+export class Fragment implements Serializable<SerializedFragment> {
   readonly nodes: Node[];
   readonly size: number;
 
@@ -330,8 +336,9 @@ export class Fragment {
     return `[${content}]`;
   }
 
-  toJSON(): FragmentJSON {
+  toJSON() {
     return {
+      size: this.size,
       nodes: this.nodes.map((e) => e.toJSON()),
     };
   }
@@ -346,7 +353,3 @@ export class Fragment {
 
   static empty = new Fragment([], 0);
 }
-
-export type FragmentJSON = {
-  nodes: NodeJSON[];
-};

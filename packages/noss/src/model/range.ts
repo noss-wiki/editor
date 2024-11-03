@@ -1,6 +1,7 @@
 import { MethodError, Ok, type Result } from "@noss-editor/utils";
 import type { Node } from "./node";
 import type { PositionLike } from "./position";
+import type { Serializable } from "../types";
 import { Position } from "./position";
 
 export class UnresolvedRange {
@@ -21,7 +22,13 @@ export class UnresolvedRange {
   }
 }
 
-export class Range extends UnresolvedRange {
+export interface SerializedRange {
+  readonly type: "range" | "node";
+  readonly anchor: number;
+  readonly focus: number;
+}
+
+export class Range extends UnresolvedRange implements Serializable<SerializedRange> {
   declare anchor: Position;
   declare focus: Position;
 
@@ -45,13 +52,25 @@ export class Range extends UnresolvedRange {
   override resolve(): Result<Range, never> {
     return Ok(this);
   }
+
+  toJSON(): SerializedRange {
+    return {
+      type: "range",
+      anchor: this.anchor.absolute,
+      focus: this.focus.absolute,
+    };
+  }
+}
+
+export interface SerializedNodeRange extends SerializedRange {
+  readonly type: "node";
 }
 
 /**
  * A {@link Range} that only contains whole nodes, this means that the parents of the positions are the same.
  * The content in this range, is one or more nodes.
  */
-export class NodeRange extends Range {
+export class NodeRange extends Range implements Serializable<SerializedNodeRange> {
   readonly parent: Node;
 
   constructor(anchor: Position, focus?: Position) {
@@ -70,5 +89,13 @@ export class NodeRange extends Range {
     const start = this.anchor.index();
     const end = this.focus.index();
     return this.parent.content.nodes.slice(start, end);
+  }
+
+  override toJSON(): SerializedNodeRange {
+    return {
+      type: "node",
+      anchor: this.anchor.absolute,
+      focus: this.focus.absolute,
+    };
   }
 }

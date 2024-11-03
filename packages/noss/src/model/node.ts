@@ -1,7 +1,8 @@
 import type { Result } from "@noss-editor/utils";
-import type { FragmentJSON } from "./fragment";
+import type { SerializedFragment } from "./fragment";
 import type { Slice } from "./slice";
 import type { NodeView } from "./view";
+import type { Serializable } from "../types";
 import { Err, MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 import { TextView } from "./view";
 import { NodeType } from "./nodeType";
@@ -14,10 +15,16 @@ export type NodeAttrs = {
 
 export type NodeConstructor = new (content?: Fragment | string) => Node;
 
+export interface SerializedNode {
+  readonly type: string;
+  readonly id: string;
+  readonly attrs?: NodeAttrs;
+  readonly content: SerializedFragment | string;
+}
 /**
  * The base Node class
  */
-export abstract class Node {
+export abstract class Node implements Serializable<SerializedNode> {
   static readonly type: NodeType;
 
   /**
@@ -272,7 +279,7 @@ export abstract class Node {
     return `${this.type.name}(${this.content.toString().slice(1, -1)})`;
   }
 
-  toJSON(): NodeJSON {
+  toJSON(): SerializedNode {
     return {
       id: this.id,
       type: this.type.name,
@@ -291,6 +298,15 @@ export class AttrNode<A extends NodeAttrs = NodeAttrs> extends Node {
 
   constructor(attrs: A, content?: Fragment | string) {
     super(attrs, content);
+  }
+
+  override toJSON(): SerializedNode {
+    return {
+      id: this.id,
+      type: this.type.name,
+      attrs: this.attrs,
+      content: this.content.toJSON(),
+    };
   }
 }
 
@@ -388,10 +404,12 @@ export class Text extends Node {
   override toString() {
     return `"${this.text}"`;
   }
-}
 
-export type NodeJSON = {
-  id: string;
-  type: string;
-  content: FragmentJSON;
-};
+  override toJSON(): SerializedNode {
+    return {
+      id: this.id,
+      type: this.type.name,
+      content: this.text,
+    };
+  }
+}

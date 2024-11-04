@@ -2,13 +2,17 @@ import { MethodError, Ok, type Result } from "@noss-editor/utils";
 import type { Node } from "./node";
 import type { PositionLike } from "./position";
 import type { Serializable } from "../types";
-import { Position } from "./position";
+import { AnchorPosition, Position } from "./position";
 
 export class UnresolvedRange {
+  readonly focus: PositionLike;
+
   constructor(
     readonly anchor: PositionLike,
-    readonly focus: PositionLike,
-  ) {}
+    focus?: PositionLike,
+  ) {
+    this.focus = focus || this.anchor;
+  }
 
   resolve(boundary: Node): Result<Range, string> {
     return Position.resolve(boundary, this.anchor)
@@ -28,29 +32,37 @@ export interface SerializedRange {
   readonly focus: number;
 }
 
-export class Range extends UnresolvedRange implements Serializable<SerializedRange> {
-  declare anchor: Position;
-  declare focus: Position;
+export class Range implements Serializable<SerializedRange> {
+  readonly focus: Position;
 
   /**
    * The `anchor` or `focus` position, depending on which comes first.
    */
   readonly first: Position;
+  /**
+   * The `anchor` or `focus` position, depending on which comes last.
+   */
+  readonly last: Position;
 
   readonly isCollapsed: boolean;
   readonly size: number;
 
-  constructor(anchor: Position, focus?: Position) {
-    super(anchor, focus || anchor);
+  constructor(
+    readonly anchor: Position,
+    focus?: Position,
+  ) {
+    this.focus = focus || this.anchor;
+
     this.isCollapsed = !focus || this.anchor === this.focus || this.anchor.absolute === this.focus.absolute;
     this.size = this.isCollapsed ? 0 : Math.abs(this.focus.absolute - this.anchor.absolute);
 
-    if (this.anchor.absolute < this.focus.absolute) this.first = this.anchor;
-    else this.first = this.focus;
-  }
-
-  override resolve(): Result<Range, never> {
-    return Ok(this);
+    if (this.anchor.absolute < this.focus.absolute) {
+      this.first = this.anchor;
+      this.last = this.focus;
+    } else {
+      this.first = this.focus;
+      this.last = this.anchor;
+    }
   }
 
   toJSON(): SerializedRange {
@@ -72,6 +84,7 @@ export interface SerializedNodeRange extends SerializedRange {
  */
 export class NodeRange extends Range implements Serializable<SerializedNodeRange> {
   readonly parent: Node;
+  readonly childCount: number;
 
   constructor(anchor: Position, focus?: Position) {
     super(anchor, focus);
@@ -83,12 +96,11 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
       );
 
     this.parent = this.anchor.parent;
+    this.childCount = this.first.index() - this.last.index() + 1;
   }
 
   nodesBetween() {
-    const start = this.anchor.index();
-    const end = this.focus.index();
-    return this.parent.content.nodes.slice(start, end);
+    return this.parent.content.nodes.slice(this.first.index(), this.last.index());
   }
 
   override toJSON(): SerializedNodeRange {
@@ -98,4 +110,35 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
       focus: this.focus.absolute,
     };
   }
+
+  static select(boundary: Node, node: Node): Result<NodeRange, string> {
+    return AnchorPosition.before(node)
+      .resolve(boundary)
+      .try((anchor) =>
+        AnchorPosition.after(node)
+          .resolve(boundary)
+          .map((focus) => new NodeRange(anchor, focus)),
+      )
+      .traceMessage("Failed to create NodeRange", "NodeRange.select", "static");
+  }
+
+  /**
+   * Creates a new NodeRange, selecting the content between the given indices in the parent node.
+   */
+  static selectContent(boundary: Node, parent: Node, startIndex = 0, endIndex?: number): Result<NodeRange, string> {
+    endIndex ??= parent.content.childCount - 1;
+
+    return AnchorPosition.child(parent, startIndex)
+      .resolve(boundary)
+      .try((anchor) => {
+        if (startIndex === endIndex) return Ok(new NodeRange(anchor));
+
+        return AnchorPosition.child(parent, endIndex)
+          .resolve(boundary)
+          .map((focus) => new NodeRange(anchor, focus));
+      })
+      .traceMessage("Failed to create NodeRange", "NodeRange.selectContent", "static");
+  }
 }
+
+// TODO: Maybe create a `NodeSelect` class that only holds a single node.

@@ -1,5 +1,5 @@
 import { MethodError, Ok, type Result } from "@noss-editor/utils";
-import type { Node } from "./node";
+import { Node } from "./node";
 import type { PositionLike } from "./position";
 import type { Serializable } from "../types";
 import { AnchorPosition, Position } from "./position";
@@ -27,7 +27,7 @@ export class UnresolvedRange {
 }
 
 export interface SerializedRange {
-  readonly type: "range" | "node";
+  readonly type: "range" | "node" | "single";
   readonly anchor: number;
   readonly focus: number;
 }
@@ -75,7 +75,7 @@ export class Range implements Serializable<SerializedRange> {
 }
 
 export interface SerializedNodeRange extends SerializedRange {
-  readonly type: "node";
+  readonly type: "node" | "single";
 }
 
 /**
@@ -111,13 +111,13 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
     };
   }
 
-  static select(boundary: Node, node: Node): Result<NodeRange, string> {
+  static select(boundary: Node, node: Node): Result<SingleNodeRange, string> {
     return AnchorPosition.before(node)
       .resolve(boundary)
       .try((anchor) =>
         AnchorPosition.after(node)
           .resolve(boundary)
-          .map((focus) => new NodeRange(anchor, focus)),
+          .map((focus) => new SingleNodeRange(anchor, focus)),
       )
       .traceMessage("Failed to create NodeRange", "NodeRange.select", "static");
   }
@@ -141,4 +141,32 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
   }
 }
 
-// TODO: Maybe create a `NodeSelect` class that only holds a single node.
+export interface SerializedSingleNodeRange extends SerializedRange {
+  readonly type: "single";
+}
+
+/**
+ * A {@link NodeRange} that contains a max of one node, so the content in this range, is either none, or a single node.
+ */
+export class SingleNodeRange extends NodeRange implements Serializable<SerializedSingleNodeRange> {
+  /**
+   * @internal
+   */
+  constructor(anchor: Position, focus?: Position) {
+    super(anchor, focus);
+
+    if (this.childCount > 1)
+      throw new MethodError(
+        "SingleNodeRange can only 'select' none, or a single node, but this range contains multiple nodes",
+        "SingleNodeRange.constructor",
+      );
+  }
+
+  override toJSON(): SerializedSingleNodeRange {
+    return {
+      type: "single",
+      anchor: this.anchor.absolute,
+      focus: this.focus.absolute,
+    };
+  }
+}

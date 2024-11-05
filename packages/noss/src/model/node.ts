@@ -170,8 +170,12 @@ export abstract class Node implements Serializable<SerializedNode> {
     return this.copy(this.content.remove(from, to));
   }
 
-  removeChild(child: Node) {
-    return this.copy(this.content.remove(child));
+  removeChild(index?: number): Node;
+  removeChild(child: Node | Node[]): Node;
+  removeChild(child?: Node | Node[] | number) {
+    // This if is only needed to make typescript happy
+    if (child === undefined || typeof child === "number") return this.copy(this.content.removeChild(child));
+    else return this.copy(this.content.removeChild(child));
   }
 
   /**

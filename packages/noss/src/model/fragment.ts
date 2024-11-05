@@ -101,14 +101,6 @@ export class Fragment implements Serializable<SerializedFragment> {
     );
   }
 
-  /**
-   * Removes nodes from this node's content.
-   *
-   * @param child The child node(s) to remove
-   * @returns The modified fragment.
-   * @throws {MethodError} If a given child node is not part of this fragment.
-   */
-  remove(child: Node | Node[]): Fragment;
   // TODO: Add NodeRange option?
   /**
    * Removes the content between the given positions.
@@ -117,26 +109,50 @@ export class Fragment implements Serializable<SerializedFragment> {
    * @param to The end, to where to remove
    * @returns The modified fragment.
    */
-  remove(from: number, to: number): Fragment; // TODO: Use ranges instead?
-  remove(node: Node | Node[] | number, to?: number): Fragment {
+  remove(from: number, to: number): Fragment {
     // TODO: Verify if content is allowed before removing
+    throw new NotImplementedError("Fragment.remove", true);
+  }
+
+  /**
+   * Removes a single child from this fragment.
+   *
+   * @param index The index of the child to remove. Leave empty or undefined to remove the last child, or use a negative number to remove with offset from the end.
+   * @returns The modified fragment.
+   * @throws {MethodError} If the index is out of bounds.
+   */
+  removeChild(index?: number): Fragment;
+  /**
+   * Removes one or more child nodes from this fragment.
+   *
+   * @param node The node or nodes to remove
+   * @returns The modified fragment.
+   * @throws {MethodError} If one or more of the nodes are not part of this fragment.
+   */
+  removeChild(node: Node | Node[]): Fragment;
+  removeChild(index?: number | Node | Node[]): Fragment {
     const content = this.nodes.slice();
 
-    if (typeof node !== "number") {
-      const nodes = Array.isArray(node) ? node : [node];
+    if (typeof index === "number" || index === undefined) {
+      const i = this.resolveIndex(index);
+      if (!this.isValidIndex(i))
+        throw new MethodError(`Index ${index} (resolved to ${i}) is not in the allowed range`, "Fragment.removeChild");
+
+      content.splice(i, 1);
+      return new Fragment(content, this.size - this.child(i).nodeSize);
+    } else {
+      const nodes = Array.isArray(index) ? index : [index];
       let sizeOffset = 0;
       for (const n of nodes) {
         const index = content.indexOf(n);
         if (index !== -1)
-          throw new MethodError("One or more of the given nodes are not part of this fragment", "Fragment.remove");
+          throw new MethodError("One or more of the given nodes are not part of this fragment", "Fragment.removeChild");
 
         content.splice(index, 1);
         sizeOffset += n.nodeSize;
       }
 
       return new Fragment(content, this.size - sizeOffset);
-    } else {
-      throw new NotImplementedError("Fragment.remove", true);
     }
   }
 

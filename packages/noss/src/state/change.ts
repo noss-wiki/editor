@@ -1,143 +1,83 @@
-import type { Result } from "@noss-editor/utils";
-import type { Node } from "../model/node";
+import type { MethodError, Result } from "@noss-editor/utils";
+import type { Node, SerializedNode } from "../model/node";
+import type { SerializedSingleNodeRange } from "../model/range";
+import type { Serializable } from "../types";
+import { SingleNodeRange } from "../model/range";
 import { Position, type AbsoluteLike } from "../model/position";
-import type { NodeRange } from "../model/range";
-import { MethodError, Ok, wrap } from "@noss-editor/utils";
+import { Err, Ok, wrap } from "@noss-editor/utils";
 
-export type Change = InsertChange | RemoveChange | ReplaceChange;
-
+// TODO: Remove this entirely or maybe include smth similar for easier change tracking? like what exactly change (attrs, content, etc.)
 export enum ChangeType {
   insert = "insert",
   remove = "remove",
   replace = "replace",
 }
 
-// TODO: Add changeNodes map? for easier access to the nodes that are changed. this is just the nodes of the range position steps.
-// TODO: Allow to insert multiple nodes on `InsertChange` and `ReplaceChange`.
-interface BaseChange {
-  readonly type: ChangeType;
-  readonly modified?: Node;
-  /**
-   * The range where to apply the change, so this range is in the old document.
-   * In the case of the `RemoveChange` and the `ReplaceChange` will the nodes in this range be removed.
-   */
-  readonly range: NodeRange;
-
-  reconstruct(boundary: Node): Result<Node, string>;
-  map<T extends AbsoluteLike>(pos: T): Result<T, string>;
+export interface SerializedChange {
+  readonly range: SerializedSingleNodeRange;
+  readonly modified?: SerializedNode;
 }
 
-export class InsertChange implements BaseChange {
-  readonly type = ChangeType.insert;
-  readonly old: undefined;
-
+export class Change implements Serializable<SerializedChange> {
   constructor(
-    readonly range: NodeRange,
-    readonly modified: Node,
-  ) {
-    if (!range.isCollapsed)
-      throw new MethodError("Range is not collapsed, but this is needed", "InsertChange.constructor");
-  }
-
-  reconstruct(boundary: Node): Result<Node, string> {
-    if (this.range.parent === boundary)
-      return wrap(() => boundary.content.insert(this.modified, this.range.anchor.index()))
-        .map((c) => boundary.copy(c))
-        .trace("InsertChange.reconstruct");
-
-    return wrap(() =>
-      boundary.content.replaceChildRecursive(
-        this.range.parent,
-        this.range.parent.copy(this.range.parent.content.insert(this.modified, this.range.anchor.index())),
-      ),
-    )
-      .map((c) => boundary.copy(c))
-      .trace("InsertChange.reconstruct");
-  }
-
-  map<T extends AbsoluteLike>(pos: T): Result<T, string> {
-    const absPos = typeof pos === "number" ? pos : pos.absolute;
-    let abs: number;
-    if (absPos <= this.range.anchor.absolute) abs = absPos;
-    else abs = absPos + this.range.size;
-
-    if (typeof pos === "number") return Ok(abs as T);
-    else return Position.resolve(pos.boundary, abs) as Result<T, string>;
-  }
-}
-
-export class RemoveChange implements BaseChange {
-  readonly type = ChangeType.remove;
-  readonly modified: undefined;
-
-  constructor(readonly range: NodeRange) {}
-
-  reconstruct(boundary: Node): Result<Node, string> {
-    if (this.range.parent === boundary)
-      return wrap(() => boundary.content.remove(this.range.nodesBetween()))
-        .map((c) => boundary.copy(c))
-        .trace("RemoveChange.reconstruct");
-
-    return wrap(() =>
-      boundary.content.replaceChildRecursive(
-        this.range.parent,
-        this.range.parent.copy(this.range.parent.content.remove(this.range.nodesBetween())),
-      ),
-    )
-      .map((c) => boundary.copy(c))
-      .trace("RemoveChange.reconstruct");
-  }
-
-  map<T extends AbsoluteLike>(pos: T): Result<T, string> {
-    const absPos = typeof pos === "number" ? pos : pos.absolute;
-    let abs: number;
-    if (absPos <= this.range.first.absolute) abs = absPos;
-    else abs = absPos - this.range.size;
-
-    if (typeof pos === "number") return Ok(abs as T);
-    else return Position.resolve(pos.boundary, abs) as Result<T, string>;
-  }
-}
-
-export class ReplaceChange implements BaseChange {
-  readonly type = ChangeType.replace;
-
-  constructor(
-    readonly range: NodeRange,
-    readonly modified: Node,
+    readonly range: SingleNodeRange | AbsoluteLike,
+    readonly modified?: Node,
   ) {}
 
   reconstruct(boundary: Node): Result<Node, string> {
-    if (this.range.parent === boundary)
-      return wrap(() =>
-        boundary.content //
-          .remove(this.range.nodesBetween())
-          .insert(this.modified, this.range.first.index()),
-      )
-        .map((c) => boundary.copy(c))
-        .trace("ReplaceChange.reconstruct");
+    const isRange = this.range instanceof SingleNodeRange;
+    const anchor = isRange ? Ok(this.range.anchor) : Position.resolve(boundary, this.range);
+    if (anchor.err) return anchor.traceMessage("Failed to reconstruct Change", "Change.reconstruct");
 
-    return wrap(() =>
-      boundary.content.replaceChildRecursive(
-        this.range.parent,
-        this.range.parent.copy(
-          this.range.parent.content //
-            .remove(this.range.nodesBetween())
-            .insert(this.modified, this.range.first.index()),
-        ),
-      ),
-    )
-      .map((c) => boundary.copy(c))
-      .trace("ReplaceChange.reconstruct");
+    if (anchor.val.boundary !== boundary)
+      return Err("The boundary of the range is different from the provided boundary", "Change.reconstruct");
+
+    return (!isRange ? Ok(boundary) : removeRange(boundary, this.range)).try((mod) => {
+      const modParent = anchor.val.parent.removeChild(anchor.val.index());
+      return wrap(() => boundary.copy(boundary.content.replaceChildRecursive(anchor.val.parent, modParent)));
+    });
   }
 
+  /**
+   * Maps a position through a change.
+   *
+   * @throws {MethodError} If `pos` is a {@link Position} and it cannot be resolved.
+   */
   map<T extends AbsoluteLike>(pos: T): Result<T, string> {
     const absPos = typeof pos === "number" ? pos : pos.absolute;
+    const isRange = this.range instanceof SingleNodeRange;
+    const anchor = isRange ? this.range.anchor.absolute : Position.absolute(this.range);
+    const size = isRange ? this.range.size : 0;
     let abs: number;
-    if (absPos <= this.range.first.absolute) abs = absPos;
-    else abs = absPos - this.range.size + this.modified.nodeSize;
+    if (absPos <= anchor) abs = absPos;
+    else abs = absPos + size;
 
     if (typeof pos === "number") return Ok(abs as T);
     else return Position.resolve(pos.boundary, abs) as Result<T, string>;
   }
+
+  toJSON(): SerializedChange {
+    return {
+      range: getSerializedRange(this.range),
+      modified: this.modified?.toJSON(),
+    };
+  }
+}
+
+function getSerializedRange(range: SingleNodeRange | AbsoluteLike): SerializedSingleNodeRange {
+  return range instanceof SingleNodeRange
+    ? range.toJSON()
+    : {
+        type: "single",
+        anchor: Position.absolute(range),
+        focus: Position.absolute(range),
+      };
+}
+
+function removeRange(boundary: Node, range: SingleNodeRange) {
+  const parent = range.anchor.parent;
+  if (range.size === 0) return Ok(boundary);
+
+  const node = parent.child(range.anchor.index());
+  return wrap(() => boundary.copy(boundary.content.replaceChildRecursive(parent, parent.removeChild(node))));
 }

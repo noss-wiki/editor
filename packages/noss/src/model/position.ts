@@ -129,6 +129,10 @@ export class Position {
     else return Ok(new Position([...steps, result.val], pos));
   }
 
+  static absolute(pos: AbsoluteLike) {
+    return pos instanceof Position ? pos.absolute : pos;
+  }
+
   /**
    * @param node The node (or fragment) in which to convert `index`
    * @param index The index to convert, undefined results in `index = node.content.childCount - 1`, and negative values are relative to the max depth. The index may also be `node.content.childCount`, this means the node after the last child.

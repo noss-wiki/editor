@@ -1,5 +1,5 @@
 import { MethodError, Ok, type Result } from "@noss-editor/utils";
-import { Node } from "./node";
+import type { Node } from "./node";
 import type { PositionLike } from "./position";
 import type { Serializable } from "../types";
 import { AnchorPosition, Position } from "./position";

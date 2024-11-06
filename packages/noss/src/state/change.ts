@@ -1,6 +1,6 @@
 import type { MethodError, Result } from "@noss-editor/utils";
 import type { Node, SerializedNode } from "../model/node";
-import type { SerializedSingleNodeRange } from "../model/range";
+import type { NodeRange, SerializedSingleNodeRange } from "../model/range";
 import type { Serializable } from "../types";
 import { SingleNodeRange } from "../model/range";
 import { Position, type AbsoluteLike } from "../model/position";
@@ -56,11 +56,26 @@ export class Change implements Serializable<SerializedChange> {
     else return Position.resolve(pos.boundary, abs) as Result<T, string>;
   }
 
+  //split // split the change into two ranges if it's a replace change
+
   toJSON(): SerializedChange {
     return {
       range: getSerializedRange(this.range),
       modified: this.modified?.toJSON(),
     };
+  }
+
+  static fromMultiple(range: NodeRange, nodes: Node[]): Result<Change[], string> {
+    const boundary = range.anchor.boundary;
+    const changes: Change[] = [];
+    for (const n of range.nodesBetween()) {
+      const singleRange = SingleNodeRange.select(boundary, n);
+      if (singleRange.ok) changes.push(new Change(singleRange.val));
+      else return singleRange.traceMessage("Failed to construct Change array", "Change.fromMultiple", "static");
+    }
+
+    for (const n of nodes) changes.push(new Change(new SingleNodeRange(range.anchor), n));
+    return Ok(changes);
   }
 }
 

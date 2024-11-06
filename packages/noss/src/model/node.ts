@@ -145,6 +145,16 @@ export abstract class Node implements Serializable<SerializedNode> {
   }
 
   /**
+   * Inserts a node (or nodes) at `index` in this node.
+   *
+   * @returns The modified node.
+   * @throws {MethodError} If the index is out of bounds.
+   */
+  insertChild(node: Node | Node[], index?: number) {
+    return this.copy(this.content.insertChild(node, index));
+  }
+
+  /**
    * Changes this nodes content to only include the content between the given positions.
    * This does not cut non-text nodes in half, meaning if the starting position is inside of a node, that entire node is included.
    */

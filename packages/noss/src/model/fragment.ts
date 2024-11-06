@@ -32,8 +32,9 @@ export class Fragment implements Serializable<SerializedFragment> {
     if (size === undefined) for (const [child, i] of this.iter()) this.size += child.nodeSize;
   }
 
-  private resolveIndex(index?: number): number {
-    if (index === undefined) return this.nodes.length === 0 ? 0 : this.nodes.length - 1;
+  private resolveIndex(index?: number, allowLength = false): number {
+    if (index === undefined && allowLength) return this.nodes.length;
+    else if (index === undefined) return this.nodes.length === 0 ? 0 : this.nodes.length - 1;
     else if (index < 0) return this.nodes.length + index;
     else return index;
   }
@@ -90,9 +91,30 @@ export class Fragment implements Serializable<SerializedFragment> {
     if (node instanceof Fragment) node = node.nodes;
     const nodes: readonly Node[] = Array.isArray(node) ? node : [node];
 
-    const i = index === undefined ? this.nodes.length : this.resolveIndex(index);
-    if (!this.isValidIndex(i)) throw new MethodError(`Index ${index} is not in the allowed range`, "Fragment.insert");
+    const i = this.resolveIndex(index, true);
+    if (!this.isValidIndex(i))
+      throw new MethodError(`Index ${index} (resolved to ${i}) is not in the allowed range`, "Fragment.insert");
 
+    const content = this.nodes.slice();
+    content.splice(i, 0, ...nodes);
+    return new Fragment(
+      content,
+      nodes.reduce((a, b) => a + b.nodeSize, this.size),
+    );
+  }
+
+  /**
+   * Inserts a node (or nodes) at `index` in this fragment.
+   *
+   * @returns The modified fragment.
+   * @throws {MethodError} If the index is out of bounds.
+   */
+  insertChild(node: Node | Node[], index?: number): Fragment {
+    const i = this.resolveIndex(index, true);
+    if (!this.isValidIndex(i))
+      throw new MethodError(`Index ${index} (resolved to ${i}) is not in the allowed range`, "Fragment.insertChild");
+
+    const nodes = Array.isArray(node) ? node : [node];
     const content = this.nodes.slice();
     content.splice(i, 0, ...nodes);
     return new Fragment(

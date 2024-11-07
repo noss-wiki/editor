@@ -15,10 +15,8 @@ export { EditorView, NodeView, TextView } from "./model/view";
 export type { View, ParseResult } from "./model/view";
 
 export { EditorState } from "./state";
-export type { Change, InsertChange, RemoveChange, ReplaceChange } from "./state/change";
+export type { Change } from "./state/change";
 export { ChangeType } from "./state/change";
 export { Diff } from "./state/diff";
 export { Transaction } from "./state/transaction";
 export { Step } from "./state/step";
-export { InsertStep, InsertTextStep } from "./state/steps/insert";
-export { RemoveStep, RemoveTextStep } from "./state/steps/remove";

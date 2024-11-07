@@ -14,15 +14,25 @@ export class UnresolvedRange {
     this.focus = focus || this.anchor;
   }
 
-  resolve(boundary: Node): Result<Range, string> {
+  protected resolvePositions(boundary: Node): Result<
+    {
+      anchor: Position;
+      focus: Position;
+    },
+    string
+  > {
     return Position.resolve(boundary, this.anchor)
       .mapErr((e) => `Failed to resolve start position of range; ${e}`)
       .try((anchor) =>
         Position.resolve(boundary, this.focus)
           .mapErr((e) => `Failed to resolve end position of range; ${e}`)
-          .map((focus) => new Range(anchor, focus)),
+          .map((focus) => ({ anchor, focus })),
       )
-      .trace("UnresolvedRange.resolve");
+      .trace("UnresolvedRange.resolvePositions", "private");
+  }
+
+  resolve(boundary: Node): Result<Range, string> {
+    return this.resolvePositions(boundary).map(({ anchor, focus }) => new Range(anchor, focus));
   }
 }
 
@@ -72,10 +82,21 @@ export class Range implements Serializable<SerializedRange> {
       focus: this.focus.absolute,
     };
   }
+
+  static resolve(boundary: Node, range: Range | UnresolvedRange): Result<Range, string> {
+    if (range instanceof Range) return Ok(range);
+    return range.resolve(boundary).trace("Range.resolve", "static");
+  }
 }
 
 export interface SerializedNodeRange extends SerializedRange {
   readonly type: "node" | "single";
+}
+
+export class UnresolvedNodeRange extends UnresolvedRange {
+  override resolve(boundary: Node): Result<NodeRange, string> {
+    return this.resolvePositions(boundary).map(({ anchor, focus }) => new NodeRange(anchor, focus));
+  }
 }
 
 /**
@@ -109,6 +130,11 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
       anchor: this.anchor.absolute,
       focus: this.focus.absolute,
     };
+  }
+
+  static override resolve(boundary: Node, range: NodeRange | UnresolvedNodeRange): Result<NodeRange, string> {
+    if (range instanceof NodeRange) return Ok(range);
+    return range.resolve(boundary).trace("NodeRange.resolve", "static");
   }
 
   static select(boundary: Node, node: Node): Result<SingleNodeRange, string> {

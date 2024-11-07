@@ -1,10 +1,11 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "../../model/node";
-import type { NodeRange } from "../../model/range";
+import type { UnresolvedNodeRange } from "../../model/range";
 import { Err } from "@noss-editor/utils";
 import { Step } from "../step";
 import { Diff } from "../diff";
 import { Change } from "../change";
+import { NodeRange } from "../../model/range";
 
 export class ReplaceNodeStep extends Step {
   id = "replaceNode";
@@ -13,7 +14,7 @@ export class ReplaceNodeStep extends Step {
     /**
      * The start position in the document where to start replacing.
      */
-    readonly range: NodeRange, // TODO: Also allow `AbsoluteLike`?
+    readonly range: NodeRange | UnresolvedNodeRange, // TODO: Also allow `AbsoluteLike`?
     /**
      * The end position in the document where to stop replacing.
      */
@@ -23,11 +24,14 @@ export class ReplaceNodeStep extends Step {
   }
 
   apply(boundary: Node): Result<Diff, string> {
-    if (this.range.anchor.boundary !== boundary)
+    const range = NodeRange.resolve(boundary, this.range);
+    if (range.err) return range.trace("ReplaceNodeStep.apply");
+
+    if (range.val.anchor.boundary !== boundary)
       return Err("Range boundary is different from this step's boundary", "ReplaceNodeStep.apply");
 
     const nodes = this.modified === undefined ? [] : Array.isArray(this.modified) ? this.modified : [this.modified];
-    const changes = Change.fromMultiple(this.range, nodes);
+    const changes = Change.fromMultiple(range.val, nodes);
     return changes.map((c) => new Diff(boundary, c));
   }
 }

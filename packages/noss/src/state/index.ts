@@ -3,7 +3,7 @@ import type { Node } from "../model/node";
 import type { EditorView } from "../model/view";
 import type { Selection } from "../model/selection";
 import type { Diff } from "./diff";
-import { stack, Ok, Err } from "@noss-editor/utils";
+import { stack, Ok, Err, wrap } from "@noss-editor/utils";
 import { Transaction } from "./transaction";
 import { KeybindManager } from "./input";
 
@@ -56,7 +56,7 @@ export class EditorState {
 
   apply(tr: Transaction): Result<Node, string> {
     // emit some event where the transction can be modified / cancelled?
-    return constructDocument(this.document, tr)
+    return this.reconstruct(tr)
       .try((doc) => {
         return mergeDiffs(tr)
           .map((diffs) => {
@@ -70,6 +70,27 @@ export class EditorState {
       .trace("EditorState.apply");
   }
 
+  private reconstruct(tr: Transaction): Result<Node, string> {
+    if (tr.modified.err)
+      return tr.modified.traceMessage(
+        "Failed to construct document; transaction has errors",
+        "EditorState.reconstruct",
+        "private",
+      );
+    // Fast comparison first, if false the entire document structure will be checked (slow).
+    if (this.document === tr.original || this.document.eq(tr.original)) return tr.modified;
+
+    if (!this.document.content.contains(tr.original))
+      return Err(
+        "Failed to construct document; The boundary of the provided transaction is not part of this document",
+        "EditorState.reconstruct",
+        "private",
+      );
+
+    const content = wrap(() => this.document.content.replaceChildRecursive(tr.original, tr.modified.val as Node));
+    return content.map((c) => this.document.copy(c)).trace("EditorState.reconstruct", "private");
+  }
+
   /**
    * Gets the selection from the lined view.
    */
@@ -80,23 +101,13 @@ export class EditorState {
   }
 }
 
-export function constructDocument(document: Node, tr: Transaction): Result<Node, string> {
-  // Fast comparison first, if false the entire document structure will be checked (slow).
-  if (document === tr.original || document.eq(tr.original)) return Ok(tr.modified);
-
-  if (!document.content.contains(tr.original))
-    return Err("The boundary of the provided transaction, is not part of this document");
-
-  const content = stack("EditorState.constructDocument")(
-    document.content.replaceChildRecursive(tr.original, tr.modified),
-  );
-  return Ok(document.copy(content));
-}
-
 function mergeDiffs(tr: Transaction): Result<Diff, string> {
-  let diff = tr.diff[0];
+  if (!tr.hasErrors) return Err("Transaction has errors");
+
+  // Diffs are all ok, as checked above
+  let diff = tr.diff[0].val as Diff;
   for (let i = 1; i < tr.diff.length; i++) {
-    const res = diff.merge(tr.diff[i]);
+    const res = diff.merge(tr.diff[i].val as Diff);
     if (res.ok) diff = res.val;
     else return res;
   }

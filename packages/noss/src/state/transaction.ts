@@ -1,21 +1,20 @@
-import type { Result, MethodError } from "@noss-editor/utils";
+import type { Result } from "@noss-editor/utils";
 import type { EditorState } from ".";
-import type { Node, Text } from "../model/node";
+import type { Text } from "../model/node";
 import type { Step } from "./step";
-import type { AbsoluteLike, PositionLike } from "../model/position";
+import type { PositionLike } from "../model/position";
 import type { Selection } from "../model/selection";
-import { stack, Ok, Err } from "@noss-editor/utils";
+import { Ok, Err } from "@noss-editor/utils";
+import { Node } from "../model/node";
 import { NodeType } from "../model/nodeType";
 import { AnchorPosition, Position } from "../model/position";
 import { Diff } from "./diff";
-// Steps
-import { InsertStep, InsertTextStep } from "./steps/insert";
-import { RemoveStep, RemoveTextStep } from "./steps/remove";
 import { ReplaceNodeStep } from "./steps/replace";
+import { NodeRange, UnresolvedNodeRange } from "../model/range";
 
 export class Transaction {
-  readonly steps: Step[] = [];
-  readonly diff: Diff[] = [];
+  readonly steps: Result<Step, string>[] = [];
+  readonly diff: Result<Diff, string>[] = [];
   readonly original: Node;
   readonly history: boolean;
 
@@ -24,9 +23,12 @@ export class Transaction {
   /**
    * The modified boundary with all the steps applied to it.
    */
-  get modified() {
-    // modified is checked before adding to diff.
-    return this.diff[this.diff.length - 1].modified.val as Node;
+  get modified(): Result<Node, string> {
+    return this.diff[this.diff.length - 1].try((diff) => diff.modified);
+  }
+
+  get hasErrors(): boolean {
+    return this.modified.ok;
   }
 
   /**
@@ -43,7 +45,7 @@ export class Transaction {
   ) {
     boundary ||= state.document;
     this.original = boundary;
-    this.diff = [Diff.none(boundary)];
+    this.diff = [Ok(Diff.none(boundary))];
     this.history = addToHistory;
 
     this.state.getSelection(boundary).map((val) => {
@@ -52,15 +54,9 @@ export class Transaction {
     });
   }
 
-  /**
-   * Applies and adds a step to this transaction,
-   * will throw if anything failed.
-   * @throws {MethodError} If the step failed to apply
-   */
-  step(step: Step) {
-    const res = this.softStep(step);
-    if (res.err) throw res.val;
-    return res.val;
+  private resolve(pos: PositionLike): Result<Position, string> {
+    if (this.modified.err) return Err("Failed to resolve Position; transaction has errors", "Transaction.resolve");
+    return Position.resolve(this.modified.val, pos).trace("Transaction.resolve");
   }
 
   /**
@@ -68,17 +64,20 @@ export class Transaction {
    * will ignore the step if applying failed.
    * @returns A Result containing either the new boundary or an error message.
    */
-  softStep(step: Step): Result<Diff, string> {
-    return step
-      .apply(this.modified)
-      .try<Diff, string>((val) =>
-        val.modified.map((node) => {
-          this.diff.push(val);
-          this.steps.push(step);
-          return val;
-        }),
-      )
-      .trace("Transaction.softStep");
+  step(step: Result<Step, string>): this {
+    this.steps.push(step);
+    if (step.err) {
+      const diff = Err("Failed to apply step; step has errors", "Transaction.step");
+      this.diff.push(diff);
+      return this;
+    }
+
+    const diff = this.modified
+      .replaceErr("Failed to add step to transaction")
+      .try((mod) => step.val.apply(mod))
+      .trace("Transaction.step");
+    this.diff.push(diff);
+    return this;
   }
 
   setSelection(selection?: Selection) {
@@ -90,46 +89,84 @@ export class Transaction {
    *
    * @param node The node to add
    * @param pos The position where to insert the node, see {@link Position}.
-   * @throws {MethodError} When the node is provided as string, and that nodeType doesn't exist.
-   * @throws {MethodError} If the step failed to apply
    */
   insert(node: Node, pos: PositionLike) {
-    stack("Transaction.insert")(this.step(new InsertStep(pos, node)));
-    return this;
+    const range = new UnresolvedNodeRange(pos);
+    return this.step(Ok(new ReplaceNodeStep(range, node)));
   }
-
-  insertChild(node: Node, parent: Node, index?: number) {
-    const pos = AnchorPosition.child(parent, index);
-    return stack("Transaction.insertChild")(this.insert(node, pos));
-  }
-
-  // TODO: insertText(pos: PositionLike, text: string)
 
   /**
-   * Adds an {@link RemoveStep} to this transaction, which removes a node from the document.
-   * @param node The node to remove, this node needs to be in the current document.
-   * @throws {MethodError} If the step failed to apply
+   * Inserts a node as child of `parent` at the given index.
+   *
+   * @param node The node to add
+   * @param parent The parent node where to insert the node
+   * @param index The index in the node, undefined results in the last index, and negative values are relative to the last index.
    */
-  remove(node: Node) {
-    stack("Transaction.remove")(this.step(new RemoveStep(node)));
-    return this;
+  insertChild(node: Node, parent: Node, index?: number) {
+    const pos = AnchorPosition.child(parent, index);
+    return this.insert(node, pos);
   }
 
-  removeText(node: Text, from: number, to?: number) {
-    if (from < 0) from = node.text.length + from;
-    // Useless step
-    if (from === to || from > node.text.length || (to && to < 0)) return this;
+  /**
+   * Inserts text at the given position.
+   * If the position points into a text node, the text node will be modified, otherwise a new text node will be inserted.
+   *
+   * @param text The text to insert at `pos`
+   * @param pos The position where to insert the text
+   */
+  insertText(text: string, pos: PositionLike): this;
+  /**
+   * Inserts text at the given position.
+   * If the position points into a text node, the text node will be modified, otherwise a new text node will be inserted.
+   *
+   * @param text The text to insert at `pos`
+   * @param node The text node where to insert the text
+   * @param offset The offset into the parent node where to insert the text
+   */
+  insertText(text: string, node: Text, offset: number): this;
+  insertText(text: string, _pos: PositionLike | Node, _offset?: number): this {
+    const fn = (pos: PositionLike) => {
+      const position = this.resolve(pos);
+      if (position.err) return this.step(position.traceMessage("Failed to create step", "Transaction.insertText"));
 
-    return stack("Transaction.removeText", () => {
-      if (from === 0 && (!to || to > node.text.length)) this.remove(node);
-      else this.step(new RemoveTextStep(node, from, to));
+      // Position doesn't point into a text node
+      if (position.val.offset() === 0) return this.insert(createTextNode(text), position.val);
 
-      return this;
-    });
+      // Position points into a text node
+      const textNode = position.val.parent as Text;
+      if (!textNode.type.schema.text)
+        return this.step(Err("Failed to create step; target node isn't a text node", "Transaction.insertText"));
+
+      const node = textNode.insert(position.val.offset(), text);
+      const range = this.modified.try((boundary) => NodeRange.select(boundary, textNode));
+      if (range.err)
+        return this.step(Err("Failed to create step; failed to create NodeRange", "Transaction.insertText"));
+
+      return this.replaceChild(node, range.val);
+    };
+
+    if (!(_pos instanceof Node)) return fn(_pos);
+    // biome-ignore lint/style/noNonNullAssertion : _offset is defined when _pos is a Node
+    return fn(AnchorPosition.offset(_pos, _offset!));
   }
 
-  replaceNode(old: Node, modified: Node) {
-    stack("Transaction.replaceNode")(this.step(new ReplaceNodeStep(old, modified)));
+  remove(range: NodeRange | UnresolvedNodeRange) {
+    return this.step(Ok(new ReplaceNodeStep(range, undefined)));
+  }
+
+  removeChild(parent: Node, index?: number) {
+    const range = this.modified.try((boundary) => NodeRange.selectContent(boundary, parent, index, index));
+    if (range.err)
+      return this.step(Err("Failed to create step; failed to create NodeRange", "Transaction.removeChild"));
+
+    return this.remove(range.val);
+  }
+
+  //removeText
+  //replace
+
+  replaceChild(node: Node, range: NodeRange) {
+    this.step(Ok(new ReplaceNodeStep(range, node)));
     return this;
   }
 }
@@ -137,7 +174,7 @@ export class Transaction {
 /**
  * @throws {MethodError}
  */
-function createTextNode(content: string) {
+function createTextNode(content: string): Text {
   // @ts-ignore : `node` will never be the direct Node instance, but a subclass of it.
   return new (NodeType.get("text").node)(content);
 }

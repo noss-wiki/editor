@@ -214,13 +214,11 @@ class Err_<B> implements Err<B> {
   }
 
   trace(method: string, modifier: TraceModifier = "public") {
-    this.stackTrace.push({ method, modifier });
-    return this;
+    return Err(this.val, this.stackTrace.concat({ method, modifier }));
   }
 
   traceMessage(msg: string, method: string, modifier: TraceModifier = "public") {
-    this.stackTrace.push({ msg, method, modifier });
-    return this;
+    return Err(this.val, this.stackTrace.concat({ msg, method, modifier }));
   }
 
   warn(callback: (msg: string | B, trace: Trace[]) => void) {

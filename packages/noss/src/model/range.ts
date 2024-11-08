@@ -97,6 +97,10 @@ export class UnresolvedNodeRange extends UnresolvedRange {
   override resolve(boundary: Node): Result<NodeRange, string> {
     return this.resolvePositions(boundary).map(({ anchor, focus }) => new NodeRange(anchor, focus));
   }
+
+  static select(node: Node) {
+    return new UnresolvedNodeRange(AnchorPosition.before(node), AnchorPosition.after(node));
+  }
 }
 
 /**

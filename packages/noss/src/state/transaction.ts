@@ -138,11 +138,7 @@ export class Transaction {
         return this.step(Err("Failed to create step; target node isn't a text node", "Transaction.insertText"));
 
       const node = textNode.insert(position.val.offset(), text);
-      const range = this.modified.try((boundary) => NodeRange.select(boundary, textNode));
-      if (range.err)
-        return this.step(Err("Failed to create step; failed to create NodeRange", "Transaction.insertText"));
-
-      return this.replaceChild(node, range.val);
+      return this.replaceChild(textNode, node);
     };
 
     if (!(_pos instanceof Node)) return fn(_pos);
@@ -151,6 +147,7 @@ export class Transaction {
   }
 
   remove(range: NodeRange | UnresolvedNodeRange) {
+    // TODO: First check if range resolves inside text node, then use removeText, otherwise continue
     return this.step(Ok(new ReplaceNodeStep(range, undefined)));
   }
 
@@ -162,12 +159,22 @@ export class Transaction {
     return this.remove(range.val);
   }
 
-  //removeText
+  removeText(node: Text, start: number, end: number): this;
+  removeText(node: Text, start: number, end: number) {
+    if (start === 0 && end === node.contentSize) return this.remove(UnresolvedNodeRange.select(node));
+    return this.replaceChild(node, node.remove(start, end));
+  }
   //replace
 
-  replaceChild(node: Node, range: NodeRange) {
+  replaceRange(range: NodeRange, node: Node) {
     this.step(Ok(new ReplaceNodeStep(range, node)));
     return this;
+  }
+
+  replaceChild(old: Node, modified: Node) {
+    const range = this.modified.try((boundary) => NodeRange.select(boundary, old));
+    if (range.ok) return this.replaceRange(range.val, modified);
+    else return this.step(Err("Failed to create step; failed to create NodeRange", "Transaction.replaceChild"));
   }
 }
 

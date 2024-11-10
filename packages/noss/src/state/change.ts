@@ -19,10 +19,14 @@ export interface SerializedChange {
 }
 
 export class Change implements Serializable<SerializedChange> {
+  readonly rangeIsCollapsed: boolean;
+
   constructor(
     readonly range: SingleNodeRange | AbsoluteLike,
     readonly modified?: Node,
-  ) {}
+  ) {
+    this.rangeIsCollapsed = range instanceof SingleNodeRange ? range.isCollapsed : true;
+  }
 
   reconstruct(boundary: Node): Result<Node, string> {
     const isRange = this.range instanceof SingleNodeRange;

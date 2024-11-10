@@ -82,10 +82,11 @@ export class Transaction {
 
   setSelection(selection?: Selection) {
     this.selection = selection;
+    return this;
   }
 
   /**
-   * Adds an {@link InsertStep} to this transaction, which inserts a node into the current document.
+   * Inserts a node at the given position.
    *
    * @param node The node to add
    * @param pos The position where to insert the node, see {@link Position}.

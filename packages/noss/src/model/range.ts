@@ -179,6 +179,8 @@ export interface SerializedSingleNodeRange extends SerializedRange {
  * A {@link NodeRange} that contains a max of one node, so the content in this range, is either none, or a single node.
  */
 export class SingleNodeRange extends NodeRange implements Serializable<SerializedSingleNodeRange> {
+  readonly node?: Node;
+
   /**
    * @internal
    */
@@ -190,6 +192,8 @@ export class SingleNodeRange extends NodeRange implements Serializable<Serialize
         "SingleNodeRange can only 'select' none, or a single node, but this range contains multiple nodes",
         "SingleNodeRange.constructor",
       );
+
+    if (!this.isCollapsed) this.node = this.parent.content.softChild(this.first.index());
   }
 
   override toJSON(): SerializedSingleNodeRange {

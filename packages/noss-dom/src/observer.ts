@@ -2,20 +2,11 @@ import type { DOMView } from "./view";
 import type { Node, NodeConstructor, Transaction, Text } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import {
-  InsertTextStep,
-  NodeType,
-  Position,
-  InsertStep,
-  RemoveStep,
-  RemoveTextStep,
-  Selection,
-  Fragment,
-  AnchorPosition,
-} from "noss-editor";
+import { NodeType, Position, Selection, Fragment, AnchorPosition } from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
+import { UnresolvedNodeRange } from "../../noss/src/model/range";
 
 export class DOMObserver {
   readonly observer: MutationObserver;
@@ -113,7 +104,7 @@ export class DOMObserver {
           return Err(`Node type mismatch; DOM node is text node, but bound node type: ${node.val.type.name}, isn't`) //
             .trace("DOMObserver.callback", "private");
 
-        return calculateText(this.view.state.tr, node.val as Text, text.data).trace("DOMObserver.callback", "private");
+        return Ok(calculateText(this.view.state.tr, node.val as Text, text.data));
       }
     } else if (record.type === "childList") {
       const tr = this.view.state.tr;
@@ -136,9 +127,7 @@ export class DOMObserver {
             c.parentNode?.removeChild(c);
           });
 
-          wrap(() => tr.insertChild(text, parent.val, index))
-            .trace("DOMObserver.callback", "private")
-            .warn((e) => console.warn(e));
+          tr.insertChild(text, parent.val, index);
         } else if (c.nodeType === DOMNode.ELEMENT_NODE) {
           const element = c as HTMLElement;
 
@@ -146,13 +135,13 @@ export class DOMObserver {
           if (parsed.err) return parsed.trace("DOMObserver.callback", "private");
           else if (parsed.val === null) continue;
 
-          element.setAttribute("data-pre-node", parsed.val.id);
+          const node = parsed.val;
+          element.setAttribute("data-pre-node", node.id);
 
-          tr.softStep(new InsertStep(AnchorPosition.child(parent.val, index), parsed.val)) //
-            .trace("DOMObserver.callback", "private")
-            .warn((e) => console.warn(e));
-
-          Selection.atStart(parsed.val, 0, tr.modified).map((sel) => tr.setSelection(sel));
+          tr.insertChild(node, parent.val, index);
+          tr.modified
+            .try((boundary) => Selection.atStart(node, 0).try((sel) => sel.resolve(boundary)))
+            .map((sel) => tr.setSelection(sel));
         }
       }
 
@@ -168,8 +157,7 @@ export class DOMObserver {
         else if (!parent.val.content.contains(node.val))
           return Err("Node not found in parent node", "DOMObserver.callback", "private");
 
-        const res = tr.softStep(new RemoveStep(node.val));
-        if (res.err) return res.trace("DOMObserver.callback", "private");
+        tr.remove(UnresolvedNodeRange.select(node.val));
       }
 
       if (tr.steps.length === 0) return Ok(null);
@@ -202,22 +190,21 @@ export class DOMObserver {
       if (offset.err) return offset.trace("DOMObserver.beforeInput", "private");
       // TODO: Doesn't quite yet work with multiple nodes
       const curr = parent.cut(0, offset.val);
-      const newlineNode = resetIds(parent.cut(offset.val));
+      const newlineNode = resetIds(parent.cut(offset.val)); // temp hack
 
       return defaultNode(newlineNode.content)
         .replaceErr("Failed to get default Node")
-        .try((node) =>
-          wrap(() => this.view.state.tr.insertChild(node, anchor.node(-2), anchor.index(-2) + 1))
-            .try((tr) => wrap(() => tr.replaceNode(parent, curr)))
-            .try((tr) =>
-              Selection.atStart(node, 0, tr.modified)
-                .map((sel) => tr.setSelection(sel))
-                .map(() => {
-                  e.preventDefault(); // Ensure it's only cancelled if succesfull
-                  return tr;
-                }),
-            ),
-        );
+        .try((node) => {
+          const tr = this.view.state.tr
+            .insertChild(node, anchor.node(-2), anchor.index(-2) + 1)
+            .replaceChild(parent, curr);
+
+          return tr.modified
+            .try((boundary) => Selection.atStart(node, 0).try((sel) => sel.resolve(boundary)))
+            .map((sel) => tr.setSelection(sel))
+            .map(() => e.preventDefault()) // Ensure it's only cancelled if succesfull
+            .map<Transaction, string>(() => tr);
+        });
     } else if (e.inputType === "insertLineBreak") {
       if (!sel.val.isCollapsed) return Ok(null);
       // TODO: Maybe implement a different way of handling this (maybe a hook on EditorView, or prop on DOMNodeView?)
@@ -249,31 +236,15 @@ function defaultNode(content?: Fragment | Node | Node[]): Result<Node, null> {
  * This method only expects the changes to have happened on one position in the text node.
  * This method modifies the transaction and returns the result, but that parameter is still modified.
  */
-function calculateText(tr: Transaction, node: Text, expected: string): Result<Transaction | null, string> {
-  if (expected === "")
-    return tr //
-      .softStep(new RemoveStep(node))
-      .trace("calculateText")
-      .replace(tr);
+function calculateText(tr: Transaction, node: Text, expected: string): Transaction | null {
+  if (expected === "") return tr.remove(UnresolvedNodeRange.select(node));
 
   const diff = diffText(node.text, expected);
-  if (diff.type === "none") return Ok(null);
+  if (diff.type === "none") return null;
   else if (diff.type === "replace")
-    return tr
-      .softStep(new RemoveTextStep(node, diff.start, diff.end))
-      .try(() => tr.softStep(new InsertTextStep(node, diff.added, diff.start)))
-      .trace("calculateText")
-      .replace(tr);
-  else if (diff.type === "insert")
-    return tr //
-      .softStep(new InsertTextStep(node, diff.change, diff.start))
-      .trace("calculateText")
-      .replace(tr);
-  else
-    return tr //
-      .softStep(new RemoveTextStep(node, diff.start, diff.end))
-      .trace("calculateText")
-      .replace(tr);
+    return tr.removeText(node, diff.start, diff.end).insertText(diff.added, node, diff.start);
+  else if (diff.type === "insert") return tr.insertText(diff.change, node, diff.start);
+  else return tr.removeText(node, diff.start, diff.end);
 }
 
 /**

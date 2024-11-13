@@ -2,11 +2,10 @@ import type { DOMView } from "./view";
 import type { Node, NodeConstructor, Transaction, Text } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { NodeType, Position, Selection, Fragment, AnchorPosition } from "noss-editor";
+import { NodeType, Position, Selection, Fragment, AnchorPosition, UnresolvedNodeRange } from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
-import { UnresolvedNodeRange } from "../../noss/src/model/range";
 
 export class DOMObserver {
   readonly observer: MutationObserver;

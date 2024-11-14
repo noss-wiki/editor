@@ -1,5 +1,14 @@
 import type { Result } from "@noss-editor/utils";
-import type { Node, Text, Diff, TextView, Transaction, ParseResult, NodeConstructor } from "noss-editor";
+import type {
+  Node,
+  Text,
+  Diff,
+  TextView,
+  Transaction,
+  ParseResult,
+  NodeConstructor,
+  SingleNodeRange,
+} from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
 import type { DOMNodeView } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
@@ -27,88 +36,29 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   override update(tr: Transaction, diff: Diff) {
     this.observer.stop();
     for (const change of diff.changes) {
-      const fn = () => {
-        if (change.type === ChangeType.insert) {
-          const child = change.modified;
-          const domParent = this.toRendered(change.range.parent);
-          if (domParent.err) return domParent;
-          else if (domParent.val.nodeType !== DOMNode.ELEMENT_NODE) return Err("The parent domNode must be an element");
+      const fn = (): Result<unknown, string> => {
+        if (!change.rangeIsCollapsed) {
+          const range = change.range as SingleNodeRange;
+          const node = range.node as Node; // Range is not collapsed, so node is defined
+          const rendered = this.toRendered(node);
+          if (rendered.err) return rendered;
 
-          const parent = domParent.val as DOMElement;
-          const domChild = renderNodeRecursive(child);
-          if (domChild.err) return domChild.replaceErr("Failed to render inserted node");
-
-          const existing = parent.childNodes[change.range.anchor.index()];
-          if (existing && existing.nodeType === DOMNode.ELEMENT_NODE) {
-            const node = existing as DOMElement;
-            if (node.hasAttribute("data-pre-node") && node.getAttribute("data-pre-node") === child.id) {
-              node.replaceWith(domChild.val);
-            }
-          }
-
-          // Remove br element if in text holding node
-          if (domChild.val.nodeType === DOMNode.TEXT_NODE) {
-            const first = parent.childNodes[0];
-            if (first && first.nodeType === DOMNode.ELEMENT_NODE && (<DOMElement>first).tagName === "BR")
-              parent.removeChild(first);
-          }
-
-          if (change.range.anchor.index() >= change.range.parent.content.childCount) parent.append(domChild.val);
-          else {
-            const anchor = parent.childNodes[change.range.anchor.index()];
-            if (!anchor) return Err("Failed to get an anchor domnode to insert node");
-
-            parent.insertBefore(domChild.val, anchor);
-          }
-
-          // TODO: Travel upward updating the node refs
-          //domParent.val._node = change.modifiedParent;
-          //updateRefUpwards
-        } else {
-          const domNode = this.toRendered(change.old);
-          if (domNode.err) return domNode;
-
-          if (change.type === ChangeType.remove) {
-            const domParent = this.toRendered(change.oldParent) as Result<DOMElement, string>;
-            if (domParent.err) return domParent;
-
-            const parentView = change.oldParent.getView() as DOMNodeView | undefined;
-            const index = change.oldParent.content.nodes.indexOf(change.old);
-            if (index === -1) return Err("Failed to get the index of the removed node");
-
-            domNode.val.remove();
-            if (parentView?.emptyBreak === true) {
-              if (change.modifiedParent.content.empty) domParent.val.innerHTML = renderBreak().outerHTML;
-              else {
-                // Node is the first node, or previous node isn't a text-like node
-                // and node is the last node, or next node isn't a text-like node,
-                // then insert temporary break.
-                if (
-                  (index === 0 || !(change.oldParent.content.softChild(index - 1)?.type.schema.text ?? false)) &&
-                  (index === change.oldParent.content.childCount - 1 ||
-                    !(change.oldParent.content.softChild(index + 1)?.type.schema.text ?? false))
-                )
-                  // TODO: If the removed node is a text node, it's prob already removed and maybe br is inserted.
-                  insertAtIndex(domParent.val, renderBreak(), index);
-              }
-            }
+          if (change.modified) {
+            return renderNodeRecursive(change.modified)
+              .replaceErr("Failed to render node")
+              .map((mod) => rendered.val.replaceWith(mod));
           } else {
-            if (change.old.type.schema.text) {
-              const text = domNode.val as DOMText;
-              text.data = (change.modified as Text).text;
-              text._nodeId = change.modified.id;
-              text._node = change.modified;
-
-              if (change.modified.view) (<TextView<DOMText>>change.modified.view).textRoot = text;
-            } else {
-              const newNode = renderNodeRecursive(change.modified);
-              if (newNode.err) return newNode.replaceErr("Failed to render inserted node");
-
-              domNode.val.replaceWith(newNode.val);
-            }
+            rendered.val.remove();
+            return Ok(null);
           }
-        }
-        return Ok(null);
+        } else if (!change.modified) return Ok(null);
+
+        const anchor = change.range.first; /* instanceof SingleNodeRange ? change.range.first : change.range; */
+        const parent = anchor.node(-1);
+        const index = anchor.index(-1);
+        return renderNodeRecursive(change.modified)
+          .replaceErr("Failed to render node")
+          .try((rendered) => this.toRendered(parent).try((domParent) => insertAtIndex(domParent, rendered, index)));
       };
 
       fn()

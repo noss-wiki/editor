@@ -22,7 +22,7 @@ export class Change implements Serializable<SerializedChange> {
   readonly rangeIsCollapsed: boolean;
 
   constructor(
-    readonly range: SingleNodeRange | AbsoluteLike,
+    readonly range: SingleNodeRange /* | AbsoluteLike*/,
     readonly modified?: Node,
   ) {
     this.rangeIsCollapsed = range instanceof SingleNodeRange ? range.isCollapsed : true;
@@ -30,7 +30,7 @@ export class Change implements Serializable<SerializedChange> {
 
   reconstruct(boundary: Node): Result<Node, string> {
     const isRange = this.range instanceof SingleNodeRange;
-    const anchor = isRange ? Ok(this.range.anchor) : Position.resolve(boundary, this.range);
+    const anchor = isRange ? Ok(this.range.first) : Position.resolve(boundary, this.range);
     if (anchor.err) return anchor.traceMessage("Failed to reconstruct Change", "Change.reconstruct");
 
     if (anchor.val.boundary !== boundary)

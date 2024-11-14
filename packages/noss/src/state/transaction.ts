@@ -67,7 +67,7 @@ export class Transaction {
   step(step: Result<Step, string>): this {
     this.steps.push(step);
     if (step.err) {
-      const diff = Err("Failed to apply step; step has errors", "Transaction.step");
+      const diff = step.traceMessage("Failed to apply step; step has errors", "Transaction.step");
       this.diff.push(diff);
       return this;
     }

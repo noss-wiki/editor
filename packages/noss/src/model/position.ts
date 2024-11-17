@@ -250,7 +250,7 @@ function resolveDepth(depth: number | undefined, max: number, min = 0) {
   else i = depth;
 
   if (i >= min && i <= max) return i;
-  else throw new RangeError(`The depth ${i}, is outside of the allowed range: ${min} - ${max}`);
+  else throw new RangeError(`The depth ${depth} (resolved to ${i}), is outside of the allowed range: ${min} - ${max}`);
 }
 
 interface LocateStep {

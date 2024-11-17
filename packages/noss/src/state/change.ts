@@ -29,17 +29,18 @@ export class Change implements Serializable<SerializedChange> {
   }
 
   reconstruct(boundary: Node): Result<Node, string> {
-    const isRange = this.range instanceof SingleNodeRange;
-    const anchor = isRange ? Ok(this.range.first) : Position.resolve(boundary, this.range);
-    if (anchor.err) return anchor.traceMessage("Failed to reconstruct Change", "Change.reconstruct");
-
-    if (anchor.val.boundary !== boundary)
+    if (this.range.anchor.boundary !== boundary)
       return Err("The boundary of the range is different from the provided boundary", "Change.reconstruct");
 
-    return (!isRange ? Ok(boundary) : removeRange(boundary, this.range)).try((mod) => {
-      const modParent = anchor.val.parent.removeChild(anchor.val.index());
-      return wrap(() => boundary.copy(boundary.content.replaceChildRecursive(anchor.val.parent, modParent)));
-    });
+    const parent = this.range.anchor.parent;
+    const index = this.range.anchor.index();
+
+    return wrap(() => {
+      const mod = this.range.isCollapsed ? parent : parent.removeChild(index);
+      const insert = !this.modified ? mod : mod.insertChild(this.modified, index);
+      if (parent === boundary) return insert;
+      else return boundary.copy(boundary.content.replaceChildRecursive(parent, insert));
+    }).trace("Change.reconstruct");
   }
 
   /**
@@ -91,12 +92,4 @@ function getSerializedRange(range: SingleNodeRange | AbsoluteLike): SerializedSi
         anchor: Position.absolute(range),
         focus: Position.absolute(range),
       };
-}
-
-function removeRange(boundary: Node, range: SingleNodeRange) {
-  const parent = range.anchor.parent;
-  if (range.size === 0) return Ok(boundary);
-
-  const node = parent.child(range.anchor.index());
-  return wrap(() => boundary.copy(boundary.content.replaceChildRecursive(parent, parent.removeChild(node))));
 }

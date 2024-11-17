@@ -155,7 +155,9 @@ export class Transaction {
   removeChild(parent: Node, index?: number) {
     const range = this.modified.try((boundary) => NodeRange.selectContent(boundary, parent, index, index));
     if (range.err)
-      return this.step(Err("Failed to create step; failed to create NodeRange", "Transaction.removeChild"));
+      return this.step(
+        range.traceMessage("Failed to create step; failed to create NodeRange", "Transaction.removeChild"),
+      );
 
     return this.remove(range.val);
   }
@@ -175,7 +177,10 @@ export class Transaction {
   replaceChild(old: Node, modified: Node) {
     const range = this.modified.try((boundary) => NodeRange.select(boundary, old));
     if (range.ok) return this.replaceRange(range.val, modified);
-    else return this.step(Err("Failed to create step; failed to create NodeRange", "Transaction.replaceChild"));
+    else
+      return this.step(
+        range.traceMessage("Failed to create step; failed to create NodeRange", "Transaction.replaceChild"),
+      );
   }
 }
 

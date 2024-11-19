@@ -202,6 +202,7 @@ export class DOMObserver {
             .try((boundary) => Selection.atStart(node, 0).try((sel) => sel.resolve(boundary)))
             .map((sel) => tr.setSelection(sel))
             .map(() => e.preventDefault()) // Ensure it's only cancelled if succesfull
+            .trace("DOMObserver.beforeInput", "private")
             .map<Transaction, string>(() => tr);
         });
     } else if (e.inputType === "insertLineBreak") {

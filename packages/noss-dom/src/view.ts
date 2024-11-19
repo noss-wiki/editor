@@ -54,11 +54,11 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         } else if (!change.modified) return Ok(null);
 
         const anchor = change.range.first; /* instanceof SingleNodeRange ? change.range.first : change.range; */
-        const parent = anchor.node(-1);
-        const index = anchor.index(-1);
         return renderNodeRecursive(change.modified)
           .replaceErr("Failed to render node")
-          .try((rendered) => this.toRendered(parent).try((domParent) => insertAtIndex(domParent, rendered, index)));
+          .try((rendered) =>
+            this.toRendered(anchor.parent).try((domParent) => insertAtIndex(domParent, rendered, anchor.index())),
+          );
       };
 
       fn()

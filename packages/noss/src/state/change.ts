@@ -70,6 +70,7 @@ export class Change implements Serializable<SerializedChange> {
     };
   }
 
+  // TODO: Can't create a new range form existing range.anchor, as it's boundary is different, so map the range through previous change
   static fromMultiple(range: NodeRange, nodes: Node[]): Result<Change[], string> {
     const boundary = range.anchor.boundary;
     const changes: Change[] = [];

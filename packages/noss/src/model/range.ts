@@ -1,4 +1,4 @@
-import { MethodError, Ok, type Result } from "@noss-editor/utils";
+import { MethodError, Ok, wrap, type Result } from "@noss-editor/utils";
 import type { Node } from "./node";
 import type { PositionLike } from "./position";
 import type { Serializable } from "../types";
@@ -11,7 +11,7 @@ export class UnresolvedRange {
     readonly anchor: PositionLike,
     focus?: PositionLike,
   ) {
-    this.focus = focus || this.anchor;
+    this.focus = focus ?? this.anchor;
   }
 
   protected resolvePositions(boundary: Node): Result<
@@ -37,7 +37,7 @@ export class UnresolvedRange {
 }
 
 export interface SerializedRange {
-  readonly type: "range" | "node" | "single";
+  readonly type: "range" | "node" | "single" | "absolute";
   readonly anchor: number;
   readonly focus: number;
 }
@@ -75,6 +75,18 @@ export class Range implements Serializable<SerializedRange> {
     }
   }
 
+  resolve(): Result<this, never> {
+    return Ok(this);
+  }
+
+  toNodeRange(): Result<NodeRange, string> {
+    return wrap(() => new NodeRange(this.anchor, this.focus)).trace("Range.toNodeRange");
+  }
+
+  toSingleNodeRange(): Result<SingleNodeRange, string> {
+    return wrap(() => new SingleNodeRange(this.anchor, this.focus)).trace("Range.toSingleNodeRange");
+  }
+
   toJSON(): SerializedRange {
     return {
       type: "range",
@@ -83,9 +95,40 @@ export class Range implements Serializable<SerializedRange> {
     };
   }
 
+  copy(anchor: Position, focus?: Position) {
+    return new (this.constructor as typeof Range)(anchor, focus) as this;
+  }
+
   static resolve(boundary: Node, range: Range | UnresolvedRange): Result<Range, string> {
     if (range instanceof Range) return Ok(range);
     return range.resolve(boundary).trace("Range.resolve", "static");
+  }
+}
+
+export class AbsoluteRange extends UnresolvedRange implements Serializable<SerializedRange> {
+  declare anchor: number;
+  declare focus: number;
+  readonly first: number;
+  readonly last: number;
+
+  readonly isCollapsed: boolean;
+  readonly size: number;
+
+  constructor(anchor: number, focus?: number) {
+    super(anchor, focus);
+    this.first = Math.min(this.anchor, this.focus);
+    this.last = Math.max(this.anchor, this.focus);
+
+    this.isCollapsed = this.anchor === this.focus;
+    this.size = this.last - this.first;
+  }
+
+  toJSON(): SerializedRange {
+    return {
+      type: "absolute",
+      anchor: this.anchor,
+      focus: this.focus,
+    };
   }
 }
 
@@ -126,6 +169,10 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
 
   nodesBetween() {
     return this.parent.content.nodes.slice(this.first.index(), this.last.index());
+  }
+
+  override toNodeRange(): Result<this, never> {
+    return Ok(this);
   }
 
   override toJSON(): SerializedNodeRange {
@@ -194,6 +241,10 @@ export class SingleNodeRange extends NodeRange implements Serializable<Serialize
       );
 
     if (!this.isCollapsed) this.node = this.parent.content.softChild(this.first.index());
+  }
+
+  override toSingleNodeRange(): Result<SingleNodeRange, never> {
+    return Ok(this);
   }
 
   override toJSON(): SerializedSingleNodeRange {

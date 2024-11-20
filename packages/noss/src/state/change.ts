@@ -1,8 +1,8 @@
 import type { MethodError, Result } from "@noss-editor/utils";
 import type { Node, SerializedNode } from "../model/node";
-import type { NodeRange, SerializedSingleNodeRange } from "../model/range";
+import type { NodeRange, Range, SerializedRange } from "../model/range";
 import type { Serializable } from "../types";
-import { SingleNodeRange } from "../model/range";
+import { SingleNodeRange, AbsoluteRange } from "../model/range";
 import { Position, type AbsoluteLike } from "../model/position";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 
@@ -14,26 +14,31 @@ export enum ChangeType {
 }
 
 export interface SerializedChange {
-  readonly range: SerializedSingleNodeRange;
+  readonly range: SerializedRange;
   readonly modified?: SerializedNode;
 }
 
 export class Change implements Serializable<SerializedChange> {
   readonly rangeIsCollapsed: boolean;
+  public resolvedRange!: SingleNodeRange;
 
   constructor(
-    readonly range: SingleNodeRange /* | AbsoluteLike*/,
+    readonly range: SingleNodeRange | AbsoluteRange,
     readonly modified?: Node,
   ) {
     this.rangeIsCollapsed = range instanceof SingleNodeRange ? range.isCollapsed : true;
   }
 
   reconstruct(boundary: Node): Result<Node, string> {
-    if (this.range.anchor.boundary !== boundary)
+    const res = this.range.resolve(boundary).try((range) => range.toSingleNodeRange());
+    if (res.err) return res.trace("Change.reconstruct");
+    this.resolvedRange = res.val;
+
+    if (this.resolvedRange.anchor.boundary !== boundary)
       return Err("The boundary of the range is different from the provided boundary", "Change.reconstruct");
 
-    const parent = this.range.anchor.parent;
-    const index = this.range.anchor.index();
+    const parent = this.resolvedRange.anchor.parent;
+    const index = this.resolvedRange.anchor.index();
 
     return wrap(() => {
       const mod = this.range.isCollapsed ? parent : parent.removeChild(index);
@@ -50,9 +55,8 @@ export class Change implements Serializable<SerializedChange> {
    */
   map<T extends AbsoluteLike>(pos: T): Result<T, string> {
     const absPos = typeof pos === "number" ? pos : pos.absolute;
-    const isRange = this.range instanceof SingleNodeRange;
-    const anchor = isRange ? this.range.anchor.absolute : Position.absolute(this.range);
-    const size = isRange ? this.range.size : 0;
+    const anchor = Position.absolute(this.range.first);
+    const size = this.range.size;
     let abs: number;
     if (absPos <= anchor) abs = absPos;
     else abs = absPos + size;
@@ -61,11 +65,20 @@ export class Change implements Serializable<SerializedChange> {
     else return Position.resolve(pos.boundary, abs) as Result<T, string>;
   }
 
+  mapRange<T extends Range | AbsoluteRange>(range: T): Result<T, string> {
+    return this.map(range.anchor).try((anchor) =>
+      this.map(range.focus).map((focus) => {
+        if (typeof anchor === "number") return new AbsoluteRange(anchor, focus as number) as T;
+        else return (range as Range).copy(anchor, focus as Position) as T;
+      }),
+    );
+  }
+
   //split // split the change into two ranges if it's a replace change
 
   toJSON(): SerializedChange {
     return {
-      range: getSerializedRange(this.range),
+      range: this.range.toJSON(),
       modified: this.modified?.toJSON(),
     };
   }
@@ -75,22 +88,15 @@ export class Change implements Serializable<SerializedChange> {
     const boundary = range.anchor.boundary;
     const changes: Change[] = [];
     for (const n of range.nodesBetween()) {
-      const singleRange = SingleNodeRange.select(boundary, n);
-      if (singleRange.ok) changes.push(new Change(singleRange.val));
-      else return singleRange.traceMessage("Failed to construct Change array", "Change.fromMultiple", "static");
+      // const res = SingleNodeRange.select(boundary, n).try((range) => {-9
+      //   const mapped = changes.reduce((prev, curr) => curr.mapRange(prev), range)
+      // })
+      // const singleRange = SingleNodeRange.select(boundary, n);
+      // if (singleRange.ok) changes.push(new Change(singleRange.val));
+      // else return singleRange.traceMessage("Failed to construct Change array", "Change.fromMultiple", "static");
     }
 
     for (const n of nodes) changes.push(new Change(new SingleNodeRange(range.anchor), n));
     return Ok(changes);
   }
-}
-
-function getSerializedRange(range: SingleNodeRange | AbsoluteLike): SerializedSingleNodeRange {
-  return range instanceof SingleNodeRange
-    ? range.toJSON()
-    : {
-        type: "single",
-        anchor: Position.absolute(range),
-        focus: Position.absolute(range),
-      };
 }

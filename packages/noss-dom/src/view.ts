@@ -53,7 +53,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           }
         } else if (!change.modified) return Ok(null);
 
-        const anchor = change.range.first; /* instanceof SingleNodeRange ? change.range.first : change.range; */
+        const anchor = change.resolvedRange.first; /* instanceof SingleNodeRange ? change.range.first : change.range; */
         return renderNodeRecursive(change.modified)
           .replaceErr("Failed to render node")
           .try((rendered) =>

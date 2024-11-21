@@ -36,10 +36,9 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   override update(tr: Transaction, diff: Diff) {
     this.observer.stop();
     for (const change of diff.changes) {
-      const fn = (): Result<unknown, string> => {
+      const update = (): Result<unknown, string> => {
         if (!change.rangeIsCollapsed) {
-          const range = change.range as SingleNodeRange;
-          const node = range.node as Node; // Range is not collapsed, so node is defined
+          const node = change.resolvedRange.node as Node; // Range is not collapsed, so node is defined
           const rendered = this.toRendered(node);
           if (rendered.err) return rendered;
 
@@ -53,7 +52,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           }
         } else if (!change.modified) return Ok(null);
 
-        const anchor = change.resolvedRange.first; /* instanceof SingleNodeRange ? change.range.first : change.range; */
+        const anchor = change.resolvedRange.first;
         return renderNodeRecursive(change.modified)
           .replaceErr("Failed to render node")
           .try((rendered) =>
@@ -61,7 +60,16 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           );
       };
 
-      fn()
+      const updateRefs = () => {
+        // TODO: Update references for all the parent of the change, via the range
+        const pos = change.resolvedRange.anchor;
+        for (let d = 0; d < pos.depth; d++) {
+          const node = pos.node(d);
+          const domEle = this.toRendered(node);
+        }
+      };
+
+      update()
         .traceMessage("Failed to update rendered view", "DOMView.update")
         .warn((msg) => console.warn(msg));
     }

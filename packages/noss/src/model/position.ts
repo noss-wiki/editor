@@ -11,13 +11,15 @@ export class Position {
   readonly boundary: Node;
   readonly parent: Node;
   readonly absolute: number;
+  readonly depth: number;
 
   constructor(
     private steps: LocateStep[],
     absolute?: number,
   ) {
     this.boundary = this.steps[0].parent;
-    this.parent = this.steps[this.steps.length - 1].parent;
+    this.depth = this.steps.length - 1;
+    this.parent = this.steps[this.depth].parent;
     this.absolute = absolute ?? this.getAbsolute();
   }
 

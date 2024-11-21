@@ -85,18 +85,10 @@ export class Change implements Serializable<SerializedChange> {
 
   // TODO: Can't create a new range form existing range.anchor, as it's boundary is different, so map the range through previous change
   static fromMultiple(range: NodeRange, nodes: Node[]): Result<Change[], string> {
-    const boundary = range.anchor.boundary;
     const changes: Change[] = [];
-    for (const n of range.nodesBetween()) {
-      // const res = SingleNodeRange.select(boundary, n).try((range) => {-9
-      //   const mapped = changes.reduce((prev, curr) => curr.mapRange(prev), range)
-      // })
-      // const singleRange = SingleNodeRange.select(boundary, n);
-      // if (singleRange.ok) changes.push(new Change(singleRange.val));
-      // else return singleRange.traceMessage("Failed to construct Change array", "Change.fromMultiple", "static");
-    }
-
-    for (const n of nodes) changes.push(new Change(new SingleNodeRange(range.anchor), n));
+    let pos = range.first.absolute;
+    for (const n of range.nodesBetween()) changes.push(new Change(new AbsoluteRange(pos, (pos += n.nodeSize))));
+    for (const n of nodes) changes.push(new Change(new AbsoluteRange(range.first.absolute), n));
     return Ok(changes);
   }
 }

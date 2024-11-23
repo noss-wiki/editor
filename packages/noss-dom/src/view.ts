@@ -38,7 +38,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     for (const change of diff.changes) {
       const update = (): Result<unknown, string> => {
         if (!change.rangeIsCollapsed) {
-          const node = change.resolvedRange.node as Node; // Range is not collapsed, so node is defined
+          const node = change.range.node as Node; // Range is not collapsed, so node is defined
           const rendered = this.toRendered(node);
           if (rendered.err) return rendered;
 
@@ -52,7 +52,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
           }
         } else if (!change.modified) return Ok(null);
 
-        const anchor = change.resolvedRange.first;
+        const anchor = change.range.first;
         return renderNodeRecursive(change.modified)
           .replaceErr("Failed to render node")
           .try((rendered) =>
@@ -61,17 +61,36 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
       };
 
       const updateRefs = () => {
-        // TODO: Update references for all the parent of the change, via the range
-        const pos = change.resolvedRange.anchor;
-        for (let d = 0; d < pos.depth; d++) {
+        if (diff.modified.err) return Err("Diff result is invalid");
+
+        const pos = change.range.first;
+        const modPos = change.mappedRange.first;
+        for (let d = 0; d < pos.depth + 1; d++) {
           const node = pos.node(d);
-          const domEle = this.toRendered(node);
+          const rendered = this.toRendered(node);
+          if (rendered.err) return rendered;
+
+          const mod = modPos.node(d);
+          const view = node.getView();
+          const modView = mod.getView();
+          if (!view || !modView) continue;
+
+          rendered.val._node = mod;
+          modView.root = rendered.val;
+          modView.outlet = view.outlet;
         }
+
+        return Ok(null);
       };
 
       update()
         .traceMessage("Failed to update rendered view", "DOMView.update")
-        .warn((msg) => console.warn(msg));
+        .warn((msg) => console.warn(msg))
+        .map(() =>
+          updateRefs()
+            .traceMessage("Failed to update node references", "DOMView.update")
+            .warn((msg) => console.warn(msg)),
+        );
     }
 
     if (tr.selection) this.setSelection(tr.selection);

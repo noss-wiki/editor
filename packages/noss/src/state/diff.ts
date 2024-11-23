@@ -33,8 +33,10 @@ export class Diff {
     let last = this.boundary;
     for (const change of this.changes) {
       const res = change.reconstruct(last);
-      if (res.ok) last = res.val;
-      else return res.trace("Diff.reconstruct", "private");
+      if (res.ok) {
+        change.reconstructRange(last, res.val);
+        last = res.val;
+      } else return res.trace("Diff.reconstruct", "private");
     }
     return Ok(last);
   }

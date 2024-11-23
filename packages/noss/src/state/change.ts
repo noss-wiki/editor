@@ -2,8 +2,8 @@ import type { MethodError, Result } from "@noss-editor/utils";
 import type { Node, SerializedNode } from "../model/node";
 import type { NodeRange, Range, SerializedRange } from "../model/range";
 import type { Serializable } from "../types";
-import { SingleNodeRange, AbsoluteRange } from "../model/range";
-import { Position, type AbsoluteLike } from "../model/position";
+import { AbsoluteRange, SingleNodeRange } from "../model/range";
+import { AnchorPosition, Position, type AbsoluteLike } from "../model/position";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 
 // TODO: Remove this entirely or maybe include smth similar for easier change tracking? like what exactly change (attrs, content, etc.)
@@ -19,26 +19,27 @@ export interface SerializedChange {
 }
 
 export class Change implements Serializable<SerializedChange> {
-  readonly rangeIsCollapsed: boolean;
-  public resolvedRange!: SingleNodeRange;
+  public rangeIsCollapsed = false;
+  public range!: SingleNodeRange;
+  public mappedRange!: SingleNodeRange;
 
+  constructor(range: SingleNodeRange | AbsoluteRange, modified?: Node);
   constructor(
-    readonly range: SingleNodeRange | AbsoluteRange,
+    private unresolvedRange: SingleNodeRange | AbsoluteRange,
     readonly modified?: Node,
-  ) {
-    this.rangeIsCollapsed = range instanceof SingleNodeRange ? range.isCollapsed : true;
-  }
+  ) {}
 
   reconstruct(boundary: Node): Result<Node, string> {
-    const res = this.range.resolve(boundary).try((range) => range.toSingleNodeRange());
+    const res = this.unresolvedRange.resolve(boundary).try((range) => range.toSingleNodeRange());
     if (res.err) return res.trace("Change.reconstruct");
-    this.resolvedRange = res.val;
+    this.range = res.val;
+    this.rangeIsCollapsed = this.range.isCollapsed;
 
-    if (this.resolvedRange.anchor.boundary !== boundary)
+    if (this.range.anchor.boundary !== boundary)
       return Err("The boundary of the range is different from the provided boundary", "Change.reconstruct");
 
-    const parent = this.resolvedRange.anchor.parent;
-    const index = this.resolvedRange.anchor.index();
+    const parent = this.range.anchor.parent;
+    const index = this.range.anchor.index();
 
     return wrap(() => {
       const mod = this.range.isCollapsed ? parent : parent.removeChild(index);
@@ -48,37 +49,42 @@ export class Change implements Serializable<SerializedChange> {
     }).trace("Change.reconstruct");
   }
 
-  /**
-   * Maps a position through a change.
-   *
-   * @throws {MethodError} If `pos` is a {@link Position} and it cannot be resolved.
-   */
-  map<T extends AbsoluteLike>(pos: T): Result<T, string> {
-    const absPos = typeof pos === "number" ? pos : pos.absolute;
-    const anchor = Position.absolute(this.range.first);
-    const size = this.range.size;
-    let abs: number;
-    if (absPos <= anchor) abs = absPos;
-    else abs = absPos + size;
+  reconstructRange(boundary: Node, modifiedBoundary: Node) {
+    const res = Position.resolve(modifiedBoundary, this.range.first.absolute).try((first) => {
+      if (!this.modified) return Ok(new SingleNodeRange(first));
 
-    if (typeof pos === "number") return Ok(abs as T);
-    else return Position.resolve(pos.boundary, abs) as Result<T, string>;
+      const lastAbs = this.range.last.absolute + (this.modified?.nodeSize ?? 0) - this.range.size;
+      return Position.resolve(modifiedBoundary, lastAbs).map((last) => {
+        if (this.range.first === this.range.anchor) return new SingleNodeRange(first, last);
+        else return new SingleNodeRange(last, first);
+      });
+    });
+
+    if (res.ok) this.mappedRange = res.val;
+    return res;
   }
 
-  mapRange<T extends Range | AbsoluteRange>(range: T): Result<T, string> {
-    return this.map(range.anchor).try((anchor) =>
-      this.map(range.focus).map((focus) => {
-        if (typeof anchor === "number") return new AbsoluteRange(anchor, focus as number) as T;
-        else return (range as Range).copy(anchor, focus as Position) as T;
-      }),
-    );
+  /**
+   * Maps a position through a change.
+   */
+  map(pos: number): Result<number, never>;
+  map(pos: Position, modifiedBoundary: Node): Result<Position, string>;
+  map<T extends AbsoluteLike>(pos: T, modifiedBoundary?: Node): Result<T, string> {
+    const absPos = typeof pos === "number" ? pos : pos.absolute;
+    const anchor = Position.absolute(this.unresolvedRange.first);
+    let abs: number;
+    if (absPos <= anchor) abs = absPos;
+    else abs = absPos + this.unresolvedRange.size;
+
+    if (typeof pos === "number") return Ok(abs as T);
+    else return Position.resolve(modifiedBoundary as Node, abs) as Result<T, string>;
   }
 
   //split // split the change into two ranges if it's a replace change
 
   toJSON(): SerializedChange {
     return {
-      range: this.range.toJSON(),
+      range: this.unresolvedRange.toJSON(),
       modified: this.modified?.toJSON(),
     };
   }

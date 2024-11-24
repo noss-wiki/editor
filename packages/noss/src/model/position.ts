@@ -113,7 +113,7 @@ export class Position {
       let nodeOffset = 0;
       for (const [c, index] of parent.content.iter()) {
         if (offset === 0) return Ok({ parent, index, offset: nodeOffset });
-        else if (offset === c.nodeSize) return Ok({ parent, index: index + 1, offset: 0 });
+        else if (offset === c.nodeSize) return Ok({ parent, index: index + 1, offset: nodeOffset + c.nodeSize });
         else if (offset > c.nodeSize) {
           offset -= c.nodeSize;
           nodeOffset += c.nodeSize;

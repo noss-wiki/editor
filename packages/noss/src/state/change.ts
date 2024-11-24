@@ -1,5 +1,5 @@
 import type { MethodError, Result } from "@noss-editor/utils";
-import type { Node, SerializedNode } from "../model/node";
+import type { Node, SerializedNode, Text } from "../model/node";
 import type { NodeRange, Range, SerializedRange } from "../model/range";
 import type { Serializable } from "../types";
 import { AbsoluteRange, SingleNodeRange } from "../model/range";
@@ -39,8 +39,20 @@ export class Change implements Serializable<SerializedChange> {
       return Err("The boundary of the range is different from the provided boundary", "Change.reconstruct");
 
     const parent = this.range.anchor.parent;
-    const index = this.range.anchor.index();
+    if (parent.type.schema.text) {
+      if (!this.modified || !this.modified.type.schema.text)
+        return Err("Can't insert non-text node into a text node", "Change.reconstruct");
 
+      return wrap(() => {
+        const text = parent as Text;
+        const offset = this.range.first.offset();
+        const mod = this.range.isCollapsed ? text : text.remove(offset, this.range.last.offset());
+        const insert = !this.modified ? mod : mod.insert(offset, (this.modified as Text).text);
+        return boundary.copy(boundary.content.replaceChildRecursive(text, insert));
+      });
+    }
+
+    const index = this.range.first.index();
     return wrap(() => {
       const mod = this.range.isCollapsed ? parent : parent.removeChild(index);
       const insert = !this.modified ? mod : mod.insertChild(this.modified, index);
@@ -49,7 +61,7 @@ export class Change implements Serializable<SerializedChange> {
     }).trace("Change.reconstruct");
   }
 
-  reconstructRange(boundary: Node, modifiedBoundary: Node) {
+  reconstructRange(modifiedBoundary: Node) {
     const res = Position.resolve(modifiedBoundary, this.range.first.absolute).try((first) => {
       if (!this.modified) return Ok(new SingleNodeRange(first));
 

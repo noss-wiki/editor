@@ -1,27 +1,17 @@
 import type { Result } from "@noss-editor/utils";
-import type {
-  Node,
-  Text,
-  Diff,
-  TextView,
-  Transaction,
-  ParseResult,
-  NodeConstructor,
-  SingleNodeRange,
-} from "noss-editor";
+import type { Node, Text, Diff, TextView, Transaction, ParseResult, NodeConstructor } from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
-import type { DOMNodeView } from "./nodeView";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
 import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment, AnchorPosition } from "noss-editor";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
 import {
-  renderBreak,
   renderNodeRecursive,
   trailingBreakAttr,
   insertAtIndex,
   getDOMFromNode,
   getNodeFromDOM,
+  renderTextNode,
 } from "./render";
 
 // TODO: Allow to derive state from the content of the root node
@@ -37,6 +27,15 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     this.observer.stop();
     for (const change of diff.changes) {
       const update = (): Result<unknown, string> => {
+        if (change.range.parent.type.schema.text) {
+          const rendered = this.toRendered(change.range.parent);
+          if (rendered.err) return rendered;
+
+          return renderTextNode(change.mappedRange.parent as Text)
+            .replaceErr("Failed to render text node")
+            .map((text) => rendered.val.replaceWith(text));
+        }
+
         if (!change.rangeIsCollapsed) {
           const node = change.range.node as Node; // Range is not collapsed, so node is defined
           const rendered = this.toRendered(node);

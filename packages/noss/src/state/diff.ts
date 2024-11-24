@@ -34,8 +34,8 @@ export class Diff {
     for (const change of this.changes) {
       const res = change.reconstruct(last);
       if (res.ok) {
-        change.reconstructRange(last, res.val);
         last = res.val;
+        change.reconstructRange(last);
       } else return res.trace("Diff.reconstruct", "private");
     }
     return Ok(last);

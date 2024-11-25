@@ -29,7 +29,6 @@ export function renderNode(node: Node): Result<DOMNode, null> {
   }
 
   const root = res.val;
-  root._nodeId = node.id;
   root._node = node;
   return Ok(root);
 }
@@ -42,7 +41,6 @@ export function renderTextNode(node: Text): Result<DOMText, null> {
 
   const text = document.createTextNode(data) as DOMText;
   view.textRoot = text;
-  text._nodeId = node.id;
   text._node = node;
   return Ok(text);
 }

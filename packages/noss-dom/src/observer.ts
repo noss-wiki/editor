@@ -95,16 +95,20 @@ export class DOMObserver {
     console.log(record);
     if (record.type === "characterData") {
       const t = record.target;
-      if (t.nodeType === DOMNode.TEXT_NODE) {
-        const node = this.view.toNode(t);
-        const text = record.target as DOMText;
-        if (node.err) return node.trace("DOMObserver.callback", "private");
-        if (!node.val.type.schema.text)
-          return Err(`Node type mismatch; DOM node is text node, but bound node type: ${node.val.type.name}, isn't`) //
-            .trace("DOMObserver.callback", "private");
+      if (t.nodeType !== DOMNode.TEXT_NODE)
+        return Err("Invalid target for characterData input type", "DOMObserver.callback", "private");
 
-        return Ok(calculateText(this.view.state.tr, node.val as Text, text.data));
-      }
+      const node = this.view.toNode(t);
+      const text = record.target as DOMText;
+      if (node.err) return node.trace("DOMObserver.callback", "private");
+      if (!node.val.type.schema.text)
+        return Err(
+          `Node type mismatch; DOM node is text node, but bound node type: ${node.val.type.name}, isn't`,
+          "DOMObserver.callback",
+          "private",
+        );
+
+      return Ok(calculateText(this.view.state.tr, node.val as Text, text.data));
     } else if (record.type === "childList") {
       const tr = this.view.state.tr;
       for (const c of record.addedNodes) {
@@ -121,7 +125,6 @@ export class DOMObserver {
           const text = createTextNode((c as DOMText).data);
           this.unChecked(() => {
             // Still set id on old node, so it can be resolved in other records that are part of the same mutation
-            (<DOMNode>c)._nodeId = text.id;
             (<DOMNode>c)._node = text;
             c.parentNode?.removeChild(c);
           });
@@ -205,22 +208,24 @@ export class DOMObserver {
             .trace("DOMObserver.beforeInput", "private")
             .map<Transaction, string>(() => tr);
         });
-    } else if (e.inputType === "insertLineBreak") {
-      if (!sel.val.isCollapsed) return Ok(null);
-      // TODO: Maybe implement a different way of handling this (maybe a hook on EditorView, or prop on DOMNodeView?)
-      const node = this.view.parse(document.createElement("br"), undefined, false);
-      if (node.err) return node.trace("DOMObserver.beforeInput", "private");
-      else if (!node.val) {
-        e.preventDefault();
-        return Err(
-          "Failed to insert hard break, no nodeView parses from a br element. Which is default behaviour",
-          "DOMObserver.beforeInput",
-          "private",
-        );
-      }
+    }
+    // else if (e.inputType === "insertLineBreak") {
+    //   if (!sel.val.isCollapsed) return Ok(null);
+    //   // TODO: Maybe implement a different way of handling this (maybe a hook on EditorView, or prop on DOMNodeView?)
+    //   const node = this.view.parse(document.createElement("br"), undefined, false);
+    //   if (node.err) return node.trace("DOMObserver.beforeInput", "private");
+    //   else if (!node.val) {
+    //     e.preventDefault();
+    //     return Err(
+    //       "Failed to insert hard break, no nodeView parses from a br element. Which is default behaviour",
+    //       "DOMObserver.beforeInput",
+    //       "private",
+    //     );
+    //   }
 
-      // TODO: Try to insert hard break, prob do parseNode with `br`.
-    } else console.log(e.inputType);
+    //   // TODO: Try to insert hard break, prob do parseNode with `br`.
+    // }
+    else console.log(e.inputType);
     return Ok(null);
   }
 }

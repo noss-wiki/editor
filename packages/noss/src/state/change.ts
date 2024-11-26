@@ -19,6 +19,11 @@ export interface SerializedChange {
 }
 
 export class Change implements Serializable<SerializedChange> {
+  /**
+   * The diffence in size if this Change is applied.
+   * Can be negative, if the removed node is larger than the added node.
+   */
+  readonly size: number;
   public rangeIsCollapsed = false;
   public range!: SingleNodeRange;
   public mappedRange!: SingleNodeRange;
@@ -27,7 +32,9 @@ export class Change implements Serializable<SerializedChange> {
   constructor(
     private unresolvedRange: SingleNodeRange | AbsoluteRange,
     readonly modified?: Node,
-  ) {}
+  ) {
+    this.size = (this.modified?.nodeSize ?? 0) - this.unresolvedRange.size;
+  }
 
   reconstruct(boundary: Node): Result<Node, string> {
     const res = this.unresolvedRange.resolve(boundary).try((range) => range.toSingleNodeRange());
@@ -65,7 +72,7 @@ export class Change implements Serializable<SerializedChange> {
     const res = Position.resolve(modifiedBoundary, this.range.first.absolute).try((first) => {
       if (!this.modified) return Ok(new SingleNodeRange(first));
 
-      const lastAbs = this.range.last.absolute + (this.modified?.nodeSize ?? 0) - this.range.size;
+      const lastAbs = this.range.last.absolute + this.size;
       return Position.resolve(modifiedBoundary, lastAbs).map((last) => {
         if (this.range.first === this.range.anchor) return new SingleNodeRange(first, last);
         else return new SingleNodeRange(last, first);
@@ -86,7 +93,7 @@ export class Change implements Serializable<SerializedChange> {
     const anchor = Position.absolute(this.unresolvedRange.first);
     let abs: number;
     if (absPos <= anchor) abs = absPos;
-    else abs = absPos + this.unresolvedRange.size;
+    else abs = absPos + this.size;
 
     if (typeof pos === "number") return Ok(abs as T);
     else return Position.resolve(modifiedBoundary as Node, abs) as Result<T, string>;

@@ -2,7 +2,7 @@ import type { Result } from "@noss-editor/utils";
 import type { Node, Text, Diff, TextView, Transaction, ParseResult, NodeConstructor } from "noss-editor";
 import type { NodeRoot, DOMElement, DOMText } from "./types";
 import { Err, MethodError, Ok } from "@noss-editor/utils";
-import { NodeView, EditorView, ChangeType, Position, Selection, NodeType, Fragment, AnchorPosition } from "noss-editor";
+import { NodeView, EditorView, Selection, NodeType, Fragment, AnchorPosition, Range } from "noss-editor";
 import { DOMObserver } from "./observer";
 import { DOMNode } from "./types";
 import {
@@ -28,7 +28,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     for (const change of diff.changes) {
       const update = (): Result<unknown, string> => {
         if (change.range.parent.type.schema.text) {
-          const rendered = this.toRendered(change.range.parent);
+          const rendered = this.toRendered(change.range.parent) as Result<DOMText, string>;
           if (rendered.err) return rendered;
 
           return renderTextNode(change.mappedRange.parent as Text)
@@ -92,7 +92,9 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         );
     }
 
-    if (tr.selection) this.setSelection(tr.selection);
+    // const sel = tr.mappedSelection; // doesn't yet work
+    // if (sel.ok) this.setSelection(sel.val);
+    if (!tr.selection.empty) this.setSelection(tr.selection);
     this.observer.start();
   }
 
@@ -193,16 +195,19 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
     else if (focus.err)
       return focus.traceMessage("Failed to resolve focus head of selection positions", "DOMView.getSelection");
 
-    return Ok(new Selection(anchor.val, focus.val));
+    const range = new Range(anchor.val, focus.val);
+    return Ok(new Selection(range));
   }
 
   setSelection(sel: Selection) {
-    const anchor = this.toRendered(sel.anchor.parent);
-    const focus = this.toRendered(sel.focus.parent);
+    const range = sel.ranges[0];
+    if (!range) return;
+    const anchor = this.toRendered(range.anchor.parent);
+    const focus = this.toRendered(range.focus.parent);
 
     if (anchor.err || focus.err) return;
     const selection = window.getSelection();
-    selection?.setBaseAndExtent(anchor.val, sel.anchor.offset(), focus.val, sel.focus.offset());
+    selection?.setBaseAndExtent(anchor.val, range.anchor.offset(), focus.val, range.focus.offset());
   }
 
   // event handlers

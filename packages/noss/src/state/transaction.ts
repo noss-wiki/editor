@@ -3,7 +3,7 @@ import type { EditorState } from ".";
 import type { Text } from "../model/node";
 import type { Step } from "./step";
 import type { PositionLike } from "../model/position";
-import type { Selection } from "../model/selection";
+import { Selection } from "../model/selection";
 import { Ok, Err } from "@noss-editor/utils";
 import { Node } from "../model/node";
 import { NodeType } from "../model/nodeType";
@@ -18,13 +18,29 @@ export class Transaction {
   readonly original: Node;
   readonly history: boolean;
 
-  public selection?: Selection;
+  public selection: Selection = Selection.empty;
 
   /**
    * The modified boundary with all the steps applied to it.
    */
   get modified(): Result<Node, string> {
     return this.diff[this.diff.length - 1].try((diff) => diff.modified);
+  }
+
+  /**
+   * A getter that returns a Result containing the mapped selection through this transaction.
+   */
+  get mappedSelection(): Result<Selection, null> {
+    let last = this.selection.ranges[0];
+    for (const diff of this.diff) {
+      if (diff.err) return Err();
+
+      const res = diff.val.mapRange(last);
+      if (res.err) return Err();
+      last = res.val;
+    }
+
+    return Ok(new Selection(last));
   }
 
   get hasErrors(): boolean {
@@ -48,10 +64,7 @@ export class Transaction {
     this.diff = [Ok(Diff.none(boundary))];
     this.history = addToHistory;
 
-    this.state.getSelection(boundary).map((val) => {
-      // @ts-ignore : Typescript doesn't allow assigning in callback, but it's fine here.
-      this.selection = val;
-    });
+    this.state.getSelection(boundary).map((val) => (this.selection = val));
   }
 
   private resolve(pos: PositionLike): Result<Position, string> {
@@ -80,7 +93,7 @@ export class Transaction {
     return this;
   }
 
-  setSelection(selection?: Selection) {
+  setSelection(selection: Selection) {
     this.selection = selection;
     return this;
   }

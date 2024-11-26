@@ -1,10 +1,10 @@
-import type { MethodError, Result } from "@noss-editor/utils";
+import type { Result } from "@noss-editor/utils";
 import type { Node, SerializedNode, Text } from "../model/node";
 import type { NodeRange, Range, SerializedRange } from "../model/range";
 import type { Serializable } from "../types";
 import { AbsoluteRange, SingleNodeRange } from "../model/range";
 import { AnchorPosition, Position, type AbsoluteLike } from "../model/position";
-import { Err, Ok, wrap } from "@noss-editor/utils";
+import { Err, Ok, wrap, all } from "@noss-editor/utils";
 
 // TODO: Remove this entirely or maybe include smth similar for easier change tracking? like what exactly change (attrs, content, etc.)
 export enum ChangeType {
@@ -84,7 +84,7 @@ export class Change implements Serializable<SerializedChange> {
   }
 
   /**
-   * Maps a position through a change.
+   * Maps the given position through this change.
    */
   map(pos: number): Result<number, never>;
   map(pos: Position, modifiedBoundary: Node): Result<Position, string>;
@@ -93,10 +93,26 @@ export class Change implements Serializable<SerializedChange> {
     const anchor = Position.absolute(this.unresolvedRange.first);
     let abs: number;
     if (absPos <= anchor) abs = absPos;
-    else abs = absPos + this.size;
+    else abs = Math.max(absPos + this.size, anchor);
 
     if (typeof pos === "number") return Ok(abs as T);
     else return Position.resolve(modifiedBoundary as Node, abs) as Result<T, string>;
+  }
+
+  /**
+   * Maps the given range through this change.
+   */
+  mapRange(range: AbsoluteRange): Result<AbsoluteRange, never>;
+  mapRange<T extends Range>(range: T, modifiedBoundary: Node): Result<T, string>;
+  mapRange(range: AbsoluteRange | Range, modifiedBoundary?: Node) {
+    const { anchor, focus } = range.absolute;
+
+    if (typeof range.anchor === "number") return Ok(new AbsoluteRange(this.map(anchor).val, this.map(focus).val));
+    else if (!modifiedBoundary)
+      return Err("Modified boundary is required to map a non-absolute range", "Change.mapRange");
+
+    return all(Position.resolve(modifiedBoundary, anchor), Position.resolve(modifiedBoundary, focus)) //
+      .map(([a, f]) => (range as Range).copy(a, f));
   }
 
   //split // split the change into two ranges if it's a replace change

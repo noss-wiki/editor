@@ -1,7 +1,9 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "../model/node";
 import type { Change } from "./change";
-import { Ok, Err } from "@noss-editor/utils";
+import type { AbsoluteRange, Range } from "../model/range";
+import { Ok, Err, all } from "@noss-editor/utils";
+import { Position } from "../model/position";
 
 export class Diff {
   readonly empty: boolean;
@@ -39,6 +41,30 @@ export class Diff {
       } else return res.trace("Diff.reconstruct", "private");
     }
     return Ok(last);
+  }
+
+  /**
+   * Maps the given position through the changes of this diff.
+   */
+  map(pos: number): Result<number, never>;
+  map(pos: Position): Result<Position, string>;
+  map(pos: number | Position) {
+    const abs = typeof pos === "number" ? pos : pos.absolute;
+    const res = this.changes.reduce((mapped, change) => change.map(mapped).val, abs);
+    if (typeof pos === "number") return Ok(res);
+    else return this.modified.try((mod) => Position.resolve(mod, res)).trace("Diff.map");
+  }
+
+  mapRange(range: AbsoluteRange): Result<AbsoluteRange, never>;
+  mapRange<T extends Range>(range: T): Result<T, string>;
+  mapRange(range: AbsoluteRange | Range) {
+    const abs = range.absolute;
+    const res = this.changes.reduce((mapped, change) => change.mapRange(mapped).val, abs);
+    if (typeof range.anchor === "number") return Ok(res);
+
+    return this.modified
+      .try((mod) => all(Position.resolve(mod, res.anchor), Position.resolve(mod, res.focus)))
+      .map(([anchor, focus]) => (range as Range).copy(anchor, focus));
   }
 
   // static initializers

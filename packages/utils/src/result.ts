@@ -257,6 +257,20 @@ export function flatten<A, B>(result: Result<Result<A, B>, B>) {
   return result.val;
 }
 
+type ExtractOk<T> = T extends Ok<infer A> ? A : never;
+type ExtractOkValues<T extends Result<unknown, unknown>[]> = {
+  [K in keyof T]: ExtractOk<T[K]>;
+};
+
+export function all<E, T extends Result<unknown, E>[]>(...results: T): Result<ExtractOkValues<T>, E> {
+  const values = [];
+  for (const r of results)
+    if (r.ok) values.push(r.val);
+    else return r;
+
+  return Ok(values as ExtractOkValues<T>);
+}
+
 /**
  * Wraps a function that can throw,
  * if the throwed value is a {@link MethodError} or a generic Error it will return a `Err`.

@@ -1,6 +1,6 @@
 import { MethodError, Ok, wrap, type Result } from "@noss-editor/utils";
 import type { Node } from "./node";
-import type { PositionLike } from "./position";
+import type { AbsoluteLike, PositionLike } from "./position";
 import type { Serializable } from "../types";
 import { AnchorPosition, Position } from "./position";
 
@@ -34,6 +34,14 @@ export class UnresolvedRange {
   resolve(boundary: Node): Result<Range, string> {
     return this.resolvePositions(boundary).map(({ anchor, focus }) => new Range(anchor, focus));
   }
+
+  static fromStart(node: Node, offset?: number) {
+    return new UnresolvedRange(AnchorPosition.offset(node, offset ?? 0));
+  }
+
+  static fromEnd(node: Node, offset?: number) {
+    return new UnresolvedRange(AnchorPosition.offset(node, node.nodeSize - (offset ?? 0)));
+  }
 }
 
 export interface SerializedRange {
@@ -56,6 +64,9 @@ export class Range implements Serializable<SerializedRange> {
 
   readonly isCollapsed: boolean;
   readonly size: number;
+  readonly direction: "forward" | "backward";
+
+  readonly absolute: AbsoluteRange;
 
   constructor(
     readonly anchor: Position,
@@ -65,11 +76,14 @@ export class Range implements Serializable<SerializedRange> {
 
     this.isCollapsed = !focus || this.anchor === this.focus || this.anchor.absolute === this.focus.absolute;
     this.size = this.isCollapsed ? 0 : Math.abs(this.focus.absolute - this.anchor.absolute);
+    this.absolute = new AbsoluteRange(this.anchor.absolute, this.focus.absolute);
 
     if (this.anchor.absolute < this.focus.absolute) {
+      this.direction = "forward";
       this.first = this.anchor;
       this.last = this.focus;
     } else {
+      this.direction = "backward";
       this.first = this.focus;
       this.last = this.anchor;
     }
@@ -113,6 +127,7 @@ export class AbsoluteRange extends UnresolvedRange implements Serializable<Seria
 
   readonly isCollapsed: boolean;
   readonly size: number;
+  readonly absolute = this;
 
   constructor(anchor: number, focus?: number) {
     super(anchor, focus);
@@ -136,6 +151,7 @@ export interface SerializedNodeRange extends SerializedRange {
   readonly type: "node" | "single";
 }
 
+// TODO: Just use `UnresolvedRange`?
 export class UnresolvedNodeRange extends UnresolvedRange {
   override resolve(boundary: Node): Result<NodeRange, string> {
     return this.resolvePositions(boundary).map(({ anchor, focus }) => new NodeRange(anchor, focus));

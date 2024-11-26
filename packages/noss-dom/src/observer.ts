@@ -2,7 +2,15 @@ import type { DOMView } from "./view";
 import type { Node, NodeConstructor, Transaction, Text } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import { NodeType, Position, Selection, Fragment, AnchorPosition, UnresolvedNodeRange } from "noss-editor";
+import {
+  NodeType,
+  Position,
+  Selection,
+  Fragment,
+  AnchorPosition,
+  UnresolvedNodeRange,
+  UnresolvedRange,
+} from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
@@ -142,8 +150,8 @@ export class DOMObserver {
 
           tr.insertChild(node, parent.val, index);
           tr.modified
-            .try((boundary) => Selection.atStart(node, 0).try((sel) => sel.resolve(boundary)))
-            .map((sel) => tr.setSelection(sel));
+            .try((boundary) => UnresolvedRange.fromStart(node, 0).resolve(boundary))
+            .map((range) => tr.setSelection(new Selection(range)));
         }
       }
 
@@ -174,10 +182,13 @@ export class DOMObserver {
     // TODO: Some behaviour should not happen on input, as keybindings can be different
     const sel = this.view.state.getSelection();
     if (sel.err) return sel.trace("DOMObserver.beforeInput", "private");
-    if (e.inputType === "insertParagraph") {
-      if (!sel.val.isCollapsed) return Ok(null); // TODO: Also implement this case
+    else if (sel.val.empty) return Ok(null);
 
-      let anchor = sel.val.anchor;
+    if (e.inputType === "insertParagraph") {
+      const range = sel.val.ranges[0];
+      if (!range.isCollapsed) return Ok(null); // TODO: Also implement this case
+
+      let anchor = range.anchor;
       let text = anchor.parent as Text;
       if (!text.type.schema.text)
         if (anchor.offset() === 0 && text.content.softChild(0)?.type.schema.text) {
@@ -202,8 +213,8 @@ export class DOMObserver {
             .replaceChild(parent, curr);
 
           return tr.modified
-            .try((boundary) => Selection.atStart(node, 0).try((sel) => sel.resolve(boundary)))
-            .map((sel) => tr.setSelection(sel))
+            .try((boundary) => UnresolvedRange.fromStart(node, 0).resolve(boundary))
+            .map((range) => tr.setSelection(new Selection(range)))
             .map(() => e.preventDefault()) // Ensure it's only cancelled if succesfull
             .trace("DOMObserver.beforeInput", "private")
             .map<Transaction, string>(() => tr);

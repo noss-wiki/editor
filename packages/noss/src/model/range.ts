@@ -1,15 +1,14 @@
 import { MethodError, Ok, wrap, type Result } from "@noss-editor/utils";
 import type { Node } from "./node";
-import type { AbsoluteLike, PositionLike } from "./position";
-import type { Serializable } from "../types";
+import type { Resolvable, Serializable, Serialized } from "../types";
 import { AnchorPosition, Position } from "./position";
 
 export class UnresolvedRange {
-  readonly focus: PositionLike;
+  readonly focus: Resolvable<Position>;
 
   constructor(
-    readonly anchor: PositionLike,
-    focus?: PositionLike,
+    readonly anchor: Resolvable<Position>,
+    focus?: Resolvable<Position>,
   ) {
     this.focus = focus ?? this.anchor;
   }
@@ -46,13 +45,15 @@ export class UnresolvedRange {
 
 export interface SerializedRange {
   readonly type: "range" | "node" | "single" | "absolute";
-  readonly anchor: number;
-  readonly focus: number;
+  readonly anchor: Serialized<Position>;
+  readonly focus: Serialized<Position>;
 }
 
 export class Range implements Serializable<SerializedRange> {
-  readonly focus: Position;
+  /** @internal */
+  declare readonly __resolvable?: UnresolvedRange | Resolvable<Position>;
 
+  readonly focus: Position;
   /**
    * The `anchor` or `focus` position, depending on which comes first.
    */
@@ -112,10 +113,16 @@ export class Range implements Serializable<SerializedRange> {
   copy(anchor: Position, focus?: Position) {
     return new (this.constructor as typeof Range)(anchor, focus) as this;
   }
-
-  static resolve(boundary: Node, range: Range | UnresolvedRange): Result<Range, string> {
+  // Resolver
+  static resolve(boundary: Node, range: Resolvable<Range>): Result<Range, string> {
     if (range instanceof Range) return Ok(range);
+    else if (Position.resolvable(range)) return Position.resolve(boundary, range).map((pos) => new Range(pos));
+
     return range.resolve(boundary).trace("Range.resolve", "static");
+  }
+
+  static resolvable(range: unknown): range is Resolvable<Range> {
+    return range instanceof Range || range instanceof UnresolvedRange || Position.resolvable(range);
   }
 }
 

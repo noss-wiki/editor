@@ -1,3 +1,4 @@
+import type { Resolvable, Resolver, Serializable } from "../types";
 import type { Result } from "@noss-editor/utils";
 import type { Fragment } from "./fragment";
 import { Ok, Err, wrap } from "@noss-editor/utils";
@@ -7,7 +8,10 @@ export type AbsoluteLike = Position | number;
 export type PositionLike = Position | AnchorPosition | number;
 
 // TODO: Add some unit tests
-export class Position {
+export class Position implements Serializable<number> {
+  /** @internal */
+  declare readonly __resolvable?: number | AnchorPosition;
+
   readonly boundary: Node;
   readonly parent: Node;
   readonly absolute: number;
@@ -83,13 +87,26 @@ export class Position {
     return this.start(depth) + this.node(depth).nodeSize;
   }
 
+  toJSON(): number {
+    return this.absolute;
+  }
+
   // Static methods
 
-  static resolve(boundary: Node, pos: PositionLike): Result<Position, string> {
+  static resolve: Resolver<Position> = (boundary: Node, pos: Resolvable<Position>): Result<Position, string> => {
     // TODO: Cached results and use it
     if (pos instanceof Position) return Ok(pos);
-    else if (pos instanceof AnchorPosition) return pos.resolve(boundary).trace("Position.resolve", "static");
-    else return Position.resolveAbsolute(boundary, pos).trace("Position.resolve", "static");
+    else if (typeof pos === "number")
+      return Position.resolveAbsolute(boundary, pos).trace("Position.resolve", "static");
+
+    return pos.resolve(boundary).trace("Position.resolve", "static");
+  };
+
+  /**
+   * Returns a boolean indicating whether the given value is resolvable to a position.
+   */
+  static resolvable(pos: unknown): pos is Resolvable<Position> {
+    return pos instanceof Position || typeof pos === "number" || pos instanceof AnchorPosition;
   }
 
   static resolveAbsolute(boundary: Node, pos: number): Result<Position, string> {

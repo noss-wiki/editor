@@ -1,11 +1,12 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "./node";
-import type { PositionLike } from "./position";
-import type { Range } from "./range";
-import { AnchorPosition, Position } from "./position";
-import { Ok } from "@noss-editor/utils";
+import { Range } from "./range";
+import { Err, Ok } from "@noss-editor/utils";
+import type { Resolvable, Resolver } from "../types";
 
 export class Selection {
+  declare readonly __resolvable?: Resolvable<Range>;
+
   readonly ranges: Range[];
   readonly empty: boolean;
 
@@ -13,6 +14,13 @@ export class Selection {
     this.ranges = Array.isArray(ranges) ? ranges : [ranges];
     this.empty = this.ranges.length === 0;
   }
+
+  static resolve: Resolver<Selection> = (boundary, sel) => {
+    if (sel instanceof Selection) return Ok(sel);
+    else if (Range.resolvable(sel)) return Range.resolve(boundary, sel).map((range) => new Selection(range));
+    //
+    return Err("");
+  };
 
   static empty = new Selection([]);
 }

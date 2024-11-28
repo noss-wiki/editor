@@ -5,7 +5,6 @@ import { Ok, Err, wrap } from "@noss-editor/utils";
 import { Node, Text } from "./node";
 
 export type AbsoluteLike = Position | number;
-export type PositionLike = Position | AnchorPosition | number;
 
 // TODO: Add some unit tests
 export class Position implements Serializable<number> {

@@ -1,6 +1,6 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "../../model/node";
-import type { UnresolvedNodeRange } from "../../model/range";
+import type { Resolvable } from "../../types";
 import { Err } from "@noss-editor/utils";
 import { Step } from "../step";
 import { Diff } from "../diff";
@@ -14,7 +14,7 @@ export class ReplaceNodeStep extends Step {
     /**
      * The start position in the document where to start replacing.
      */
-    readonly range: NodeRange | UnresolvedNodeRange, // TODO: Also allow `AbsoluteLike`?
+    readonly range: Resolvable<NodeRange>, // TODO: Also allow `AbsoluteLike`?
     /**
      * The end position in the document where to stop replacing.
      */

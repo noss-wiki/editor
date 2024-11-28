@@ -2,7 +2,7 @@ import type { Result } from "@noss-editor/utils";
 import type { EditorState } from ".";
 import type { Text } from "../model/node";
 import type { Step } from "./step";
-import type { PositionLike } from "../model/position";
+import type { Resolvable } from "../types";
 import { Selection } from "../model/selection";
 import { Ok, Err } from "@noss-editor/utils";
 import { Node } from "../model/node";
@@ -67,7 +67,7 @@ export class Transaction {
     this.state.getSelection(boundary).map((val) => (this.selection = val));
   }
 
-  private resolve(pos: PositionLike): Result<Position, string> {
+  private resolve(pos: Resolvable<Position>): Result<Position, string> {
     if (this.modified.err) return Err("Failed to resolve Position; transaction has errors", "Transaction.resolve");
     return Position.resolve(this.modified.val, pos).trace("Transaction.resolve");
   }
@@ -104,7 +104,7 @@ export class Transaction {
    * @param node The node to add
    * @param pos The position where to insert the node, see {@link Position}.
    */
-  insert(node: Node, pos: PositionLike) {
+  insert(node: Node, pos: Resolvable<Position>) {
     const range = new UnresolvedNodeRange(pos);
     return this.step(Ok(new ReplaceNodeStep(range, node)));
   }
@@ -128,7 +128,7 @@ export class Transaction {
    * @param text The text to insert at `pos`
    * @param pos The position where to insert the text
    */
-  insertText(text: string, pos: PositionLike): this;
+  insertText(text: string, pos: Resolvable<Position>): this;
   /**
    * Inserts text at the given position.
    * If the position points into a text node, the text node will be modified, otherwise a new text node will be inserted.
@@ -138,8 +138,8 @@ export class Transaction {
    * @param offset The offset into the parent node where to insert the text
    */
   insertText(text: string, node: Text, offset: number): this;
-  insertText(text: string, _pos: PositionLike | Node, _offset?: number): this {
-    const fn = (pos: PositionLike) => {
+  insertText(text: string, _pos: Resolvable<Position> | Node, _offset?: number): this {
+    const fn = (pos: Resolvable<Position>) => {
       const position = this.resolve(pos);
       if (position.err) return this.step(position.traceMessage("Failed to create step", "Transaction.insertText"));
 
@@ -160,7 +160,7 @@ export class Transaction {
     return fn(AnchorPosition.offset(_pos, _offset!));
   }
 
-  remove(range: NodeRange | UnresolvedNodeRange) {
+  remove(range: Resolvable<NodeRange>) {
     // TODO: First check if range resolves inside text node, then use removeText, otherwise continue
     return this.step(Ok(new ReplaceNodeStep(range, undefined)));
   }

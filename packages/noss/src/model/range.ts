@@ -43,7 +43,7 @@ export class UnresolvedRange {
   }
 }
 
-export interface SerializedRange {
+interface SerializedRange {
   readonly type: "range" | "node" | "single" | "absolute";
   readonly anchor: Serialized<Position>;
   readonly focus: Serialized<Position>;
@@ -113,7 +113,8 @@ export class Range implements Serializable<SerializedRange> {
   copy(anchor: Position, focus?: Position) {
     return new (this.constructor as typeof Range)(anchor, focus) as this;
   }
-  // Resolver
+
+  // Resolver<Range>
   static resolve(boundary: Node, range: Resolvable<Range>): Result<Range, string> {
     if (range instanceof Range) return Ok(range);
     else if (Position.resolvable(range)) return Position.resolve(boundary, range).map((pos) => new Range(pos));
@@ -154,7 +155,7 @@ export class AbsoluteRange extends UnresolvedRange implements Serializable<Seria
   }
 }
 
-export interface SerializedNodeRange extends SerializedRange {
+interface SerializedNodeRange extends SerializedRange {
   readonly type: "node" | "single";
 }
 
@@ -174,6 +175,9 @@ export class UnresolvedNodeRange extends UnresolvedRange {
  * The content in this range, is one or more nodes.
  */
 export class NodeRange extends Range implements Serializable<SerializedNodeRange> {
+  /** @internal */
+  declare readonly __resolvable?: UnresolvedNodeRange;
+
   readonly parent: Node;
   readonly childCount: number;
 
@@ -206,7 +210,7 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
     };
   }
 
-  static override resolve(boundary: Node, range: NodeRange | UnresolvedNodeRange): Result<NodeRange, string> {
+  static override resolve(boundary: Node, range: Resolvable<NodeRange>): Result<NodeRange, string> {
     if (range instanceof NodeRange) return Ok(range);
     return range.resolve(boundary).trace("NodeRange.resolve", "static");
   }
@@ -241,7 +245,7 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
   }
 }
 
-export interface SerializedSingleNodeRange extends SerializedRange {
+interface SerializedSingleNodeRange extends SerializedRange {
   readonly type: "single";
 }
 

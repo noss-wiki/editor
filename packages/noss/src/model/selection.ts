@@ -1,8 +1,8 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node } from "./node";
+import type { Resolvable, Resolver } from "../types";
 import { Range } from "./range";
 import { Err, Ok } from "@noss-editor/utils";
-import type { Resolvable, Resolver } from "../types";
 
 export class Selection {
   declare readonly __resolvable?: Resolvable<Range>;

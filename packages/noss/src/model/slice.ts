@@ -1,5 +1,4 @@
 import type { Node } from "./node";
-import type { PositionLike } from "./position";
 import { Position } from "./position";
 import { Fragment } from "./fragment";
 import { MethodError } from "@noss-editor/utils";

@@ -9,7 +9,6 @@ export type {
 export { NodeType } from "./model/nodeType";
 export { Position, AnchorPosition } from "./model/position";
 export { Selection } from "./model/selection";
-export type { SerializedNodeRange, SerializedRange, SerializedSingleNodeRange } from "./model/range";
 export { Range, NodeRange, SingleNodeRange, UnresolvedNodeRange, UnresolvedRange } from "./model/range";
 export { Slice } from "./model/slice";
 export { EditorView, NodeView, TextView } from "./model/view";
@@ -21,3 +20,5 @@ export { ChangeType } from "./state/change";
 export { Diff } from "./state/diff";
 export { Transaction } from "./state/transaction";
 export { Step } from "./state/step";
+
+export type * from "./types";

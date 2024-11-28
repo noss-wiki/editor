@@ -1,7 +1,7 @@
 import type { Result } from "@noss-editor/utils";
-import type { Node, SerializedNode, Text } from "../model/node";
-import type { NodeRange, Range, SerializedRange } from "../model/range";
-import type { Serializable } from "../types";
+import type { Node, Text } from "../model/node";
+import type { NodeRange, Range } from "../model/range";
+import type { Serializable, Serialized } from "../types";
 import { AbsoluteRange, SingleNodeRange } from "../model/range";
 import { AnchorPosition, Position, type AbsoluteLike } from "../model/position";
 import { Err, Ok, wrap, all } from "@noss-editor/utils";
@@ -13,9 +13,9 @@ export enum ChangeType {
   replace = "replace",
 }
 
-export interface SerializedChange {
-  readonly range: SerializedRange;
-  readonly modified?: SerializedNode;
+interface SerializedChange {
+  readonly range: Serialized<Range>;
+  readonly modified?: Serialized<Node>;
 }
 
 export class Change implements Serializable<SerializedChange> {

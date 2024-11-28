@@ -1,8 +1,7 @@
 import type { Result } from "@noss-editor/utils";
-import type { SerializedFragment } from "./fragment";
 import type { Slice } from "./slice";
 import type { NodeView } from "./view";
-import type { Serializable } from "../types";
+import type { Serializable, Serialized } from "../types";
 import { Err, MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 import { TextView } from "./view";
 import { NodeType } from "./nodeType";
@@ -15,11 +14,11 @@ export type NodeAttrs = {
 
 export type NodeConstructor = new (content?: Fragment | string) => Node;
 
-export interface SerializedNode {
+interface SerializedNode {
   readonly type: string;
   readonly id: string;
   readonly attrs?: NodeAttrs;
-  readonly content: SerializedFragment | string;
+  readonly content: Serialized<Fragment> | string;
 }
 /**
  * The base Node class

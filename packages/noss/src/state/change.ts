@@ -28,12 +28,23 @@ export class Change implements Serializable<SerializedChange> {
   public range!: SingleNodeRange;
   public mappedRange!: SingleNodeRange;
 
-  constructor(range: SingleNodeRange | AbsoluteRange, modified?: Node);
+  constructor(range: SingleNodeRange | AbsoluteRange, modified?: Node, changeIsTextReplacement?: boolean);
   constructor(
     private unresolvedRange: SingleNodeRange | AbsoluteRange,
     readonly modified?: Node,
+    /**
+     * This flag is set to true if the change is a text replacement. So replacing a text node.
+     * Setting this, will allow the map method to preserve cursor position.
+     */
+    public changeIsTextReplacement = false,
   ) {
     this.size = (this.modified?.nodeSize ?? 0) - this.unresolvedRange.size;
+    if (
+      unresolvedRange instanceof SingleNodeRange &&
+      unresolvedRange.node?.type.schema.text &&
+      modified?.type.schema.text
+    )
+      this.changeIsTextReplacement = true;
   }
 
   reconstruct(boundary: Node): Result<Node, string> {
@@ -49,6 +60,8 @@ export class Change implements Serializable<SerializedChange> {
     if (parent.type.schema.text) {
       if (!this.modified || !this.modified.type.schema.text)
         return Err("Can't insert non-text node into a text node", "Change.reconstruct");
+
+      this.changeIsTextReplacement = true;
 
       return wrap(() => {
         const text = parent as Text;
@@ -83,6 +96,8 @@ export class Change implements Serializable<SerializedChange> {
     return res;
   }
 
+  // TODO: Add special behavior for text replacement, to keep selection correct
+
   /**
    * Maps the given position through this change.
    */
@@ -105,13 +120,17 @@ export class Change implements Serializable<SerializedChange> {
   mapRange(range: AbsoluteRange): Result<AbsoluteRange, never>;
   mapRange<T extends Range>(range: T, modifiedBoundary: Node): Result<T, string>;
   mapRange(range: AbsoluteRange | Range, modifiedBoundary?: Node) {
+    // TODO: Custom behaviour if replacing text nodes? to keep selection
     const { anchor, focus } = range.absolute;
 
     if (typeof range.anchor === "number") return Ok(new AbsoluteRange(this.map(anchor).val, this.map(focus).val));
     else if (!modifiedBoundary)
       return Err("Modified boundary is required to map a non-absolute range", "Change.mapRange");
 
-    return all(Position.resolve(modifiedBoundary, anchor), Position.resolve(modifiedBoundary, focus)) //
+    return all(
+      Position.resolve(modifiedBoundary, this.map(anchor).val),
+      Position.resolve(modifiedBoundary, this.map(focus).val),
+    ) //
       .map(([a, f]) => (range as Range).copy(a, f));
   }
 

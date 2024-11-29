@@ -92,9 +92,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         );
     }
 
-    // const sel = tr.mappedSelection; // doesn't yet work
-    // if (sel.ok) this.setSelection(sel.val);
-    if (!tr.selection.empty) this.setSelection(tr.selection);
+    if (tr.selection.ok && !tr.selection.val.empty) this.setSelection(tr.selection.val);
     this.observer.start();
   }
 

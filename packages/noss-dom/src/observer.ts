@@ -253,14 +253,24 @@ function defaultNode(content?: Fragment | Node | Node[]): Result<Node, null> {
  * This method modifies the transaction and returns the result, but that parameter is still modified.
  */
 function calculateText(tr: Transaction, node: Text, expected: string): Transaction | null {
+  // TODO: What sel here?
   if (expected === "") return tr.remove(UnresolvedNodeRange.select(node));
 
   const diff = diffText(node.text, expected);
   if (diff.type === "none") return null;
   else if (diff.type === "replace")
-    return tr.removeText(node, diff.start, diff.end).insertText(diff.added, node, diff.start);
-  else if (diff.type === "insert") return tr.insertText(diff.change, node, diff.start);
-  else return tr.removeText(node, diff.start, diff.end);
+    return tr
+      .setSelection(UnresolvedRange.fromStart(node, diff.start + diff.added.length))
+      .removeText(node, diff.start, diff.end)
+      .insertText(diff.added, node, diff.start);
+  else if (diff.type === "insert")
+    return tr //
+      .setSelection(UnresolvedRange.fromStart(node, diff.start + diff.change.length))
+      .insertText(diff.change, node, diff.start);
+
+  return tr //
+    .setSelection(UnresolvedRange.fromStart(node, diff.start))
+    .removeText(node, diff.start, diff.end);
 }
 
 /**

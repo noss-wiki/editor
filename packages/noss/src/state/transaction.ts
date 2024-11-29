@@ -4,7 +4,7 @@ import type { Text } from "../model/node";
 import type { Step } from "./step";
 import type { Resolvable } from "../types";
 import { Selection } from "../model/selection";
-import { Ok, Err } from "@noss-editor/utils";
+import { Ok, Err, all } from "@noss-editor/utils";
 import { Node } from "../model/node";
 import { NodeType } from "../model/nodeType";
 import { AnchorPosition, Position } from "../model/position";
@@ -15,10 +15,9 @@ import { NodeRange, UnresolvedNodeRange } from "../model/range";
 export class Transaction {
   readonly steps: Result<Step, string>[] = [];
   readonly diff: Result<Diff, string>[] = [];
+
   readonly original: Node;
   readonly history: boolean;
-
-  public selection: Selection = Selection.empty;
 
   /**
    * The modified boundary with all the steps applied to it.
@@ -27,20 +26,13 @@ export class Transaction {
     return this.diff[this.diff.length - 1].try((diff) => diff.modified);
   }
 
+  private mappedSelection: Result<Selection, string>[] = [];
+
   /**
-   * A getter that returns a Result containing the mapped selection through this transaction.
+   * The selection that was mapped through all the steps that are part of this Transaction.
    */
-  get mappedSelection(): Result<Selection, null> {
-    let last = this.selection.ranges[0];
-    for (const diff of this.diff) {
-      if (diff.err) return Err();
-
-      const res = diff.val.mapRange(last);
-      if (res.err) return Err();
-      last = res.val;
-    }
-
-    return Ok(new Selection(last));
+  get selection(): Result<Selection, string> {
+    return this.mappedSelection[this.mappedSelection.length - 1];
   }
 
   get hasErrors(): boolean {
@@ -64,7 +56,9 @@ export class Transaction {
     this.diff = [Ok(Diff.none(boundary))];
     this.history = addToHistory;
 
-    this.state.getSelection(boundary).map((val) => (this.selection = val));
+    const val = this.state.getSelection(boundary);
+    if (val.ok) this.mappedSelection[0] = val;
+    else this.mappedSelection[0] = Ok(Selection.empty);
   }
 
   private resolve(pos: Resolvable<Position>): Result<Position, string> {
@@ -85,16 +79,28 @@ export class Transaction {
       return this;
     }
 
-    const diff = this.modified
+    const _diff = this.modified
       .replaceErr("Failed to add step to transaction")
       .try((mod) => step.val.apply(mod))
       .trace("Transaction.step");
-    this.diff.push(diff);
+    this.diff.push(_diff);
+
+    const res = all(_diff, this.selection)
+      .replaceErr("Failed to map selection")
+      .try(([diff, sel]) => {
+        if (sel.empty) return Ok(Selection.empty);
+
+        return diff.mapRange(sel.ranges[0]).map((r) => new Selection(r));
+      })
+      .trace("Transaction.step");
+    this.mappedSelection.push(res);
+
     return this;
   }
 
-  setSelection(selection: Selection) {
-    this.selection = selection;
+  setSelection(selection: Resolvable<Selection>) {
+    const sel = this.modified.try((mod) => Selection.resolve(mod, selection));
+    this.mappedSelection[this.mappedSelection.length - 1] = sel;
     return this;
   }
 

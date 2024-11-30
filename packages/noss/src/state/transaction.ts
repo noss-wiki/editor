@@ -145,25 +145,10 @@ export class Transaction {
    */
   insertText(text: string, node: Text, offset: number): this;
   insertText(text: string, _pos: Resolvable<Position> | Node, _offset?: number): this {
-    const fn = (pos: Resolvable<Position>) => {
-      const position = this.resolve(pos);
-      if (position.err) return this.step(position.traceMessage("Failed to create step", "Transaction.insertText"));
+    const insert = createTextNode(text);
+    if (_pos instanceof Node) return this.insert(insert, AnchorPosition.offset(_pos, _offset as number));
 
-      // Position doesn't point into a text node
-      if (position.val.offset() === 0) return this.insert(createTextNode(text), position.val);
-
-      // Position points into a text node
-      const textNode = position.val.parent as Text;
-      if (!textNode.type.schema.text)
-        return this.step(Err("Failed to create step; target node isn't a text node", "Transaction.insertText"));
-
-      const node = textNode.insert(position.val.offset(), text);
-      return this.replaceChild(textNode, node);
-    };
-
-    if (!(_pos instanceof Node)) return fn(_pos);
-    // biome-ignore lint/style/noNonNullAssertion : _offset is defined when _pos is a Node
-    return fn(AnchorPosition.offset(_pos, _offset!));
+    return this.insert(insert, _pos);
   }
 
   remove(range: Resolvable<NodeRange>) {
@@ -184,7 +169,7 @@ export class Transaction {
   removeText(node: Text, start: number, end: number): this;
   removeText(node: Text, start: number, end: number) {
     if (start === 0 && end === node.contentSize) return this.remove(UnresolvedNodeRange.select(node));
-    return this.replaceChild(node, node.remove(start, end));
+    return this.remove(UnresolvedNodeRange.between(node, start, end));
   }
   //replace
 

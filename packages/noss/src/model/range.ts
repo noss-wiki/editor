@@ -168,8 +168,14 @@ export class UnresolvedNodeRange extends UnresolvedRange {
   static select(node: Node) {
     return new UnresolvedNodeRange(AnchorPosition.before(node), AnchorPosition.after(node));
   }
+
+  static between(node: Node, start: number, end: number) {
+    return new UnresolvedNodeRange(AnchorPosition.offset(node, start), AnchorPosition.offset(node, end));
+  }
 }
 
+// TODO: Rename to `FlatRange`?
+// - than rename `SingleNodeRange` to `NodeRange`
 /**
  * A {@link Range} that only contains whole nodes, this means that the parents of the positions are the same.
  * The content in this range, is one or more nodes.

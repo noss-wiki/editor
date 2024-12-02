@@ -58,7 +58,7 @@ export class Change implements Serializable<SerializedChange> {
 
     const parent = this.range.anchor.parent;
     if (parent.type.schema.text) {
-      if (!this.modified || !this.modified.type.schema.text)
+      if (this.modified && !this.modified.type.schema.text)
         return Err("Can't insert non-text node into a text node", "Change.reconstruct");
 
       this.changeIsTextReplacement = true;
@@ -147,6 +147,20 @@ export class Change implements Serializable<SerializedChange> {
   static fromMultiple(range: NodeRange, nodes: Node[]): Result<Change[], string> {
     const changes: Change[] = [];
     let pos = range.first.absolute;
+    if (range.text !== null) {
+      const singleRange = range.toSingleNodeRange();
+      if (singleRange.err) return singleRange.trace("Change.fromMultiple", "static");
+
+      changes.push(new Change(singleRange.val));
+      for (const n of nodes) {
+        if (!n.type.schema.text)
+          return Err("Can't insert non-text node into a text node", "Change.fromMultiple", "static");
+        changes.push(new Change(new AbsoluteRange(range.first.absolute), n));
+      }
+
+      return Ok(changes);
+    }
+
     for (const n of range.nodesBetween()) changes.push(new Change(new AbsoluteRange(pos, (pos += n.nodeSize))));
     for (const n of nodes) changes.push(new Change(new AbsoluteRange(range.first.absolute), n));
     return Ok(changes);

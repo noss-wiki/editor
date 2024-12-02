@@ -1,5 +1,5 @@
 import { MethodError, Ok, wrap, type Result } from "@noss-editor/utils";
-import type { Node } from "./node";
+import type { Node, Text } from "./node";
 import type { Resolvable, Serializable, Serialized } from "../types";
 import { AnchorPosition, Position } from "./position";
 
@@ -184,7 +184,14 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
   /** @internal */
   declare readonly __resolvable?: UnresolvedNodeRange;
 
+  /**
+   * The common parent node between the anchor and focus positions.
+   */
   readonly parent: Node;
+  /**
+   * The text content of this range, if the parent node is a text node.
+   */
+  readonly text: string | null = null;
   readonly childCount: number;
 
   constructor(anchor: Position, focus?: Position) {
@@ -197,7 +204,10 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
       );
 
     this.parent = this.anchor.parent;
-    this.childCount = this.first.index() - this.last.index() + 1;
+    this.childCount = this.last.index() - this.first.index();
+
+    if (this.parent.type.schema.text)
+      this.text = (this.parent as Text).text.slice(this.first.offset(), this.last.offset());
   }
 
   nodesBetween() {

@@ -198,14 +198,21 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
   }
 
   setSelection(sel: Selection) {
-    const range = sel.ranges[0];
-    if (!range) return;
-    const anchor = this.toRendered(range.anchor.parent);
-    const focus = this.toRendered(range.focus.parent);
-
-    if (anchor.err || focus.err) return;
     const selection = window.getSelection();
-    selection?.setBaseAndExtent(anchor.val, range.anchor.offset(), focus.val, range.focus.offset());
+    if (!selection) return;
+
+    selection.removeAllRanges();
+    for (const range of sel.ranges) {
+      console.log(range);
+      const anchor = this.toRendered(range.anchor.parent);
+      const focus = this.toRendered(range.focus.parent);
+      if (anchor.err || focus.err) continue; // warn
+
+      const domRange = document.createRange();
+      domRange.setStart(anchor.val, range.anchor.offset());
+      domRange.setEnd(focus.val, range.focus.offset());
+      selection.addRange(domRange);
+    }
   }
 
   // event handlers

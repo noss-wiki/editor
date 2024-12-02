@@ -120,7 +120,7 @@ export class DOMObserver {
       const tr = this.view.state.tr;
       if (sel.err) return sel.trace("DOMObserver.callback", "private");
 
-      calculateText(this.view.state.tr, node.val as Text, text.data);
+      calculateText(tr, node.val as Text, text.data);
       return Ok(tr.setSelection(sel.val.ranges[0].absolute)); // TODO: Add support for multiple ranges
     } else if (record.type === "childList") {
       const tr = this.view.state.tr;

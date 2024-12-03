@@ -76,6 +76,7 @@ export class Transaction {
     if (step.err) {
       const diff = step.traceMessage("Failed to apply step; step has errors", "Transaction.step");
       this.diff.push(diff);
+      this.mappedSelection.push(diff);
       return this;
     }
 

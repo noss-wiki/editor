@@ -27,10 +27,12 @@ export class Position implements Serializable<number> {
   }
 
   private getAbsolute(): number {
-    let abs = 0;
-    for (const { offset } of this.steps) abs += offset + 1; // Add the tag
-    // Final tag doesn't count
-    return abs - 1;
+    let abs = this.steps[0].offset; // document doesn't have opening tag
+    for (const { offset, parent } of this.steps.slice(1))
+      if (parent.type.schema.text) abs += offset;
+      else abs += offset + 1;
+
+    return abs;
   }
 
   /**
@@ -92,6 +94,8 @@ export class Position implements Serializable<number> {
 
   // Static methods
 
+  // TODO: When pos at and of text node, parent node is selected, but text node should still be active (deepest possible)
+
   static resolve: Resolver<Position> = (boundary: Node, pos: Resolvable<Position>): Result<Position, string> => {
     // TODO: Cached results and use it
     if (pos instanceof Position) return Ok(pos);
@@ -120,21 +124,31 @@ export class Position implements Serializable<number> {
     const steps: LocateStep[] = [];
 
     const deepestOffset = (parent: Node, offset: number): Result<LocateStep, null> => {
-      if (offset === 0) return Ok({ parent, index: 0, offset: 0 });
-      else if (offset > parent.contentSize) return Err();
-
-      if (parent.type.schema.text || parent instanceof Text) return Ok({ parent, index: 0, offset });
+      if (offset > parent.contentSize) return Err();
+      else if (parent.type.schema.text || parent instanceof Text) return Ok({ parent, index: 0, offset });
       else if (parent.type.schema.inline) return Err();
 
       let nodeOffset = 0;
       for (const [c, index] of parent.content.iter()) {
-        if (offset === 0) return Ok({ parent, index, offset: nodeOffset });
-        else if (offset === c.nodeSize) return Ok({ parent, index: index + 1, offset: nodeOffset + c.nodeSize });
-        else if (offset > c.nodeSize) {
+        if (offset === 0) {
+          if (c.type.schema.text) {
+            steps.push({ parent, index, offset: nodeOffset });
+            return Ok({ parent: c, index: 0, offset: 0 });
+          }
+          return Ok({ parent, index, offset: nodeOffset });
+        } else if (offset === c.nodeSize) {
+          if (c.type.schema.text) {
+            steps.push({ parent, index, offset: nodeOffset });
+            return Ok({ parent: c, index: 0, offset: c.nodeSize });
+          }
+          return Ok({ parent, index: index + 1, offset: nodeOffset + c.nodeSize });
+        } else if (offset > c.nodeSize) {
           offset -= c.nodeSize;
           nodeOffset += c.nodeSize;
         } else {
           steps.push({ parent, index, offset: nodeOffset });
+          if (c.type.schema.text) return deepestOffset(c, offset);
+
           return deepestOffset(c, offset - 1);
         }
       }
@@ -144,7 +158,8 @@ export class Position implements Serializable<number> {
 
     const result = deepestOffset(boundary, pos);
     if (result.err) return Err("Failed to resolve absolute position", "Position.resolveAbsolute", "static");
-    else return Ok(new Position([...steps, result.val], pos));
+
+    return Ok(new Position([...steps, result.val]));
   }
 
   static absolute(pos: AbsoluteLike) {

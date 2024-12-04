@@ -1,7 +1,7 @@
 import type { Resolvable, Resolver, Serializable } from "../types";
 import type { Result } from "@noss-editor/utils";
 import type { Fragment } from "./fragment";
-import { Ok, Err, wrap } from "@noss-editor/utils";
+import { Ok, Err, MethodError } from "@noss-editor/utils";
 import { Node, Text } from "./node";
 
 export type AbsoluteLike = Position | number;
@@ -86,6 +86,14 @@ export class Position implements Serializable<number> {
    */
   end(depth?: number) {
     return this.start(depth) + this.node(depth).nodeSize;
+  }
+
+  /**
+   * Gets the common ancestor of this position and the given position.
+   * @throws {MethodError} If the positions have different boundaries.
+   */
+  commonAncestor(other: Position) {
+    return Position.commonAncestor(this, other);
   }
 
   toJSON(): number {
@@ -213,6 +221,19 @@ export class Position implements Serializable<number> {
     }
 
     return { index: content.childCount, offset: o };
+  }
+
+  /**
+   * Gets the common ancestor of the two given positions.
+   * @throws {MethodError} If the positions have different boundaries.
+   */
+  static commonAncestor(pos: Position, other: Position): Node {
+    if (pos.boundary !== other.boundary)
+      throw new MethodError("Positions have different boundaries", "Position.commonAncestor");
+
+    let depth = 0;
+    while (pos.node(depth) === other.node(depth)) depth++;
+    return pos.node(Math.max(depth - 1, 0));
   }
 }
 

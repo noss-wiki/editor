@@ -23,9 +23,6 @@ interface BaseResult<A, B> {
   readonly ok: boolean;
   readonly err: boolean;
 
-  isOk(): boolean;
-  isErr(): boolean;
-
   /**
    * Extracts the `Ok` value, returning a default value if the result is an `Err`.
    */
@@ -35,10 +32,24 @@ interface BaseResult<A, B> {
    */
   or(fallback: Result<A, B>): Result<A, B>;
   /**
+   * 'Taps' into the result, calling `callback` with the value if this is an `Ok`.
+   * This doesn't modify the result, if you want to modify the `Ok` value, use `map` instead.
+   */
+  tap(callback: (val: A) => void): this;
+  /**
+   * 'Taps' into the result, calling `callback` with the value if this is an `Err`.
+   * This doesn't modify the result, if you want to modify the `Err` value, use `mapErr` instead.
+   */
+  tapErr(callback: (val: B) => void): this;
+  /**
    * Updates the value held within the `Ok` of this result by calling `callback` with it.
-   * If this is an `Err` rather than `Ok` `callback` is not called and this `Result` stays the same.
+   * If this is an `Err` rather than `Ok`, `callback` is not called and this `Result` stays the same.
    */
   map<C>(callback: (val: A) => C): Result<C, B>;
+  /**
+   * Updates the value held within the `Err` of this result by calling `callback` with it.
+   * If this is an `Ok` rather than `Err`, `callback` is not called and this `Result` stays the same.
+   */
   mapErr<C>(callback: (val: B) => C): Result<A, C>;
   /**
    * Updates this `Ok` result by passing its value to a function that returns a `Result`, and returning the updated result. (This may replace the `Ok` with an `Err`.)
@@ -76,10 +87,8 @@ interface Ok<A> extends BaseResult<A, never> {
   readonly ok: true;
   readonly err: false;
 
-  isOk(): true;
-  isErr(): false;
-
   or(): this;
+  tapErr(): this;
   mapErr(): this;
   tryRecover(): this;
   replaceErr(): this;
@@ -105,11 +114,9 @@ interface Err<B> extends BaseResult<never, B> {
   readonly err: true;
   readonly stackTrace: Trace[];
 
-  isOk(): false;
-  isErr(): true;
-
   toThrowable(): MethodError;
 
+  tap(): this;
   map(): this;
   try(): this;
   replace(): this;
@@ -129,10 +136,8 @@ class Ok_<A> implements Ok<A> {
 
   constructor(readonly val: A) {}
 
-  isOk = () => true as const;
-  isErr = () => false as const;
-
   or = () => this;
+  tapErr = () => this;
   mapErr = () => this;
   tryRecover = () => this;
   replaceErr = () => this;
@@ -143,6 +148,11 @@ class Ok_<A> implements Ok<A> {
 
   unwrap(): A {
     return this.val;
+  }
+
+  tap(callback: (val: A) => void) {
+    callback(this.val);
+    return this;
   }
 
   map<C extends (val: A) => unknown>(callback: C) {
@@ -178,9 +188,6 @@ class Err_<B> implements Err<B> {
     this.stackTrace = stackTrace || [];
   }
 
-  isOk = () => false as const;
-  isErr = () => true as const;
-
   toThrowable() {
     const msg = typeof this.val === "string" ? this.val : "An error occurred with a non-string error msg";
     return new MethodError(
@@ -189,6 +196,7 @@ class Err_<B> implements Err<B> {
     );
   }
 
+  tap = () => this;
   map = () => this;
   try = () => this;
   replace = () => this;
@@ -199,6 +207,11 @@ class Err_<B> implements Err<B> {
 
   or<A>(fallback: A): A {
     return fallback;
+  }
+
+  tapErr(callback: (val: B) => void) {
+    callback(this.val);
+    return this;
   }
 
   mapErr<C>(callback: (val: B) => C) {

@@ -203,7 +203,6 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
 
     selection.removeAllRanges();
     for (const range of sel.ranges) {
-      console.log(range);
       const anchor = this.toRendered(range.anchor.parent);
       const focus = this.toRendered(range.focus.parent);
       if (anchor.err || focus.err) continue; // warn

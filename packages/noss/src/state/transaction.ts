@@ -18,6 +18,11 @@ export class Transaction {
 
   readonly original: Node;
   readonly history: boolean;
+  /**
+   * When a `Transaction` is sealed, no more steps can be added to it.
+   * A transaction needs to be sealed before being applied to the state.
+   */
+  public sealed = false;
 
   /**
    * The modified boundary with all the steps applied to it.
@@ -72,6 +77,8 @@ export class Transaction {
    * @returns A Result containing either the new boundary or an error message.
    */
   step(step: Result<Step, string>): this {
+    if (this.sealed) return this; // throw?
+
     this.steps.push(step);
     if (step.err) {
       const diff = step.traceMessage("Failed to apply step; step has errors", "Transaction.step");
@@ -100,6 +107,8 @@ export class Transaction {
   }
 
   setSelection(selection: Resolvable<Selection>) {
+    if (this.sealed) return this; // throw?
+
     const sel = this.modified.try((mod) => Selection.resolve(mod, selection));
     this.mappedSelection[this.mappedSelection.length - 1] = sel;
     return this;
@@ -152,6 +161,7 @@ export class Transaction {
     return this.insert(insert, _pos);
   }
 
+  // TODO: Add support for general `Range`
   remove(range: Resolvable<NodeRange>) {
     // TODO: First check if range resolves inside text node, then use removeText, otherwise continue
     return this.step(Ok(new ReplaceNodeStep(range, undefined)));
@@ -175,8 +185,7 @@ export class Transaction {
   //replace
 
   replaceRange(range: NodeRange, node: Node) {
-    this.step(Ok(new ReplaceNodeStep(range, node)));
-    return this;
+    return this.step(Ok(new ReplaceNodeStep(range, node)));
   }
 
   replaceChild(old: Node, modified: Node) {
@@ -186,6 +195,18 @@ export class Transaction {
       return this.step(
         range.traceMessage("Failed to create step; failed to create NodeRange", "Transaction.replaceChild"),
       );
+  }
+
+  // Sealing
+
+  toResult(): Result<this, string> {
+    return this.modified.replace(this);
+  }
+
+  seal(): Result<this, string> {
+    return this.toResult()
+      .tap(() => (this.sealed = true))
+      .traceMessage("Failed to seal transaction; transaction has errors", "Transaction.seal");
   }
 }
 

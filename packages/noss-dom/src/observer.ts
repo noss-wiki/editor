@@ -121,7 +121,7 @@ export class DOMObserver {
       if (sel.err) return sel.trace("DOMObserver.callback", "private");
 
       calculateText(tr, node.val as Text, text.data);
-      return Ok(tr.setSelection(sel.val.ranges[0].absolute)); // TODO: Add support for multiple ranges
+      return tr.setSelection(sel.val.ranges[0].absolute).seal(); // TODO: Add support for multiple ranges
     } else if (record.type === "childList") {
       const tr = this.view.state.tr;
       for (const c of record.addedNodes) {
@@ -176,12 +176,11 @@ export class DOMObserver {
       }
 
       if (tr.steps.length === 0) return Ok(null);
-      else return Ok(tr);
+      else return tr.seal();
     }
     return Err("Unhandled case");
   }
 
-  // TODO: Fix behaviour of observer when insertParagraph is different than this one
   private beforeInput(e: InputEvent): Result<Transaction | null, string> {
     // TODO: Does every type need selection? else move this so it's only called when needed
     // TODO: Some behaviour should not happen on input, as keybindings can be different
@@ -193,55 +192,29 @@ export class DOMObserver {
       const range = sel.val.ranges[0];
       if (!range.isCollapsed) return Ok(null); // TODO: Also implement this case
 
-      let anchor = range.anchor;
-      let text = anchor.parent as Text;
-      if (!text.type.schema.text)
-        if (anchor.offset() === 0 && text.content.softChild(0)?.type.schema.text) {
-          text = text.content.child(0) as Text;
-          const pos = AnchorPosition.offset(text, 0).resolve(anchor.boundary);
-          if (pos.err) return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
-          anchor = pos.val;
-        } else return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
+      const anchor = range.anchor;
+      if (!anchor.parent.type.schema.text)
+        return Err("Selection parent node should be a text node", "DOMObserver.beforeInput", "private");
 
       const parent = anchor.node(-1);
       const offset = Position.indexToOffset(parent, anchor.index()).map((o) => o + anchor.offset());
       if (offset.err) return offset.trace("DOMObserver.beforeInput", "private");
       // TODO: Doesn't quite yet work with multiple nodes
       const curr = parent.cut(0, offset.val);
-      const newlineNode = resetIds(parent.cut(offset.val)); // temp hack
+      const newlineNode = parent.cut(offset.val);
 
       return defaultNode(newlineNode.content)
         .replaceErr("Failed to get default Node")
-        .try((node) => {
-          const tr = this.view.state.tr
+        .try((node) =>
+          this.view.state.tr
             .insertChild(node, anchor.node(-2), anchor.index(-2) + 1)
-            .replaceChild(parent, curr);
-
-          return tr.modified
-            .try((boundary) => UnresolvedRange.fromStart(node, 0).resolve(boundary))
-            .map((range) => tr.setSelection(new Selection(range)))
-            .map(() => e.preventDefault()) // Ensure it's only cancelled if succesfull
-            .trace("DOMObserver.beforeInput", "private")
-            .map<Transaction, string>(() => tr);
-        });
-    }
-    // else if (e.inputType === "insertLineBreak") {
-    //   if (!sel.val.isCollapsed) return Ok(null);
-    //   // TODO: Maybe implement a different way of handling this (maybe a hook on EditorView, or prop on DOMNodeView?)
-    //   const node = this.view.parse(document.createElement("br"), undefined, false);
-    //   if (node.err) return node.trace("DOMObserver.beforeInput", "private");
-    //   else if (!node.val) {
-    //     e.preventDefault();
-    //     return Err(
-    //       "Failed to insert hard break, no nodeView parses from a br element. Which is default behaviour",
-    //       "DOMObserver.beforeInput",
-    //       "private",
-    //     );
-    //   }
-
-    //   // TODO: Try to insert hard break, prob do parseNode with `br`.
-    // }
-    else console.log(e.inputType);
+            .replaceChild(parent, curr)
+            .setSelection(UnresolvedRange.fromStart(node, 0))
+            .seal()
+            .tap(() => e.preventDefault())
+            .trace("DOMObserver.beforeInput", "private"),
+        );
+    } else console.log(e.inputType);
     return Ok(null);
   }
 }
@@ -306,15 +279,4 @@ function getIndex(record: MutationRecord, node: globalThis.Node): Result<number,
     if (index !== -1) return Ok(index);
   }
   return Err();
-}
-
-// Temporary fix
-function resetIds(node: Node): Node {
-  // biome-ignore lint/style/noNonNullAssertion : Node is text node
-  if (node.type.schema.text) return node.new(node.text!);
-
-  const nodes: Node[] = [];
-  for (const [c] of node.content.iter()) nodes.push(resetIds(c));
-
-  return node.new(Fragment.from(nodes));
 }

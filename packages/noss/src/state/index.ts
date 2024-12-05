@@ -55,6 +55,7 @@ export class EditorState {
   }
 
   apply(tr: Transaction): Result<Node, string> {
+    if (!tr.sealed) return Err("Failed to apply transaction; transaction hasn't been sealed", "EditorState.apply");
     // emit some event where the transction can be modified / cancelled?
     return this.reconstruct(tr)
       .try((doc) => {

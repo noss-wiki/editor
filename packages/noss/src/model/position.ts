@@ -232,7 +232,7 @@ export class Position implements Serializable<number> {
       throw new MethodError("Positions have different boundaries", "Position.commonAncestor");
 
     let depth = 0;
-    while (pos.node(depth) === other.node(depth)) depth++;
+    while (depth <= pos.depth && pos.node(depth) === other.node(depth)) depth++;
     return pos.node(Math.max(depth - 1, 0));
   }
 }

@@ -79,7 +79,7 @@ export class Range implements Serializable<SerializedRange> {
     this.isCollapsed = !focus || this.anchor === this.focus || this.anchor.absolute === this.focus.absolute;
     this.size = this.isCollapsed ? 0 : Math.abs(this.focus.absolute - this.anchor.absolute);
     this.absolute = new AbsoluteRange(this.anchor.absolute, this.focus.absolute);
-    this.commonParent = this.anchor.commonAncestor(this.focus);
+    this.commonParent = Position.commonAncestor(this.anchor, this.focus);
 
     if (this.anchor.absolute < this.focus.absolute) {
       this.direction = "forward";

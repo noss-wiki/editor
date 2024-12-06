@@ -228,12 +228,20 @@ export class Position implements Serializable<number> {
    * @throws {MethodError} If the positions have different boundaries.
    */
   static commonAncestor(pos: Position, other: Position): Node {
+    return pos.node(Position.commonDepth(pos, other));
+  }
+
+  /**
+   * Gets the common depth of the two given positions, i.e. the depth of the common ancestor.
+   * @throws {MethodError} If the positions have different boundaries.
+   */
+  static commonDepth(pos: Position, other: Position): number {
     if (pos.boundary !== other.boundary)
       throw new MethodError("Positions have different boundaries", "Position.commonAncestor");
 
     let depth = 0;
     while (depth <= pos.depth && pos.node(depth) === other.node(depth)) depth++;
-    return pos.node(Math.max(depth - 1, 0));
+    return Math.max(depth - 1, 0);
   }
 }
 

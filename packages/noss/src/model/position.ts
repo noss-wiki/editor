@@ -27,12 +27,8 @@ export class Position implements Serializable<number> {
   }
 
   private getAbsolute(): number {
-    let abs = this.steps[0].offset; // document doesn't have opening tag
-    for (const { offset, parent } of this.steps.slice(1))
-      if (parent.type.schema.text) abs += offset;
-      else abs += offset + 1;
-
-    return abs;
+    // start position at depth + node offset + node starting tag if not document and not text node
+    return this.start() + this.offset() + +(this.depth >= 1 && !this.parent.type.schema.text);
   }
 
   /**
@@ -74,8 +70,13 @@ export class Position implements Serializable<number> {
     const d = resolveDepth(depth, this.steps.length - 1);
     if (d === 0) return 0;
 
-    let abs = 0;
-    for (const { offset } of this.steps.slice(0, d - 1)) abs += offset;
+    let abs = this.steps[0].offset; // document doesn't have opening tag
+    if (d === 1) return abs;
+
+    for (const { offset, parent } of this.steps.slice(1, d)) //abs += offset + +!parent.type.schema.text;
+      if (parent.type.schema.text) abs += offset;
+      else abs += 1 + offset;
+
     return abs;
   }
 
@@ -86,6 +87,15 @@ export class Position implements Serializable<number> {
    */
   end(depth?: number) {
     return this.start(depth) + this.node(depth).nodeSize;
+  }
+
+  /**
+   * Gets the relative distance between this position and the position at `depth`.
+   * @param depth The depth of the node, undefined results in the max depth, and negative values are relative to the max depth.
+   * @throws {RangeError} If the depth is invalid.
+   */
+  relative(depth?: number) {
+    return this.absolute - this.start(depth);
   }
 
   /**

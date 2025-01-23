@@ -1,7 +1,7 @@
 import type { Node, Text } from "./node";
 import type { Position } from "./position";
-import type { Slice } from "./slice";
 import type { Serializable, Serialized } from "../types";
+import { Slice } from "./slice";
 import { MethodError, NotImplementedError } from "@noss-editor/utils";
 
 interface SerializedFragment {
@@ -178,8 +178,29 @@ export class Fragment implements Serializable<SerializedFragment> {
     }
   }
 
+  // TODO: Not thoroughly tested
   /**
    * Changes this fragment's content to only include the content between the given positions.
+   *
+   * @param from The starting position where to cut.
+   * @param to The end position, leave empty to cut until the end.
+   * @throws {MethodError} If the starting position is greater than the end position, or if one or more of the positions are outside of the allowed range.
+   */
+  slice(from: number, to: number = this.size): Slice {
+    // TODO: Verify if content is allowed before removing
+    if (from === to) return Slice.empty;
+    else if (from < 0 || from > to || to < 0 || to > this.size)
+      throw new MethodError(
+        `One or more of the positions ${from} and ${to} are outside of the allowed range`,
+        "Fragment.remove",
+      );
+
+    const { nodes, size, start, end } = this.cutOffsets(from, to);
+    return new Slice(new Fragment(nodes, size), from - start, end - to);
+  }
+
+  /**
+   * Simpler version of slice, doesn´t fully 'cut' nodes.
    * This does not cut non-text nodes in half, meaning if the starting position is inside of a node, that entire node is included.
    *
    * @param from The starting position where to cut.
@@ -194,6 +215,13 @@ export class Fragment implements Serializable<SerializedFragment> {
         "Fragment.cut",
       );
 
+    const { nodes, size } = this.cutOffsets(from, to);
+    return new Fragment(nodes, size);
+  }
+
+  private cutOffsets(from: number, to = this.size) {
+    let start = from;
+    let end = to;
     let pos = 0;
     const nodes: Node[] = [];
     for (const [c, i] of this.iter()) {
@@ -205,6 +233,7 @@ export class Fragment implements Serializable<SerializedFragment> {
       if (pos < from) {
         const node = c.cut(from - pos);
         nodes.push(node);
+        start = pos + c.nodeSize - node.nodeSize;
         pos += node.nodeSize;
       } else if (pos + c.nodeSize <= to) {
         nodes.push(c);
@@ -212,11 +241,12 @@ export class Fragment implements Serializable<SerializedFragment> {
       } else {
         const node = c.cut(0, to - pos);
         nodes.push(node);
+        end = pos + c.nodeSize - node.nodeSize;
         pos += node.nodeSize;
       }
     }
 
-    return new Fragment(nodes, pos);
+    return { nodes, start, end, size: pos };
   }
 
   // TODO: Figure out what to return

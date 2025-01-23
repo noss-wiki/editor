@@ -74,8 +74,11 @@ export class Position implements Serializable<number> {
     const d = resolveDepth(depth, this.steps.length - 1);
     if (d === 0) return 0;
 
-    let abs = 0;
-    for (const { offset } of this.steps.slice(0, d - 1)) abs += offset;
+    let abs = this.steps[0].offset;
+    for (const { offset, parent } of this.steps.slice(1, d))
+      if (parent.type.schema.text) abs += offset;
+      else abs += offset + 1;
+
     return abs;
   }
 
@@ -86,6 +89,10 @@ export class Position implements Serializable<number> {
    */
   end(depth?: number) {
     return this.start(depth) + this.node(depth).nodeSize;
+  }
+
+  relative(depth?: number) {
+    return this.start() - this.start(depth);
   }
 
   /**
@@ -183,8 +190,8 @@ export class Position implements Serializable<number> {
       return Err("Can't convert index to offset for text nodes", "Position.indexToOffset", "static");
 
     const content = node instanceof Node ? node.content : node;
-    if (index === undefined) index = content.childCount - 1;
-    else if (index < 0) index = content.childCount - 1 + index;
+    if (index === undefined) index = content.childCount;
+    else if (index < 0) index = content.childCount + index;
 
     if (index < 0 || index > content.childCount)
       return Err(

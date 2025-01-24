@@ -2,6 +2,8 @@ import { MethodError, Ok, wrap, type Result } from "@noss-editor/utils";
 import type { Node, Text } from "./node";
 import type { Resolvable, Serializable, Serialized } from "../types";
 import { AnchorPosition, Position } from "./position";
+import { Slice } from "./slice";
+import { Fragment } from "./fragment";
 
 export class UnresolvedRange {
   readonly focus: Resolvable<Position>;
@@ -68,6 +70,7 @@ export class Range implements Serializable<SerializedRange> {
   readonly direction: "forward" | "backward";
   readonly absolute: AbsoluteRange;
 
+  readonly commonDepth: number;
   readonly commonParent: Node;
 
   constructor(
@@ -79,7 +82,9 @@ export class Range implements Serializable<SerializedRange> {
     this.isCollapsed = !focus || this.anchor === this.focus || this.anchor.absolute === this.focus.absolute;
     this.size = this.isCollapsed ? 0 : Math.abs(this.focus.absolute - this.anchor.absolute);
     this.absolute = new AbsoluteRange(this.anchor.absolute, this.focus.absolute);
-    this.commonParent = Position.commonAncestor(this.anchor, this.focus);
+
+    this.commonDepth = Position.commonDepth(this.anchor, this.focus);
+    this.commonParent = this.anchor.node(this.commonDepth);
 
     if (this.anchor.absolute < this.focus.absolute) {
       this.direction = "forward";
@@ -90,6 +95,14 @@ export class Range implements Serializable<SerializedRange> {
       this.first = this.focus;
       this.last = this.anchor;
     }
+  }
+
+  content(): Slice {
+    if (this.isCollapsed) return Slice.empty;
+
+    const start = this.first.offset() - this.first.start(this.commonDepth);
+    const content = this.commonParent.content.cut(start, start + this.size);
+    return new Slice(content, this.first.depth - this.commonDepth, this.last.depth - this.commonDepth);
   }
 
   resolve(): Result<this, never> {

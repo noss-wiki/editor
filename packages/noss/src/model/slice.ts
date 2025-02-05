@@ -1,3 +1,4 @@
+import { useLazyMemo } from "@noss-editor/utils";
 import { Fragment } from "./fragment";
 
 export class Slice {
@@ -11,10 +12,7 @@ export class Slice {
     this.size = this.content.size - this.startDepth - this.endDepth;
   }
 
-  private static emptySlice: Slice | undefined;
   static get empty() {
-    if (!Slice.emptySlice) Slice.emptySlice = new Slice(Fragment.empty, 0, 0);
-
-    return Slice.emptySlice;
+    return useLazyMemo(() => new Slice(Fragment.empty, 0, 0)).val;
   }
 }

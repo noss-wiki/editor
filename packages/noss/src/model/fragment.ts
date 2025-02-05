@@ -2,7 +2,7 @@ import type { Node, Text } from "./node";
 import type { Position } from "./position";
 import type { Serializable, Serialized } from "../types";
 import { Slice } from "./slice";
-import { MethodError, NotImplementedError } from "@noss-editor/utils";
+import { useLazyMemo, MethodError, NotImplementedError } from "@noss-editor/utils";
 
 interface SerializedFragment {
   size: number;
@@ -419,5 +419,7 @@ export class Fragment implements Serializable<SerializedFragment> {
     else return new Fragment([content]);
   }
 
-  static empty = new Fragment([], 0);
+  static get empty() {
+    return useLazyMemo(() => new Fragment([], 0)).val;
+  }
 }

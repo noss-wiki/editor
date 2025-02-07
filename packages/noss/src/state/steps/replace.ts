@@ -5,7 +5,7 @@ import { Err } from "@noss-editor/utils";
 import { Step } from "../step";
 import { Diff } from "../diff";
 import { Change } from "../change";
-import { NodeRange } from "../../model/range";
+import { FlatRange } from "../../model/range";
 
 export class ReplaceNodeStep extends Step {
   id = "replaceNode";
@@ -14,7 +14,7 @@ export class ReplaceNodeStep extends Step {
     /**
      * The start position in the document where to start replacing.
      */
-    readonly range: Resolvable<NodeRange>, // TODO: Also allow `AbsoluteLike`?
+    readonly range: Resolvable<FlatRange>, // TODO: Also allow `AbsoluteLike`?
     /**
      * The end position in the document where to stop replacing.
      */
@@ -24,7 +24,7 @@ export class ReplaceNodeStep extends Step {
   }
 
   apply(boundary: Node): Result<Diff, string> {
-    const range = NodeRange.resolve(boundary, this.range);
+    const range = FlatRange.resolve(boundary, this.range);
     if (range.err) return range.trace("ReplaceNodeStep.apply");
 
     if (range.val.anchor.boundary !== boundary)

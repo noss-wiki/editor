@@ -2,15 +2,7 @@ import type { DOMView } from "./view";
 import type { Node, NodeConstructor, Transaction, Text } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
-import {
-  NodeType,
-  Position,
-  Selection,
-  Fragment,
-  AnchorPosition,
-  UnresolvedNodeRange,
-  UnresolvedRange,
-} from "noss-editor";
+import { NodeType, Position, Selection, Fragment, UnresolvedRange, UnresolvedFlatRange } from "noss-editor";
 import { Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
@@ -172,7 +164,7 @@ export class DOMObserver {
         else if (!parent.val.content.contains(node.val))
           return Err("Node not found in parent node", "DOMObserver.callback", "private");
 
-        tr.remove(UnresolvedNodeRange.select(node.val));
+        tr.remove(UnresolvedFlatRange.select(node.val));
       }
 
       if (tr.steps.length === 0) return Ok(null);
@@ -232,7 +224,7 @@ function defaultNode(content?: Fragment | Node | Node[]): Result<Node, null> {
  */
 function calculateText(tr: Transaction, node: Text, expected: string): Transaction | null {
   // TODO: What sel here?
-  if (expected === "") return tr.remove(UnresolvedNodeRange.select(node));
+  if (expected === "") return tr.remove(UnresolvedFlatRange.select(node));
 
   const diff = diffText(node.text, expected);
   if (diff.type === "none") return null;

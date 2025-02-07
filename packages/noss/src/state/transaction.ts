@@ -10,7 +10,7 @@ import { NodeType } from "../model/nodeType";
 import { AnchorPosition, Position } from "../model/position";
 import { Diff } from "./diff";
 import { ReplaceNodeStep } from "./steps/replace";
-import { NodeRange, UnresolvedNodeRange } from "../model/range";
+import { FlatRange, UnresolvedFlatRange } from "../model/range";
 
 export class Transaction {
   readonly steps: Result<Step, string>[] = [];
@@ -121,7 +121,7 @@ export class Transaction {
    * @param pos The position where to insert the node, see {@link Position}.
    */
   insert(node: Node, pos: Resolvable<Position>) {
-    const range = new UnresolvedNodeRange(pos);
+    const range = new UnresolvedFlatRange(pos);
     return this.step(Ok(new ReplaceNodeStep(range, node)));
   }
 
@@ -162,13 +162,13 @@ export class Transaction {
   }
 
   // TODO: Add support for general `Range`
-  remove(range: Resolvable<NodeRange>) {
+  remove(range: Resolvable<FlatRange>) {
     // TODO: First check if range resolves inside text node, then use removeText, otherwise continue
     return this.step(Ok(new ReplaceNodeStep(range, undefined)));
   }
 
   removeChild(parent: Node, index?: number) {
-    const range = this.modified.try((boundary) => NodeRange.selectContent(boundary, parent, index, index));
+    const range = this.modified.try((boundary) => FlatRange.selectContent(boundary, parent, index, index));
     if (range.err)
       return this.step(
         range.traceMessage("Failed to create step; failed to create NodeRange", "Transaction.removeChild"),
@@ -179,17 +179,17 @@ export class Transaction {
 
   removeText(node: Text, start: number, end: number): this;
   removeText(node: Text, start: number, end: number) {
-    if (start === 0 && end === node.contentSize) return this.remove(UnresolvedNodeRange.select(node));
-    return this.remove(UnresolvedNodeRange.between(node, start, end));
+    if (start === 0 && end === node.contentSize) return this.remove(UnresolvedFlatRange.select(node));
+    return this.remove(UnresolvedFlatRange.between(node, start, end));
   }
   //replace
 
-  replaceRange(range: NodeRange, node: Node) {
+  replaceRange(range: FlatRange, node: Node) {
     return this.step(Ok(new ReplaceNodeStep(range, node)));
   }
 
   replaceChild(old: Node, modified: Node) {
-    const range = this.modified.try((boundary) => NodeRange.select(boundary, old));
+    const range = this.modified.try((boundary) => FlatRange.select(boundary, old));
     if (range.ok) return this.replaceRange(range.val, modified);
     else
       return this.step(

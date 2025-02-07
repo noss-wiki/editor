@@ -109,12 +109,12 @@ export class Range implements Serializable<SerializedRange> {
     return Ok(this);
   }
 
-  toNodeRange(): Result<NodeRange, string> {
-    return wrap(() => new NodeRange(this.anchor, this.focus)).trace("Range.toNodeRange");
+  asFlatRange(): Result<FlatRange, string> {
+    return wrap(() => new FlatRange(this.anchor, this.focus)).trace("Range.toNodeRange");
   }
 
-  toSingleNodeRange(): Result<SingleNodeRange, string> {
-    return wrap(() => new SingleNodeRange(this.anchor, this.focus)).trace("Range.toSingleNodeRange");
+  asNodeRange(): Result<NodeRange, string> {
+    return wrap(() => new NodeRange(this.anchor, this.focus)).trace("Range.toSingleNodeRange");
   }
 
   toJSON(): SerializedRange {
@@ -169,24 +169,23 @@ export class AbsoluteRange extends UnresolvedRange implements Serializable<Seria
     };
   }
 }
-
-interface SerializedNodeRange extends SerializedRange {
-  readonly type: "node" | "single";
-}
-
 // TODO: Just use `UnresolvedRange`?
-export class UnresolvedNodeRange extends UnresolvedRange {
-  override resolve(boundary: Node): Result<NodeRange, string> {
-    return this.resolvePositions(boundary).map(({ anchor, focus }) => new NodeRange(anchor, focus));
+export class UnresolvedFlatRange extends UnresolvedRange {
+  override resolve(boundary: Node): Result<FlatRange, string> {
+    return this.resolvePositions(boundary).map(({ anchor, focus }) => new FlatRange(anchor, focus));
   }
 
   static select(node: Node) {
-    return new UnresolvedNodeRange(AnchorPosition.before(node), AnchorPosition.after(node));
+    return new UnresolvedFlatRange(AnchorPosition.before(node), AnchorPosition.after(node));
   }
 
   static between(node: Node, start: number, end: number) {
-    return new UnresolvedNodeRange(AnchorPosition.offset(node, start), AnchorPosition.offset(node, end));
+    return new UnresolvedFlatRange(AnchorPosition.offset(node, start), AnchorPosition.offset(node, end));
   }
+}
+
+interface SerializedFlatRange extends SerializedRange {
+  readonly type: "node" | "single";
 }
 
 // TODO: Rename to `FlatRange`?
@@ -195,9 +194,9 @@ export class UnresolvedNodeRange extends UnresolvedRange {
  * A {@link Range} that only contains whole nodes, this means that the parents of the positions are the same.
  * The content in this range, is one or more nodes.
  */
-export class NodeRange extends Range implements Serializable<SerializedNodeRange> {
+export class FlatRange extends Range implements Serializable<SerializedFlatRange> {
   /** @internal */
-  declare readonly __resolvable?: UnresolvedNodeRange;
+  declare readonly __resolvable?: UnresolvedFlatRange;
 
   /**
    * The common parent node between the anchor and focus positions.
@@ -214,8 +213,8 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
 
     if (this.anchor.parent !== this.focus.parent)
       throw new MethodError(
-        "NodeRange can only be created with positions that have the same parent",
-        "NodeRange.constructor",
+        "FlatRange can only be created with positions that have the same parent",
+        "FlatRange.constructor",
       );
 
     this.parent = this.anchor.parent;
@@ -229,11 +228,11 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
     return this.parent.content.nodes.slice(this.first.index(), this.last.index());
   }
 
-  override toNodeRange(): Result<this, never> {
+  override asFlatRange(): Result<this, never> {
     return Ok(this);
   }
 
-  override toJSON(): SerializedNodeRange {
+  override toJSON(): SerializedFlatRange {
     return {
       type: "node",
       anchor: this.anchor.absolute,
@@ -241,49 +240,49 @@ export class NodeRange extends Range implements Serializable<SerializedNodeRange
     };
   }
 
-  static override resolve(boundary: Node, range: Resolvable<NodeRange>): Result<NodeRange, string> {
-    if (range instanceof NodeRange) return Ok(range);
-    return range.resolve(boundary).trace("NodeRange.resolve", "static");
+  static override resolve(boundary: Node, range: Resolvable<FlatRange>): Result<FlatRange, string> {
+    if (range instanceof FlatRange) return Ok(range);
+    return range.resolve(boundary).trace("FlatRange.resolve", "static");
   }
 
-  static select(boundary: Node, node: Node): Result<SingleNodeRange, string> {
+  static select(boundary: Node, node: Node): Result<NodeRange, string> {
     return AnchorPosition.before(node)
       .resolve(boundary)
       .try((anchor) =>
         AnchorPosition.after(node)
           .resolve(boundary)
-          .map((focus) => new SingleNodeRange(anchor, focus)),
+          .map((focus) => new NodeRange(anchor, focus)),
       )
-      .traceMessage("Failed to create NodeRange", "NodeRange.select", "static");
+      .traceMessage("Failed to create FlatRange", "FlatRange.select", "static");
   }
 
   /**
    * Creates a new NodeRange, selecting the content between the given indices in the parent node.
    */
-  static selectContent(boundary: Node, parent: Node, startIndex = 0, endIndex?: number): Result<NodeRange, string> {
+  static selectContent(boundary: Node, parent: Node, startIndex = 0, endIndex?: number): Result<FlatRange, string> {
     endIndex ??= parent.content.childCount - 1;
 
     return AnchorPosition.child(parent, startIndex)
       .resolve(boundary)
       .try((anchor) => {
-        if (startIndex === endIndex) return Ok(new NodeRange(anchor));
+        if (startIndex === endIndex) return Ok(new FlatRange(anchor));
 
         return AnchorPosition.child(parent, endIndex)
           .resolve(boundary)
-          .map((focus) => new NodeRange(anchor, focus));
+          .map((focus) => new FlatRange(anchor, focus));
       })
-      .traceMessage("Failed to create NodeRange", "NodeRange.selectContent", "static");
+      .traceMessage("Failed to create FlatRange", "FlatRange.selectContent", "static");
   }
 }
 
-interface SerializedSingleNodeRange extends SerializedRange {
+interface SerializedNodeRange extends SerializedRange {
   readonly type: "single";
 }
 
 /**
- * A {@link NodeRange} that contains a max of one node, so the content in this range, is either none, or a single node.
+ * A {@link FlatRange} that contains a max of one node, so the content in this range, is either none, or a single node.
  */
-export class SingleNodeRange extends NodeRange implements Serializable<SerializedSingleNodeRange> {
+export class NodeRange extends FlatRange implements Serializable<SerializedNodeRange> {
   readonly node?: Node;
 
   /**
@@ -294,18 +293,18 @@ export class SingleNodeRange extends NodeRange implements Serializable<Serialize
 
     if (this.childCount > 1)
       throw new MethodError(
-        "SingleNodeRange can only 'select' none, or a single node, but this range contains multiple nodes",
-        "SingleNodeRange.constructor",
+        "NodeRange can only 'select' none, or a single node, but this range contains multiple nodes",
+        "NodeRange.constructor",
       );
 
     if (!this.isCollapsed) this.node = this.parent.content.softChild(this.first.index());
   }
 
-  override toSingleNodeRange(): Result<SingleNodeRange, never> {
+  override asNodeRange(): Result<NodeRange, never> {
     return Ok(this);
   }
 
-  override toJSON(): SerializedSingleNodeRange {
+  override toJSON(): SerializedNodeRange {
     return {
       type: "single",
       anchor: this.anchor.absolute,

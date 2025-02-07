@@ -1,8 +1,8 @@
 import type { Result } from "@noss-editor/utils";
 import type { Node, Text } from "../model/node";
-import type { NodeRange, Range } from "../model/range";
+import type { FlatRange, Range } from "../model/range";
 import type { Serializable, Serialized } from "../types";
-import { AbsoluteRange, SingleNodeRange } from "../model/range";
+import { AbsoluteRange, NodeRange } from "../model/range";
 import { AnchorPosition, Position, type AbsoluteLike } from "../model/position";
 import { Err, Ok, wrap, all } from "@noss-editor/utils";
 
@@ -25,12 +25,12 @@ export class Change implements Serializable<SerializedChange> {
    */
   readonly size: number;
   public rangeIsCollapsed = false;
-  public range!: SingleNodeRange;
-  public mappedRange!: SingleNodeRange;
+  public range!: NodeRange;
+  public mappedRange!: NodeRange;
 
-  constructor(range: SingleNodeRange | AbsoluteRange, modified?: Node, changeIsTextReplacement?: boolean);
+  constructor(range: NodeRange | AbsoluteRange, modified?: Node, changeIsTextReplacement?: boolean);
   constructor(
-    private unresolvedRange: SingleNodeRange | AbsoluteRange,
+    private unresolvedRange: NodeRange | AbsoluteRange,
     readonly modified?: Node,
     /**
      * This flag is set to true if the change is a text replacement. So replacing a text node.
@@ -39,16 +39,12 @@ export class Change implements Serializable<SerializedChange> {
     public changeIsTextReplacement = false,
   ) {
     this.size = (this.modified?.nodeSize ?? 0) - this.unresolvedRange.size;
-    if (
-      unresolvedRange instanceof SingleNodeRange &&
-      unresolvedRange.node?.type.schema.text &&
-      modified?.type.schema.text
-    )
+    if (unresolvedRange instanceof NodeRange && unresolvedRange.node?.type.schema.text && modified?.type.schema.text)
       this.changeIsTextReplacement = true;
   }
 
   reconstruct(boundary: Node): Result<Node, string> {
-    const res = this.unresolvedRange.resolve(boundary).try((range) => range.toSingleNodeRange());
+    const res = this.unresolvedRange.resolve(boundary).try((range) => range.asNodeRange());
     if (res.err) return res.trace("Change.reconstruct");
     this.range = res.val;
     this.rangeIsCollapsed = this.range.isCollapsed;
@@ -83,12 +79,12 @@ export class Change implements Serializable<SerializedChange> {
 
   reconstructRange(modifiedBoundary: Node) {
     const res = Position.resolve(modifiedBoundary, this.range.first.absolute).try((first) => {
-      if (!this.modified) return Ok(new SingleNodeRange(first));
+      if (!this.modified) return Ok(new NodeRange(first));
 
       const lastAbs = this.range.last.absolute + this.size;
       return Position.resolve(modifiedBoundary, lastAbs).map((last) => {
-        if (this.range.first === this.range.anchor) return new SingleNodeRange(first, last);
-        else return new SingleNodeRange(last, first);
+        if (this.range.first === this.range.anchor) return new NodeRange(first, last);
+        else return new NodeRange(last, first);
       });
     });
 
@@ -144,11 +140,11 @@ export class Change implements Serializable<SerializedChange> {
   }
 
   // TODO: Can't create a new range form existing range.anchor, as it's boundary is different, so map the range through previous change
-  static fromMultiple(range: NodeRange, nodes: Node[]): Result<Change[], string> {
+  static fromMultiple(range: FlatRange, nodes: Node[]): Result<Change[], string> {
     const changes: Change[] = [];
     let pos = range.first.absolute;
     if (range.text !== null) {
-      const singleRange = range.toSingleNodeRange();
+      const singleRange = range.asNodeRange();
       if (singleRange.err) return singleRange.trace("Change.fromMultiple", "static");
 
       changes.push(new Change(singleRange.val));

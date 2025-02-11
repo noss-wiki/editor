@@ -55,7 +55,17 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         return renderNodeRecursive(change.modified)
           .replaceErr("Failed to render node")
           .try((rendered) =>
-            this.toRendered(anchor.parent).try((domParent) => insertAtIndex(domParent, rendered, anchor.index())),
+            this.toRendered(anchor.parent)
+              .tap((domParent) => {
+                // Remove trailing breaks
+                if (
+                  domParent.nodeType === DOMNode.ELEMENT_NODE &&
+                  domParent.childNodes.length !== 0 &&
+                  anchor.parent.childCount === 0
+                )
+                  (domParent as DOMElement).innerHTML = "";
+              })
+              .try((domParent) => insertAtIndex(domParent, rendered, anchor.index())),
           );
       };
 
@@ -92,6 +102,7 @@ export class DOMView extends EditorView<HTMLElement, NodeRoot> {
         );
     }
 
+    console.log(tr.selection);
     if (tr.selection.ok && !tr.selection.val.empty) this.setSelection(tr.selection.val);
     this.observer.start();
   }

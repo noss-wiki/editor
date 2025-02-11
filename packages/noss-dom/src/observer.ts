@@ -3,7 +3,7 @@ import type { Node, NodeConstructor, Transaction, Text } from "noss-editor";
 import type { Result } from "@noss-editor/utils";
 import type { DOMText } from "./types";
 import { NodeType, Position, Selection, Fragment, UnresolvedRange, UnresolvedFlatRange } from "noss-editor";
-import { Err, Ok, wrap } from "@noss-editor/utils";
+import { all, Err, Ok, wrap } from "@noss-editor/utils";
 import { DOMNode } from "./types";
 import { diffText } from "./diff";
 
@@ -126,8 +126,11 @@ export class DOMObserver {
         if (parent.err) return parent.trace("DOMObserver.callback", "private");
 
         if (c.nodeType === DOMNode.TEXT_NODE) {
-          if ((c as DOMText).data === "") continue;
-          const text = createTextNode((c as DOMText).data);
+          const domText = c as DOMText;
+          if (domText.data === "") continue;
+          const text = createTextNode(domText.data);
+          const sel = this.view.getSelection(tr.original);
+
           this.unChecked(() => {
             // Still set id on old node, so it can be resolved in other records that are part of the same mutation
             (<DOMNode>c)._node = text;
@@ -135,6 +138,8 @@ export class DOMObserver {
           });
 
           tr.insertChild(text, parent.val, index);
+          // Dom's selection already accounts for the added char, so just set this instead of mapping it.
+          all(tr.modified, sel).map(([_, sel]) => tr.setSelection(sel));
         } else if (c.nodeType === DOMNode.ELEMENT_NODE) {
           const element = c as HTMLElement;
 
@@ -145,9 +150,8 @@ export class DOMObserver {
           const node = parsed.val;
           element.setAttribute("data-pre-node", node.id);
 
-          tr.insertChild(node, parent.val, index);
-          tr.modified
-            .try((boundary) => UnresolvedRange.fromStart(node, 0).resolve(boundary))
+          tr.insertChild(node, parent.val, index)
+            .modified.try((boundary) => UnresolvedRange.fromStart(node, 0).resolve(boundary))
             .map((range) => tr.setSelection(new Selection(range)));
         }
       }

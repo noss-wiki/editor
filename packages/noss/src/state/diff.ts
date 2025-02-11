@@ -64,7 +64,8 @@ export class Diff {
 
     return this.modified
       .try((mod) => all(Position.resolve(mod, res.anchor), Position.resolve(mod, res.focus)))
-      .map(([anchor, focus]) => (range as Range).copy(anchor, focus));
+      .map(([anchor, focus]) => (range as Range).copy(anchor, focus))
+      .trace("Diff.mapRange");
   }
 
   // static initializers

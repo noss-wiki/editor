@@ -3,7 +3,6 @@ import type { Node, Text } from "./node";
 import type { Resolvable, Serializable, Serialized } from "../types";
 import { AnchorPosition, Position } from "./position";
 import { Slice } from "./slice";
-import { Fragment } from "./fragment";
 
 export class UnresolvedRange {
   readonly focus: Resolvable<Position>;

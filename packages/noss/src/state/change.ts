@@ -77,7 +77,7 @@ export class Change implements Serializable<SerializedChange> {
     }).trace("Change.reconstruct");
   }
 
-  reconstructRange(modifiedBoundary: Node) {
+  reconstructRange(modifiedBoundary: Node): Result<NodeRange, string> {
     const res = Position.resolve(modifiedBoundary, this.range.first.absolute).try((first) => {
       if (!this.modified) return Ok(new NodeRange(first));
 
@@ -89,7 +89,7 @@ export class Change implements Serializable<SerializedChange> {
     });
 
     if (res.ok) this.mappedRange = res.val;
-    return res;
+    return res.trace("Change.reconstructRange");
   }
 
   // TODO: Add special behavior for text replacement, to keep selection correct
@@ -107,7 +107,7 @@ export class Change implements Serializable<SerializedChange> {
     else abs = Math.max(absPos + this.size, anchor);
 
     if (typeof pos === "number") return Ok(abs as T);
-    else return Position.resolve(modifiedBoundary as Node, abs) as Result<T, string>;
+    else return Position.resolve(modifiedBoundary as Node, abs).trace("Change.map") as Result<T, string>;
   }
 
   /**
@@ -127,7 +127,8 @@ export class Change implements Serializable<SerializedChange> {
       Position.resolve(modifiedBoundary, this.map(anchor).val),
       Position.resolve(modifiedBoundary, this.map(focus).val),
     ) //
-      .map(([a, f]) => (range as Range).copy(a, f));
+      .map(([a, f]) => (range as Range).copy(a, f))
+      .trace("Change.mapRange");
   }
 
   //split // split the change into two ranges if it's a replace change

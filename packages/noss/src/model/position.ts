@@ -143,6 +143,7 @@ export class Position implements Serializable<number> {
 
     const deepestOffset = (parent: Node, offset: number): Result<LocateStep, null> => {
       if (offset > parent.contentSize) return Err();
+      else if (offset === 0 && parent.childCount === 0) return Ok({ parent, index: 0, offset: 0 });
       else if (parent.type.schema.text || parent instanceof Text) return Ok({ parent, index: 0, offset });
       else if (parent.type.schema.inline) return Err();
 

@@ -118,15 +118,14 @@ export class Change implements Serializable<SerializedChange> {
   mapRange(range: AbsoluteRange | Range, modifiedBoundary?: Node) {
     // TODO: Custom behaviour if replacing text nodes? to keep selection
     const { anchor, focus } = range.absolute;
+    const mappedAnchor = this.map(anchor).val;
+    const mappedFocus = this.map(focus).val;
 
-    if (typeof range.anchor === "number") return Ok(new AbsoluteRange(this.map(anchor).val, this.map(focus).val));
+    if (typeof range.anchor === "number") return Ok(new AbsoluteRange(mappedAnchor, mappedFocus));
     else if (!modifiedBoundary)
       return Err("Modified boundary is required to map a non-absolute range", "Change.mapRange");
 
-    return all(
-      Position.resolve(modifiedBoundary, this.map(anchor).val),
-      Position.resolve(modifiedBoundary, this.map(focus).val),
-    ) //
+    return all(Position.resolve(modifiedBoundary, mappedAnchor), Position.resolve(modifiedBoundary, mappedFocus))
       .map(([a, f]) => (range as Range).copy(a, f))
       .trace("Change.mapRange");
   }

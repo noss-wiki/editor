@@ -159,8 +159,11 @@ export class Position implements Serializable<number> {
           if (c.type.schema.text) {
             steps.push({ parent, index, offset: nodeOffset });
             return Ok({ parent: c, index: 0, offset: c.nodeSize });
-          }
-          return Ok({ parent, index: index + 1, offset: nodeOffset + c.nodeSize });
+          } else if (index >= parent.childCount - 1)
+            return Ok({ parent, index: index + 1, offset: nodeOffset + c.nodeSize });
+
+          offset -= c.nodeSize;
+          nodeOffset += c.nodeSize;
         } else if (offset > c.nodeSize) {
           offset -= c.nodeSize;
           nodeOffset += c.nodeSize;

@@ -2,7 +2,7 @@ import type { Result } from "@noss-editor/utils";
 import type { Slice } from "./slice";
 import type { NodeView } from "./view";
 import type { Serializable, Serialized } from "../types";
-import { Err, MethodError, NotImplementedError, stack } from "@noss-editor/utils";
+import { Cache, Err, MethodError, NotImplementedError, stack } from "@noss-editor/utils";
 import { TextView } from "./view";
 import { NodeType } from "./nodeType";
 import { Fragment } from "./fragment";
@@ -204,7 +204,7 @@ export abstract class Node implements Serializable<SerializedNode> {
     else return this.copy(this.content.replace(from, to, slice, this));
   }
 
-  private resolveCache: { [pos: number]: Position } = {};
+  readonly resolveCache = new Cache<number, Position>();
 
   /**
    * Resolves a position inside this nodes, using `Position.resolve`.
@@ -218,11 +218,12 @@ export abstract class Node implements Serializable<SerializedNode> {
     if (pos < 0 || pos > this.nodeSize)
       throw new MethodError(`The position ${pos}, is outside of the allowed range`, "Node.resolve");
 
-    if (this.resolveCache[pos] !== undefined) return this.resolveCache[pos];
+    if (this.resolveCache.has(pos)) return this.resolveCache.get(pos);
 
     const res = Position.resolve(this, pos);
     if (res.err) throw new MethodError("Failed to resolve position", "Node.resolve");
-    return (this.resolveCache[pos] = res.val);
+    this.resolveCache.set(pos, res.val);
+    return res.val;
   }
 
   /**

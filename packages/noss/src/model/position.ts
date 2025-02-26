@@ -115,10 +115,14 @@ export class Position implements Serializable<number> {
   // TODO: When pos at and of text node, parent node is selected, but text node should still be active (deepest possible)
 
   static resolve: Resolver<Position> = (boundary: Node, pos: Resolvable<Position>): Result<Position, string> => {
-    // TODO: Cached results and use it
     if (pos instanceof Position) return Ok(pos);
-    else if (typeof pos === "number")
-      return Position.resolveAbsolute(boundary, pos).trace("Position.resolve", "static");
+    else if (typeof pos === "number") {
+      if (boundary.resolveCache.has(pos)) return Ok(boundary.resolveCache.get(pos) as Position);
+
+      return Position.resolveAbsolute(boundary, pos)
+        .trace("Position.resolve", "static")
+        .tap((p) => boundary.resolveCache.set(pos, p));
+    }
 
     return pos.resolve(boundary).trace("Position.resolve", "static");
   };

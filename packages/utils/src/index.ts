@@ -4,3 +4,4 @@ export { Ok, Err, flatten, wrap, all } from "./result";
 export type { EventMap } from "./events";
 export { EventFull } from "./events";
 export { useLazyMemo } from "./composables";
+export { Cache } from "./cache";
